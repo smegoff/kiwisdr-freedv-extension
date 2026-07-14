@@ -1,0 +1,24 @@
+[Unit]
+Description=KiwiSDR FreeDV decoder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=freedv
+Group=freedv
+EnvironmentFile=/etc/freedv-decoder/decoder.env
+ExecStart=/usr/local/bin/freedv-decoder
+Restart=on-failure
+RestartSec=2
+WatchdogSec=30s
+NoNewPrivileges=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=127.0.0.0/8
+IPAddressAllow=192.168.10.238/32
+MemoryMax=1536M
+CPUQuota=190%
+
+[Install]
+WantedBy=multi-user.target

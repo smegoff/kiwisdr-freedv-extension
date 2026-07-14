@@ -1,0 +1,19 @@
+[Unit]
+Description=KiwiSDR RX-only FreeDV Reporter bridge
+After=network-online.target freedv-decoder.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freedv
+Group=freedv
+EnvironmentFile=/etc/freedv-decoder/reporter.env
+ExecStart=/opt/freedv-reporter/venv/bin/python /opt/freedv-reporter/reporter.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

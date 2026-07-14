@@ -1,0 +1,36 @@
+diff --git a/rx/rx_monitor.cpp b/rx/rx_monitor.cpp
+index 313d9e4..4a81d42 100644
+--- a/rx/rx_monitor.cpp
++++ b/rx/rx_monitor.cpp
+@@ -30,5 +30,6 @@
+ #include "rx_waterfall.h"
+ #include "ansi.h"
++#include "../extensions/FreeDV/freedv.h"
+ 
+ #include <stdio.h>
+ #include <string.h>
+@@ -36,6 +37,12 @@
+ #include <stdlib.h>
+ #include <stdarg.h>
+ 
++void freedv_return_audio(int rx_chan, bool enabled)
++{
++    if (rx_chan < 0 || rx_chan >= rx_chans) return;
++    WF_SHMEM->wf_inst[rx_chan].want_rtn_snd = enabled;
++}
++
+ void c2s_mon_init()
+ {
+ 	for (int i=0; i < rx_chans; i++) {
+@@ -189,6 +196,11 @@ void c2s_mon(void *param)
+                 continue;
+             }
+             
++            if (strncmp(cmd, "SET freedv_poll=", 16) == 0) {
++                freedv_monitor_poll(conn_mon, &cmd[16]);
++                continue;
++            }
++
+             if (strncmp(cmd, "SET rev_bin=", 12) == 0) {
+                 //cprintf(conn_mon, "MON %d<%s>\n", nb->len, kiwi_str_ASCII_static(nb->buf, 0, nb->len));
+                 if (camped_rx == -1) {

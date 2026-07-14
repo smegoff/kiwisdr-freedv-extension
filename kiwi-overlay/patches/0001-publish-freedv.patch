@@ -1,0 +1,13 @@
+diff --git a/web/extensions/ext.js b/web/extensions/ext.js
+index 91c5889..c8c47d2 100644
+--- a/web/extensions/ext.js
++++ b/web/extensions/ext.js
+@@ -47,7 +47,7 @@ var extint = {
+    // FIXME: allow C-side API to specify
+    no_lockout: [ 'noise_blank', 'noise_filter', 'ant_switch', 'iframe', 'colormap', 'devl', 'prefs' ],
+    former_exts: ['ant_switch', 'waterfall', 'noise_blank', 'noise_filter'],
+-   excl_devl: [ 'devl', 'FreeDV', 'digi_modes', 's4285', 'prefs' ],
++   excl_devl: [ 'devl', 'digi_modes', 's4285', 'prefs' ],
+    
+    OPT_NOLOCAL: 1,
+ };

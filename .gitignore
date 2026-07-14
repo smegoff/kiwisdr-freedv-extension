@@ -1,0 +1,12 @@
+upstream-kiwisdr/
+upstream-codec2/
+upstream-reporter/
+upstream-radae_decoder/
+upstream-freedv-gui/
+upstream-kiwiclient/
+build/
+results/
+backups/
+__pycache__/
+*.py[cod]
+*-transfer.tgz

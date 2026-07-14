@@ -1,0 +1,7 @@
+/* External FreeDV camper decoder UI */
+#id-freedv-controls { padding:10px; }
+#id-freedv-state,
+#id-freedv-sync,
+#id-freedv-reporter,
+#id-freedv-backend { color:aqua; }
+#id-freedv-text { color:white; overflow-wrap:anywhere; }
