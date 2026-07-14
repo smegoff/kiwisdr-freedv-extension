@@ -37,7 +37,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.13";
+constexpr char kRelease[] = "0.1.15";
 
 struct Metrics {
   std::atomic<uint64_t> kiwi_connected{0};

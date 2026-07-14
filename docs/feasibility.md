@@ -13,9 +13,11 @@ architecture and service package when stronger kernel isolation is preferred.
 See [external-decoder-vm.md](external-decoder-vm.md) for the engineering reasons,
 VM/LXC choice and deployment procedure.
 
-RADE is pinned as tools-only at `peterbmarks/radae_decoder` commit
-`73016461252822002a256b2813432bc6e2d6f87a`. It remains disabled because the
-upstream project describes it as experimental and not fully reviewed.
+RADEV1 now uses the official portable C implementation at the reviewed,
+V1-only pin `peterbmarks/radae_nopy@6e6fff3fc0546363693b60b52f463e08c71117e6`
+and FARGAN/Opus pin `940d4e5af64351ca8ba8390df3f555484c567fbb`.
+It is disabled by default in the repository and requires matching CT and Kiwi
+administrator feature flags.
 
 ## Architecture
 
@@ -27,7 +29,7 @@ Kiwi receiver channel (firmware 1.901)
   ^  normal camper SND packets       | rev_bin PCM + rev_txt status
   |                                  v
 CT 112 outbound Kiwi monitor connection
-  -> resampler -> Codec2 backend -> resampler
+  -> resampler -> Codec2 or RADEV1 backend -> resampler
   -> localhost health/metrics
   -> disabled RX-only Reporter sidecar
 ```
@@ -42,11 +44,19 @@ does not consume an additional receiver.
 Earlier CT measurements processed eight simultaneous 700D test clients for 30
 seconds with zero sequence drops. Mean, p95 and maximum request times were
 1.48, 2.72 and 43.51 ms. Production is nevertheless capped at one session
-until live RF/audio validation is complete. The decoder 0.1.13 Release build exercises
+until live RF/audio validation is complete. The decoder 0.1.15 Release build exercises
 every legacy mode with assertions enabled and includes the exact-token camper
 control regression test. It is now the production CT binary and passed a real
 browser Help, Test, normal Start and Stop cycle with zero dropped frames or
 authentication failures, followed by a 41-sample service soak.
+
+The RADEV1 reference waveform represented about 11.9 seconds of modem audio.
+CT 112 synchronized, produced 181,600 speech samples and completed the decode
+in 0.253-0.256 seconds: real-time factor about 0.0215. An eight-worker,
+20-repetition stress test completed with per-worker real-time factor 0.0855
+and peak container memory 385,695,744 bytes. This is ample external-compute
+headroom; production remains capped at one session for predictable Kiwi audio
+and Reporter behavior.
 
 ## Native decoder gate
 

@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.14", source)
+        self.assertIn(b"FreeDV v0.1.15", source)
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -60,8 +60,18 @@ class AudioGateTest(unittest.TestCase):
         self.assertIsNotNone(help_callback)
         self.assertIn("confirmation_show_scrolling_content", help_callback.group(1))
         self.assertIn("return true;", help_callback.group(1))
-        for mode in ("1600", "700C", "700D", "700E", "2400A", "2400B", "800XA"):
+        for mode in ("1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1"):
             self.assertIn(mode, help_callback.group(1))
+
+    def test_radev1_requires_server_and_admin_feature_gate(self) -> None:
+        server = SERVER.read_text(encoding="utf-8")
+        browser = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        self.assertIn('cfg_default_bool("freedv.rade_enabled", false', server)
+        self.assertIn('strcmp(mode, "RADEV1") != 0 || cfg_true("freedv.rade_enabled")', server)
+        self.assertIn('"EXT rade_enabled=%d ready', server)
+        self.assertIn("legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA']", browser)
+        self.assertIn("if (freedv.rade_enabled) freedv.modes.push('RADEV1')", browser)
+        self.assertIn("'freedv.rade_enabled'", browser)
 
     def test_reference_mode_exercises_external_decoder_and_never_reports(self) -> None:
         server = SERVER.read_text(encoding="utf-8")

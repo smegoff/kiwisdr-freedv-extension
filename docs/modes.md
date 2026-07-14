@@ -1,6 +1,7 @@
 # FreeDV mode support
 
-The production milestone is scoped to seven libcodec2 modes. Here,
+The project supports seven libcodec2 modes plus the separately gated RADEV1
+backend. Here,
 "supported" means the mode is present in the Kiwi selector, accepted by the
 authenticated job protocol, mapped to a libcodec2 `FREEDV_MODE_*` identifier,
 and opened by the decoder smoke test. It does not mean every mode has completed
@@ -17,6 +18,7 @@ a live-RF speech test on this Kiwi installation.
 | 2400A | VHF/UHF SDR path | Codec2 1300 | 4FSK, Golay (23,12) FEC | 5 kHz | 2,400 bit/s | Not specified | Constant-envelope waveform intended for an SDR radio and a wider VHF channel. Requires 48 kHz modem samples. |
 | 2400B | VHF/UHF analog-FM path | Codec2 1300 | Baseband through analog FM, Golay (23,12) FEC | Set by FM radio/channel | 2,400 bit/s | Not specified | Intended to pass through commodity FM radios. Requires an FM receive path and 48 kHz modem samples. |
 | 800XA | HF or VHF through SSB | Codec2 700C | 4FSK; no FEC | 2,000 Hz | 800 bit/s | Not specified | Constant-envelope, low raw-rate mode. It has no text side channel, so a decoded callsign cannot be assumed. |
+| RADEV1 | HF SSB | Neural speech features with FARGAN synthesis | Portable RADEv1 receiver | 1,500 Hz | 8 kHz modem samples | About -2 dB | Higher-fidelity neural speech at weak-signal SNR. Audio is released only while modem sync is present; End-of-Over can carry a callsign. |
 
 The SNR figures are approximate additive-white-Gaussian-noise thresholds from
 upstream documentation, not Kiwi S-meter targets. Real HF performance also
@@ -25,10 +27,13 @@ tuning error. The raw modem rate is the upstream accounting of channel payload,
 including speech-codec data, protection, text and synchronization rather than
 the speech-codec rate alone.
 
-These are the classic all-Codec2 modes selected for a small, predictable,
-headless decoder. They are not the entire FreeDV catalogue. The LPCNet-based
-2020 variants are outside this milestone, and RADE is a separate experimental
-backend that remains disabled.
+The first seven rows are the classic all-Codec2 modes selected for a small,
+predictable headless decoder. They are not the entire FreeDV catalogue. The
+LPCNet-based 2020 variants remain outside this milestone. RADEV1 uses the
+official portable C implementation pinned to
+`peterbmarks/radae_nopy@6e6fff3fc0546363693b60b52f463e08c71117e6`; the
+FARGAN/Opus dependency is pinned to
+`940d4e5af64351ca8ba8390df3f555484c567fbb`.
 
 ## Why 700C, 700D and 700E sound related
 
@@ -56,7 +61,9 @@ same.
 | Browser-to-Kiwi-to-decoder transport acceptance | 700D bundled reference test plus normal no-signal session |
 | Live RF decoded speech | Pending for every mode |
 | Reporter | Verified RX-only online presence during a normal session; callsign reports depend on valid decoded metadata |
-| RADE | Compiled as an optional experimental adapter; disabled and outside this milestone |
+| RADEV1 backend | Official portable C adapter; reference WAV synchronized and produced 181,600 speech samples at 16 kHz |
+| RADEV1 transport | Real browser no-signal session reached `running / rade-v1`, one CT camper/session, zero drops, then cleaned up to zero |
+| RADEV1 live RF decoded speech | Pending a suitable on-air transmission |
 
 There is an important integration gap for **2400A and 2400B**. Upstream
 libcodec2 uses a 48 kHz modem sample rate for both modes, while the current
@@ -87,9 +94,14 @@ decoding in every advertised mode.
   not as alternatives for an ordinary HF SSB transmission.
 - Use **800XA** only for a matching 4FSK transmission; it is not interchangeable
   with the 700-series waveforms despite sharing the Codec2 700C speech codec.
+- Use **RADEV1** only for a matching RADE transmission. It occupies about
+  1.5 kHz and produces 16 kHz decoded speech. The mode is visible only after
+  both the CT service and Kiwi administrator gates are enabled.
 
 ## Upstream references
 
 - [Codec2 FreeDV mode tables and design notes](https://github.com/drowe67/codec2/blob/310777b1c6f1af0bc7c72f5b32f80f6fd9136962/README_freedv.md)
 - [FreeDV GUI user manual and mode guidance](https://github.com/drowe67/freedv-gui/blob/master/USER_MANUAL.md)
 - [FreeDV 1600 specification](https://freedv.org/freedv-specification/)
+- [FreeDV RADE overview](https://freedv.org/radio-autoencoder/)
+- [Portable RADE C implementation](https://github.com/peterbmarks/radae_nopy)

@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for the current Kiwi extension `0.1.14`, decoder service `0.1.13`, and KiwiSDR upstream commit
+written for the current Kiwi extension and decoder service `0.1.15`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation contains defaults for the development installation.
@@ -94,10 +94,16 @@ sudo apt-get update
 sudo apt-get install -y git curl
 sudo install -d -o "$USER" -g "$USER" /opt/kiwi-freedv
 git clone git@github.com:smegoff/kiwisdr-freedv-extension.git /opt/kiwi-freedv
+sudo /opt/kiwi-freedv/deploy/build-radae.sh
 sudo /opt/kiwi-freedv/deploy/install-decoder.sh /opt/kiwi-freedv
 ```
 
-The installer adds the Debian build dependencies, builds the C++17 daemon in
+`build-radae.sh` pins and installs the official V1-only portable C library plus
+its FARGAN/Opus dependency. It does not enable RADEV1. Skip that command only
+for a legacy-Codec2-only installation; CMake will then build the daemon without
+the optional adapter and the Kiwi RADEV1 switch must remain off.
+
+The installer adds the remaining Debian build dependencies, builds the C++17 daemon in
 Release mode, installs the Reporter Python environment, creates the unprivileged
 `freedv` service account and installs both systemd units. It enables the units
 but deliberately does not start them until configuration and tests pass.
@@ -138,10 +144,15 @@ FREEDV_REPORTER_URL=https://qso.freedv.org
 ```
 
 Build-time smoke tests confirm that all advertised libcodec2 mode identifiers
-can be opened and reset:
+can be opened and reset. When the RADE library is present, generate and decode
+a reference waveform before enabling it:
 
 ```bash
 ctest --test-dir /opt/kiwi-freedv/build --output-on-failure
+sudo rade_modulate_wav -v 0 /usr/local/share/freedv-rade/voice.wav \
+    /tmp/radev1-reference.wav
+/opt/kiwi-freedv/build/freedv-rade-reference-test /tmp/radev1-reference.wav
+sudo /opt/kiwi-freedv/tools/test-radev1-load.sh /opt/kiwi-freedv 8 20
 sudo systemctl start freedv-decoder.service freedv-reporter.service
 sudo systemctl --no-pager --full status freedv-decoder.service freedv-reporter.service
 curl --fail http://127.0.0.1:8074/healthz
@@ -197,15 +208,15 @@ of optimized web assets, their gzip packages, embedded data and the production
 
 In **Admin > Extensions > FreeDV**, set **Decoder LAN address** to the decoder
 guest's private source address. This must match the address from which the
-outbound camper connection reaches the Kiwi. Leave Reporter off for the first
-test.
+outbound camper connection reaches the Kiwi. Leave Reporter and RADEV1 off for
+the first legacy test.
 
 Reconfirm the configuration archive, current baseline health, two zero-listener
 readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-14-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-15-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -218,7 +229,7 @@ candidate check automatically restores the previous release.
 1. Load the receiver in a current Chrome, Firefox or Edge browser and verify
    that **FreeDV** appears in the normal extension menu.
 2. Open it and press **help**. Require the modal to describe 1600, 700C, 700D,
-   700E, 2400A, 2400B, 800XA, normal listening and Test mode.
+   700E, 2400A, 2400B, 800XA, RADEV1, normal listening and Test mode.
 3. Press **Test**. It forces 700D and feeds John's bundled reference recording
    through the normal Kiwi sound channel, the external decoder and `rev_bin`
    return path. Require `Test: 100%`, `State: test passed`, backend `codec2`,
@@ -232,6 +243,22 @@ candidate check automatically restores the previous release.
 6. Stop and close the extension. Require sessions and camper state to return to
    zero, Reporter to read `disabled`, and normal receiver audio to return.
 7. Confirm the Kiwi root receiver and Admin pages still load.
+
+After the legacy test passes, enable RADEV1 in this order:
+
+```bash
+# Run on the decoder guest. This backs up the environment and applies a
+# service health gate before it returns success.
+sudo /opt/kiwi-freedv/tools/set-ct-radev1.sh 1
+```
+
+Then switch **RADEV1 on** in **Admin > Extensions > FreeDV**. Reopen the
+extension and require RADEV1 to appear in the selector; it must remain absent
+when the Admin flag is off. Start a no-signal RADEV1 session and require
+`State: running`, backend `rade-v1`, one CT session/camper and zero drops. With
+no modem sync the Kiwi audio gate must remain silent. Stop and require the CT
+session/camper and Reporter presence to return to zero/disabled. A live RF
+speech check follows when a suitable RADE transmission is available.
 
 Inspect both journals for authentication, watchdog, sequence or crash errors:
 
@@ -283,6 +310,10 @@ To restore the stock Kiwi release explicitly:
 ```bash
 /root/kiwi-freedv/tools/rollback-kiwi-release.sh baseline-1.901
 ```
+
+To disable only RADEV1 while retaining all legacy FreeDV modes, switch it off
+in the Kiwi Admin panel and run `sudo tools/set-ct-radev1.sh 0` on the decoder
+guest.
 
 Verify root HTML and `/status` after rollback. Restore the pre-install decoder
 snapshot independently if its service upgrade failed. Do not restore an older

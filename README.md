@@ -21,11 +21,14 @@ test, live speech tests remain outstanding, and 2400A/2400B still need their
 48 kHz and VHF/FM receive paths completed. See [docs/modes.md](docs/modes.md)
 for the waveforms, intended use and exact readiness of each mode.
 
-RADE remains disabled. FreeDV Reporter is implemented as an optional, RX-only
-station presence. There is one global FreeDV session.
+RADEV1 is implemented with the official portable C library and FARGAN speech
+synthesizer. It is independently gated by the decoder environment and Kiwi
+administrator, and is hidden from the selector until both the reviewed build
+and the site opt-in are ready. FreeDV Reporter is an optional, RX-only station
+presence. There is one global FreeDV session.
 
-The live Kiwi extension is `freedv-v0-1-14` and the CT 112 decoder service is
-`0.1.13`. A real browser verified all four operator-facing features:
+The live Kiwi extension and CT 112 decoder service are both `0.1.15`. A real
+browser verified the operator-facing features:
 
 - Help opens a mode guide covering all seven selectable modes.
 - Test decodes John's bundled 700D recording end to end and reached
@@ -34,6 +37,9 @@ The live Kiwi extension is `freedv-v0-1-14` and the CT 112 decoder service is
   Reporter online; Stop returned it to disabled and removed the presence.
 - A running, unsynchronized session owns the Kiwi audio path and receives zero
   PCM instead of analogue/static audio. Stop or Close restores normal audio.
+- RADEV1 appeared only after the admin gate was enabled, started through the
+  normal Kiwi camper path with backend `rade-v1`, brought Reporter online, and
+  stopped with the camper/session and Reporter presence fully removed.
 
 The browser tests were followed by independent 41-sample Kiwi and CT stability
 soaks at 15-second intervals. All 82 checks passed.
@@ -43,7 +49,7 @@ soaks at 15-second intervals. All 82 checks passed.
 - Kiwi firmware remains 1.901 and every candidate is an atomic versioned
   release with automatic service, `/status`, and root-HTML rollback checks.
 - `baseline-1.901` and streamed configuration archives are retained.
-- CT 112 was snapshotted as `pre-freedv-v0-1-13` before the decoder upgrade.
+- CT 112 was snapshotted as `pre-radev1-v0-1-15` before the RADEV1 upgrade.
 - The shared 256-bit secret exists only in root-readable environment files.
 - CT 112 makes the only decoder connection. There is no browser-facing or
   public decoder listener.

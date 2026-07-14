@@ -7,7 +7,9 @@ var freedv = {
    test_synced: false,
    test_audio: false,
    last_test_result: '',
+   rade_enabled: false,
    mode: '700D',
+   legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    saved_setup: null,
    saved_audio_comp: false,
@@ -49,6 +51,12 @@ function freedv_recv(data)
       var name = equals < 0? token : token.substring(0, equals);
       var value = equals < 0? '' : token.substring(equals + 1);
       switch (name) {
+         case 'rade_enabled':
+            freedv.rade_enabled = (+value != 0);
+            freedv.modes = freedv.legacy_modes.slice();
+            if (freedv.rade_enabled) freedv.modes.push('RADEV1');
+            if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
+            break;
          case 'ready':
             freedv_controls_setup();
             break;
@@ -111,7 +119,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.14 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.15 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -121,7 +129,7 @@ function freedv_controls_setup()
    ext_set_mode('usb');
    ext_set_passband(300, 3000);
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.14 receive decoder</b>'),
+      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.15 receive decoder</b>'),
       w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
       w3_inline('w3-margin-T-8/w3-margin-right',
          w3_select('w3-text-red', 'Mode', '', 'freedv.mode', freedv.modes.indexOf(freedv.mode),
@@ -262,6 +270,13 @@ function FreeDV_help(show)
          'Use it only for a matching 800XA transmission. This mode has no text side ' +
          'channel, so callsign text may remain blank.<br><br>' +
 
+         '<b>RADEV1 - neural HF voice</b><br>' +
+         'About 1.5 kHz wide, with 8 kHz modem audio and 16 kHz decoded speech. It is ' +
+         'designed for intelligible speech around -2 dB SNR and has no conventional ' +
+         'SNR squelch, so this extension passes audio only while the RADE modem reports ' +
+         'synchronization. RADEV1 appears in the selector only after the administrator ' +
+         'enables the reviewed external decoder build.<br><br>' +
+
          '<b>Listening</b><br>' +
          'The extension selects USB and a 300-3000 Hz passband for the current HF modes. ' +
          'Press Start and wait for <i>Sync: yes</i>. While FreeDV is running, ordinary ' +
@@ -289,6 +304,8 @@ function FreeDV_config_html()
    var message = ext_get_cfg_param('freedv.reporter_message', '');
    var body = w3_divs('w3-container/w3-tspace-8',
       w3_input('', 'Decoder LAN address', 'freedv.decoder_ip', decoder_ip, 'w3_string_set_cfg_cb'),
+      w3_switch_get_param('', 'RADEV1 off', 'RADEV1 on', 'freedv.rade_enabled', 0, 0,
+         'w3_bool_set_cfg_cb'),
       w3_switch_get_param('', 'Reporter off', 'Reporter on', 'freedv.reporter_enabled', 0, 0,
          'w3_bool_set_cfg_cb'),
       w3_input('', 'Station callsign', 'freedv.reporter_callsign', callsign, 'w3_string_set_cfg_cb'),

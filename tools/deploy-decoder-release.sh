@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-13}
-release=${2:-v0.1.13}
+candidate=${1:-/opt/kiwi-freedv-v0-1-15}
+release=${2:-v0.1.15}
+health_release=${release#v}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 rollback="/root/freedv-rollbacks/pre-${release}-${stamp}"
 
@@ -42,7 +43,7 @@ healthy=0
 if systemctl restart freedv-reporter.service freedv-decoder.service; then
   for _ in $(seq 1 30); do
     health=$(/usr/bin/wget -qO- http://127.0.0.1:8074/healthz 2>/dev/null || true)
-    if [[ $health == *'"release":"0.1.13"'* && $health == *'"kiwi_connected":true'* &&
+    if [[ $health == *"\"release\":\"$health_release\""* && $health == *'"kiwi_connected":true'* &&
           $(systemctl is-active freedv-decoder.service) == active &&
           $(systemctl is-active freedv-reporter.service) == active ]]; then
       healthy=1

@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.14"
+#define FREEDV_RELEASE "0.1.15"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -158,6 +158,11 @@ static bool freedv_mode_valid(const char *mode)
         if (strcmp(mode, modes[i]) == 0) return true;
     }
     return false;
+}
+
+static bool freedv_mode_enabled(const char *mode)
+{
+    return strcmp(mode, "RADEV1") != 0 || cfg_true("freedv.rade_enabled");
 }
 
 static void freedv_json_escape(char *out, size_t out_size, const char *in)
@@ -373,8 +378,9 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
-            "EXT ready protocol=%d backend=external release=%s test_available=%d",
-            FREEDV_PROTOCOL, FREEDV_RELEASE, test_signal.sample_count? 1:0);
+            "EXT rade_enabled=%d ready protocol=%d backend=external release=%s test_available=%d",
+            cfg_true("freedv.rade_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
+            test_signal.sample_count? 1:0);
         return true;
     }
     if (strcmp(msg, "SET freedv_setup") == 0) {
@@ -397,6 +403,10 @@ bool freedv_msgs(char *msg, int rx_chan)
         }
         if (!freedv_mode_valid(mode)) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "unsupported FreeDV mode");
+            return true;
+        }
+        if (!freedv_mode_enabled(mode)) {
+            ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv1 is disabled by the administrator");
             return true;
         }
         if (active_rx != -1 && active_rx != rx_chan && freedv[active_rx].running) {
@@ -434,6 +444,10 @@ bool freedv_msgs(char *msg, int rx_chan)
         }
         if (!freedv_mode_valid(mode)) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "unsupported FreeDV test mode");
+            return true;
+        }
+        if (!freedv_mode_enabled(mode)) {
+            ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv1 is disabled by the administrator");
             return true;
         }
         if (active_rx != -1 && active_rx != rx_chan && freedv[active_rx].running) {
@@ -552,6 +566,7 @@ bool FreeDV_vars()
     bool update = false;
     cfg_default_object("freedv", "{}", &update);
     cfg_default_string("freedv.decoder_ip", "192.168.10.145", &update);
+    cfg_default_bool("freedv.rade_enabled", false, &update);
     cfg_default_bool("freedv.reporter_enabled", false, &update);
     cfg_default_string("freedv.reporter_callsign", "", &update);
     cfg_default_string("freedv.reporter_grid", "", &update);

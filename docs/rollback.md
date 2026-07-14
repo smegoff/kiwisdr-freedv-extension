@@ -34,14 +34,15 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the current deployment, the Kiwi release is `freedv-v0-1-14`, CT 112 runs
-decoder `0.1.13`, and the latest pre-upgrade CT snapshot is
-`pre-freedv-v0-1-13`. Additional earlier snapshots remain available. If only
-the decoder upgrade fails, restore that snapshot or the retained previous
-binary atomically and restart `freedv-decoder.service`. If the Kiwi candidate
-fails, first run `tools/rollback-kiwi-release.sh baseline-1.901`; CT 0.1.13 may
-remain connected and idle while the stock Kiwi ignores its authenticated
-polling command.
+For the current deployment, the Kiwi release is `freedv-v0-1-15`, CT 112 runs
+decoder `0.1.15`, and the latest pre-upgrade CT snapshot is
+`pre-radev1-v0-1-15`. Additional earlier snapshots remain available. If only
+RADEV1 fails, first run `tools/set-ct-radev1.sh 0`, turn **RADEV1 off** in
+Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
+upgrade itself fails, restore the CT snapshot or the retained previous binary
+and restart `freedv-decoder.service`. If the Kiwi candidate fails, use the
+immediate `freedv-v0-1-14` release or run
+`tools/rollback-kiwi-release.sh baseline-1.901` for the stock firmware behavior.
 
 After either rollback, require CT `/healthz` to show `status=ok`, zero sessions
 and Reporter disabled. On the Kiwi require firmware 1.901, stock root HTML and

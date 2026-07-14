@@ -22,7 +22,9 @@ Running that work in a separate guest provides five practical advantages:
 
 1. **Receiver stability.** Decoder CPU spikes cannot starve the Kiwi audio,
    waterfall or network tasks. If the guest stops, the extension falls back to
-   normal receiver audio instead of taking down the Kiwi service.
+   the Kiwi service remains available; the extension keeps the receiver silent
+   until the decoder returns or the user presses Stop/Close, which then restores
+   normal receiver audio.
 2. **Known headroom.** The guest has 2 vCPU and 2 GB RAM. The measured 700D
    workload is comfortably below that allocation, while production remains
    capped at one session until every mode completes live-RF acceptance.
@@ -32,8 +34,8 @@ Running that work in a separate guest provides five practical advantages:
 4. **Independent rollback.** The guest can be snapshotted, upgraded and rolled
    back without changing the Kiwi. Kiwi releases retain their own atomic
    `baseline-1.901` rollback path.
-5. **Future capacity.** Experimental RADE work and later multi-session testing
-   can use additional x86 CPU and memory without changing the Kiwi hardware.
+5. **Neural-codec capacity.** RADEV1 and later multi-session testing can use
+   x86 CPU and memory without changing the Kiwi hardware.
 
 Native decoding is therefore disabled until it meets the headroom gate in
 [feasibility.md](feasibility.md): every mode at real-time factor 0.50 or lower,
@@ -97,6 +99,12 @@ The production starting point for either guest type is:
 | Swap | Disabled | Avoids latency stalls; investigate memory pressure instead of swapping audio work |
 | NIC | VirtIO on a private bridged LAN | Low overhead and direct reachability to the Kiwi |
 | Autostart | Enabled | Restores decoding automatically after Proxmox maintenance |
+
+The tested RADEV1 reference decode ran at real-time factor about 0.0215 on CT
+112. Eight concurrent stress workers remained below the 0.50 gate at 0.0855
+per worker, with peak container memory about 386 MB. The 2 vCPU/2 GB allocation
+therefore has substantial headroom for the one-session production limit; it is
+not a justification for increasing that limit without end-to-end testing.
 
 For a full VM, the Proxmox default CPU type is portable across unlike cluster
 nodes. CPU type `host` can expose more native features, but may restrict live
