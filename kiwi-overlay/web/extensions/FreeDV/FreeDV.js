@@ -152,6 +152,60 @@ function FreeDV_blur()
    freedv.saved_setup = null;
 }
 
+function FreeDV_help(show)
+{
+   if (show) {
+      var s =
+         '<b>Choose the same mode as the transmitting station.</b> The modes are not ' +
+         'automatically interchangeable. If the mode is unknown, 700D is the usual ' +
+         'starting point for weak-signal HF operation.<br><br>' +
+
+         '<b>1600 - legacy HF voice</b><br>' +
+         'About 1.1 kHz wide. Low latency and comparatively easy to tune, but it needs ' +
+         'a stronger signal and handles fading less well than the 700D/700E modes.<br><br>' +
+
+         '<b>700C - fast HF voice</b><br>' +
+         'About 1.5 kHz wide with quick 40 ms frames and no forward error correction. ' +
+         'Good for a solid signal when fast synchronization and low latency matter; ' +
+         'not the best weak-signal choice.<br><br>' +
+
+         '<b>700D - weak-signal HF voice (recommended starting mode)</b><br>' +
+         'About 1.0 kHz wide with strong LDPC error correction. It works at the lowest ' +
+         'SNR of these legacy modes, but has more latency and should be tuned carefully ' +
+         '(roughly within +/-60 Hz for acquisition).<br><br>' +
+
+         '<b>700E - faster-fading HF voice</b><br>' +
+         'About 1.5 kHz wide. Synchronizes faster and copes with faster fading better ' +
+         'than 700D, at the cost of needing roughly 3 dB more signal.<br><br>' +
+
+         '<b>2400A - VHF/UHF SDR 4FSK</b><br>' +
+         'A roughly 5 kHz-wide constant-envelope waveform requiring a 48 kHz modem ' +
+         'sample path. It is selectable for integration testing, but is <b>not yet ' +
+         'live-RF ready</b> in this Kiwi 12 kHz HF/USB receive path.<br><br>' +
+
+         '<b>2400B - VHF/UHF through analog FM</b><br>' +
+         'Designed to pass through ordinary FM radios and also requires a 48 kHz modem ' +
+         'path plus FM demodulation. It is selectable for integration testing, but is ' +
+         '<b>not yet live-RF ready</b> in the current Kiwi path.<br><br>' +
+
+         '<b>800XA - low-rate 4FSK</b><br>' +
+         'About 2.0 kHz wide, constant envelope and without forward error correction. ' +
+         'Use it only for a matching 800XA transmission. This mode has no text side ' +
+         'channel, so callsign text may remain blank.<br><br>' +
+
+         '<b>Listening</b><br>' +
+         'The extension selects USB and a 300-3000 Hz passband for the current HF modes. ' +
+         'Press Start and wait for <i>Sync: yes</i>. While FreeDV is running, ordinary ' +
+         'receiver noise is silenced and audio is heard only from synchronized FreeDV ' +
+         'decoding. Press Stop or close the extension to restore normal Kiwi audio.<br><br>' +
+
+         'Mode specifications and operating information: ' +
+         '<a href="https://freedv.org/" target="_blank">freedv.org</a>';
+      confirmation_show_scrolling_content('FreeDV mode guide', s, 720, 500);
+   }
+   return true;
+}
+
 function FreeDV_config_html()
 {
    var decoder_ip = ext_get_cfg_param('freedv.decoder_ip', '192.168.10.145');

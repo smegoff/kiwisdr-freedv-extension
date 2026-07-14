@@ -52,6 +52,17 @@ class AudioGateTest(unittest.TestCase):
         self.assertEqual(source, packaged)
         self.assertIn(b"FreeDV v0.1.6", source)
 
+    def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        help_callback = re.search(
+            r"function FreeDV_help\(show\)(.*?)\n\}", source, re.DOTALL
+        )
+        self.assertIsNotNone(help_callback)
+        self.assertIn("confirmation_show_scrolling_content", help_callback.group(1))
+        self.assertIn("return true;", help_callback.group(1))
+        for mode in ("1600", "700C", "700D", "700E", "2400A", "2400B", "800XA"):
+            self.assertIn(mode, help_callback.group(1))
+
     def test_patch_applies_to_pinned_upstream_when_available(self) -> None:
         upstream = ROOT / "upstream-kiwisdr"
         if not (upstream / ".git").exists():
