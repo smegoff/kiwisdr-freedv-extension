@@ -16,6 +16,20 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.13"
+
+
+def build_auth(config):
+    """Return the RX-only authentication payload accepted by FreeDV Reporter."""
+    return {
+        "role": "report_wo",
+        "callsign": config["callsign"],
+        "grid_square": config["grid_square"],
+        "version": CLIENT_VERSION,
+        "rx_only": True,
+        "os": "linux",
+        "protocol_version": 2,
+    }
 
 
 class ReporterState:
@@ -123,9 +137,7 @@ async def main():
         if not sio.connected and time.monotonic() >= next_retry:
             write_state("connecting")
             try:
-                await sio.connect(url, auth={"role": "report_wo", "callsign": cfg["callsign"],
-                    "grid_square": cfg["grid_square"], "version": "KiwiSDR-FreeDV/0.1.5",
-                    "rx_only": True, "os": "linux", "protocol_version": 2})
+                await sio.connect(url, auth=build_auth(cfg), wait_timeout=10)
                 retry_delay, next_retry = 1.0, 0.0
                 last_freq = last_mode = last_message = None
                 write_state("online")

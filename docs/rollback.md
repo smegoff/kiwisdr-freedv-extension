@@ -34,14 +34,18 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the current v0.1.5 deployment, CT 112 has snapshot
-`pre-freedv-v0-1-5`. The prior production decoder binary and service files are
-also retained root-only under
-`/root/freedv-rollbacks/pre-v0-1-5-20260713T1823Z`. If only the decoder upgrade
-fails, restore that binary atomically and restart `freedv-decoder.service`. If
-the Kiwi candidate fails, first run
-`tools/rollback-kiwi-release.sh baseline-1.901`; CT v0.1.5 may remain connected
-and idle while the stock Kiwi ignores its authenticated polling command.
+For the current deployment, the Kiwi release is `freedv-v0-1-14`, CT 112 runs
+decoder `0.1.13`, and the latest pre-upgrade CT snapshot is
+`pre-freedv-v0-1-13`. Additional earlier snapshots remain available. If only
+the decoder upgrade fails, restore that snapshot or the retained previous
+binary atomically and restart `freedv-decoder.service`. If the Kiwi candidate
+fails, first run `tools/rollback-kiwi-release.sh baseline-1.901`; CT 0.1.13 may
+remain connected and idle while the stock Kiwi ignores its authenticated
+polling command.
+
+After either rollback, require CT `/healthz` to show `status=ok`, zero sessions
+and Reporter disabled. On the Kiwi require firmware 1.901, stock root HTML and
+`/status`, then run the stability soak before returning it to service.
 
 The older `pre-tdoa-v0-1-3` snapshot preserves the former transport-reset
 boundary. Do not restore the obsolete port-8074 ingress design into the live

@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for the current `0.1.6` source and KiwiSDR upstream commit
+written for the current Kiwi extension `0.1.14`, decoder service `0.1.13`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation contains defaults for the development installation.
@@ -205,7 +205,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-5-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-14-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -217,14 +217,21 @@ candidate check automatically restores the previous release.
 
 1. Load the receiver in a current Chrome, Firefox or Edge browser and verify
    that **FreeDV** appears in the normal extension menu.
-2. Open it, choose **700D**, and select **Start**. On no signal, sync may remain
-   `no`, but state must reach `running` and backend must read `codec2`.
-3. On the decoder guest, require `freedv_sessions 1`, an active camper and
+2. Open it and press **help**. Require the modal to describe 1600, 700C, 700D,
+   700E, 2400A, 2400B, 800XA, normal listening and Test mode.
+3. Press **Test**. It forces 700D and feeds John's bundled reference recording
+   through the normal Kiwi sound channel, the external decoder and `rev_bin`
+   return path. Require `Test: 100%`, `State: test passed`, backend `codec2`,
+   zero dropped frames and Reporter `disabled`.
+4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
+   state must reach `running`, backend must read `codec2`, and ordinary
+   analogue/static audio must be silent. Decoded PCM is audible only while the
+   modem is synchronized.
+5. On the decoder guest, require `freedv_sessions 1`, an active camper and
    increasing SND counters in `http://127.0.0.1:8074/metrics`.
-4. Stop and close the extension. Require sessions and camper state to return to
-   zero, and confirm the browser's normal receiver audio state is restored.
-5. Confirm the Kiwi root receiver and Admin pages still load and that Reporter
-   remains disabled.
+6. Stop and close the extension. Require sessions and camper state to return to
+   zero, Reporter to read `disabled`, and normal receiver audio to return.
+7. Confirm the Kiwi root receiver and Admin pages still load.
 
 Inspect both journals for authentication, watchdog, sequence or crash errors:
 
@@ -244,9 +251,16 @@ known transmissions. The per-mode RF readiness and limitations are recorded in
 
 Only enable Reporter after decoding is stable. In **Admin > Extensions >
 FreeDV**, enter the station owner's valid callsign and four- or six-character
-Maidenhead locator, optionally add a public message, then switch Reporter on.
-The Kiwi job overrides the disabled sidecar defaults for that receiving
-session. It never uses a public listener's identity.
+Maidenhead locator, optionally add a public message, then switch Reporter on
+and save/restart if the Admin page requests it. The Kiwi job overrides the
+disabled sidecar defaults for that receiving session. It never uses a public
+listener's identity.
+
+`Reporter: disabled` is the correct idle display even when the Admin switch is
+enabled. The sidecar creates an RX-only presence only while a normal FreeDV
+session is running. Test mode deliberately never reports. Press **Start** (not
+**Test**) and expect `connecting`, then `online`. Stop or Close must return the
+panel and `/healthz` to `disabled` and remove the presence.
 
 Start a FreeDV session and check the panel plus:
 
@@ -255,9 +269,12 @@ cat /tmp/freedv-reporter-state
 journalctl -u freedv-reporter.service --since '-10 min' --no-pager
 ```
 
-Expected states are `connecting` followed by `online`. The Reporter disconnects
-when no FreeDV session is active. If it reports `error`, turn the Kiwi setting
-off and diagnose the sidecar without interrupting decoding.
+The Reporter virtual environment requires the asyncio-capable Socket.IO stack
+from `reporter/requirements.txt` (`python-socketio` plus `aiohttp`). If the
+panel remains `disabled` during a normal running session, first confirm that
+the callsign and locator validate and that the Admin setting was saved. If it
+reports `error`, inspect the sidecar journal and Python dependencies; turning
+Reporter off does not interrupt decoding.
 
 ## 9. Rollback
 

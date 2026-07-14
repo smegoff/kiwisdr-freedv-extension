@@ -42,10 +42,10 @@ does not consume an additional receiver.
 Earlier CT measurements processed eight simultaneous 700D test clients for 30
 seconds with zero sequence drops. Mean, p95 and maximum request times were
 1.48, 2.72 and 43.51 ms. Production is nevertheless capped at one session
-until live RF/audio validation is complete. The v0.1.5 Release build exercises
+until live RF/audio validation is complete. The decoder 0.1.13 Release build exercises
 every legacy mode with assertions enabled and includes the exact-token camper
 control regression test. It is now the production CT binary and passed a real
-browser `Start -> Stop -> Start -> Close` cycle with zero dropped frames or
+browser Help, Test, normal Start and Stop cycle with zero dropped frames or
 authentication failures, followed by a 41-sample service soak.
 
 ## Native decoder gate

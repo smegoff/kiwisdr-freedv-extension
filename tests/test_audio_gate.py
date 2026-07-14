@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.6", source)
+        self.assertIn(b"FreeDV v0.1.14", source)
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -62,6 +62,34 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("return true;", help_callback.group(1))
         for mode in ("1600", "700C", "700D", "700E", "2400A", "2400B", "800XA"):
             self.assertIn(mode, help_callback.group(1))
+
+    def test_reference_mode_exercises_external_decoder_and_never_reports(self) -> None:
+        server = SERVER.read_text(encoding="utf-8")
+        browser = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        self.assertIn('DIR_CFG "/samples/FreeDV.test.au"', server)
+        self.assertIn("ext_register_receive_real_samps(freedv_test_audio", server)
+        self.assertIn('"SET freedv_test=%d mode=%15s"', server)
+        self.assertIn('e->test? "true":"false"', server)
+        self.assertIn('cfg_true("freedv.reporter_enabled") && !e->test', server)
+        self.assertIn("freedv_status_running(end + 1)", server)
+        self.assertIn("e->test_sample = NULL;", server)
+        self.assertIn("u2_t value = (u2_t) *e->test_sample;", server)
+        self.assertIn("e->test_sample++;", server)
+        self.assertIn("FLIP16(value)", server)
+        self.assertNotIn("FLIP16(*e->test_sample++)", server)
+        self.assertIn("if (progress_sent) return;", server)
+        self.assertIn("e->input_rate = (u4_t) (ext_update_get_sample_rateHz(rx_chan) + 0.5);", server)
+        self.assertIn("e->input_rate, (unsigned long long) e->frequency_hz", server)
+        self.assertNotIn("(u4_t) ext_update_get_sample_rateHz(active_rx)", server)
+        self.assertIn('"EXT test_pct=100 test_done"', server)
+        self.assertIn("function freedv_test_cb()", browser)
+        self.assertIn("freedv.mode = '700D'", browser)
+        self.assertIn("freedv.test_synced && freedv.test_audio", browser)
+        self.assertIn("+status.decoded_frames > 0", browser)
+        self.assertIn("last_test_result", browser)
+        self.assertIn("w3_innerHTML('id-freedv-reporter', 'disabled')", browser)
+        self.assertIn("freedv.running? (status.reporter || 'disabled') : 'disabled'", browser)
+        self.assertIn('{"decoded_frames", job_decoded_frames_}', DECODER.read_text(encoding="utf-8"))
 
     def test_patch_applies_to_pinned_upstream_when_available(self) -> None:
         upstream = ROOT / "upstream-kiwisdr"

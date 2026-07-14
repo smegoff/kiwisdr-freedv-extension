@@ -24,19 +24,26 @@ for the waveforms, intended use and exact readiness of each mode.
 RADE remains disabled. FreeDV Reporter is implemented as an optional, RX-only
 station presence. There is one global FreeDV session.
 
-The live Kiwi and CT decoder are on `freedv-v0-1-5`. A real browser
-`Start -> Stop -> Start -> Close` cycle passed on the same receiver channel,
-including correct uncamping and re-camping, followed by 41-sample Kiwi and CT
-stability soaks. Reporter settings have since been enabled by the owner, but
-the live sidecar still requires deployment of the repository's asynchronous
-Socket.IO dependency correction before its first controlled online test.
+The live Kiwi extension is `freedv-v0-1-14` and the CT 112 decoder service is
+`0.1.13`. A real browser verified all four operator-facing features:
+
+- Help opens a mode guide covering all seven selectable modes.
+- Test decodes John's bundled 700D recording end to end and reached
+  `100% / test passed` with returned Codec2 audio and zero dropped frames.
+- A normal 700D session reached the external Codec2 backend and brought
+  Reporter online; Stop returned it to disabled and removed the presence.
+- A running, unsynchronized session owns the Kiwi audio path and receives zero
+  PCM instead of analogue/static audio. Stop or Close restores normal audio.
+
+The browser tests were followed by independent 41-sample Kiwi and CT stability
+soaks at 15-second intervals. All 82 checks passed.
 
 ## Safety model
 
 - Kiwi firmware remains 1.901 and every candidate is an atomic versioned
   release with automatic service, `/status`, and root-HTML rollback checks.
 - `baseline-1.901` and streamed configuration archives are retained.
-- CT 112 was snapshotted as `pre-freedv-v0-1-5` before the decoder upgrade.
+- CT 112 was snapshotted as `pre-freedv-v0-1-13` before the decoder upgrade.
 - The shared 256-bit secret exists only in root-readable environment files.
 - CT 112 makes the only decoder connection. There is no browser-facing or
   public decoder listener.

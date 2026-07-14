@@ -1,5 +1,5 @@
 import unittest
-from reporter.reporter import CALLSIGN, GRID, ReporterState
+from reporter.reporter import CALLSIGN, GRID, ReporterState, build_auth
 
 
 class ReporterTests(unittest.TestCase):
@@ -31,6 +31,14 @@ class ReporterTests(unittest.TestCase):
         self.assertEqual(state.config["callsign"], "ZL2ABC")
         self.assertEqual(state.config["grid_square"], "RF80AA")
         self.assertNotIn("listener", state.config)
+
+    def test_reporter_auth_is_strictly_receive_only(self):
+        auth = build_auth({"callsign": "ZL2ABC", "grid_square": "RF80AA"})
+        self.assertEqual(auth["role"], "report_wo")
+        self.assertTrue(auth["rx_only"])
+        self.assertEqual(auth["protocol_version"], 2)
+        self.assertNotIn("password", auth)
+        self.assertNotIn("listener", auth)
 
 
 if __name__ == "__main__":

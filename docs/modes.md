@@ -53,9 +53,9 @@ same.
 | Mode exposed in the ordinary Kiwi menu | All seven modes |
 | Protocol and backend allow-list | All seven modes |
 | libcodec2 backend open/reset smoke test | All seven modes |
-| Browser-to-Kiwi-to-decoder transport acceptance | 700D, no-signal session |
+| Browser-to-Kiwi-to-decoder transport acceptance | 700D bundled reference test plus normal no-signal session |
 | Live RF decoded speech | Pending for every mode |
-| Reporter | Implemented RX-only; callsign reports depend on the mode producing valid callsign metadata |
+| Reporter | Verified RX-only online presence during a normal session; callsign reports depend on valid decoded metadata |
 | RADE | Compiled as an optional experimental adapter; disabled and outside this milestone |
 
 There is an important integration gap for **2400A and 2400B**. Upstream

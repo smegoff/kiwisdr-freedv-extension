@@ -43,7 +43,7 @@ Stop or Close.
 On Stop or Close, CT sends `SET MON_CAMP=-1`; Kiwi acknowledges the audio
 disconnect with `MSG audio_camp=1,0`. Message fields are matched only at the
 start of a whitespace-delimited token, so the `camp=` parser must not match the
-substring inside `audio_camp=`. This exact-token rule is covered by the v0.1.5
+substring inside `audio_camp=`. This exact-token rule is covered by the 0.1.13
 protocol regression test.
 
 libcodec2 input is resampled to 8 kHz. Decoded speech is resampled to the Kiwi

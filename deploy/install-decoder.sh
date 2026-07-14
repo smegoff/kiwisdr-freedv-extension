@@ -19,6 +19,7 @@ install -d -m 0755 /opt/freedv-reporter
 install -m 0755 "$src/reporter/reporter.py" /opt/freedv-reporter/reporter.py
 python3 -m venv /opt/freedv-reporter/venv
 /opt/freedv-reporter/venv/bin/pip install --no-cache-dir -r "$src/reporter/requirements.txt"
+/opt/freedv-reporter/venv/bin/python -c 'import aiohttp, socketio'
 
 install -m 0644 "$src/deploy/freedv-decoder.service" /etc/systemd/system/
 install -m 0644 "$src/deploy/freedv-reporter.service" /etc/systemd/system/

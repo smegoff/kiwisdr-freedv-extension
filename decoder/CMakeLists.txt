@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kiwi_freedv_decoder VERSION 0.1.6 LANGUAGES CXX)
+project(kiwi_freedv_decoder VERSION 0.1.13 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,6 +16,7 @@ pkg_check_modules(SAMPLERATE REQUIRED samplerate)
 add_executable(freedv-decoder
   src/main.cpp
   src/kiwi_protocol.cpp
+  src/resampler.cpp
   src/codec2_backend.cpp
   src/rade_backend.cpp
 )
@@ -50,6 +51,30 @@ if(BUILD_TESTING)
     target_compile_definitions(freedv-backend-test PRIVATE HAVE_CODEC2=1)
   endif()
   add_test(NAME freedv-backend-test COMMAND freedv-backend-test)
+
+  add_executable(freedv-reference-test
+    tests/reference_test.cpp
+    src/codec2_backend.cpp
+  )
+  target_include_directories(freedv-reference-test PRIVATE include ${CODEC2_INCLUDE_DIRS} ${SAMPLERATE_INCLUDE_DIRS})
+  target_link_libraries(freedv-reference-test PRIVATE ${CODEC2_LIBRARIES} ${SAMPLERATE_LIBRARIES})
+  target_compile_options(freedv-reference-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG ${CODEC2_CFLAGS_OTHER} ${SAMPLERATE_CFLAGS_OTHER})
+  if(CODEC2_FOUND)
+    target_compile_definitions(freedv-reference-test PRIVATE HAVE_CODEC2=1)
+  endif()
+
+  add_executable(freedv-transport-reference-test
+    tests/transport_reference_test.cpp
+    src/kiwi_protocol.cpp
+    src/resampler.cpp
+    src/codec2_backend.cpp
+  )
+  target_include_directories(freedv-transport-reference-test PRIVATE include ${CODEC2_INCLUDE_DIRS} ${SAMPLERATE_INCLUDE_DIRS})
+  target_link_libraries(freedv-transport-reference-test PRIVATE OpenSSL::Crypto nlohmann_json::nlohmann_json ${CODEC2_LIBRARIES} ${SAMPLERATE_LIBRARIES})
+  target_compile_options(freedv-transport-reference-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG ${CODEC2_CFLAGS_OTHER} ${SAMPLERATE_CFLAGS_OTHER})
+  if(CODEC2_FOUND)
+    target_compile_definitions(freedv-transport-reference-test PRIVATE HAVE_CODEC2=1)
+  endif()
 endif()
 
 install(TARGETS freedv-decoder RUNTIME DESTINATION bin)

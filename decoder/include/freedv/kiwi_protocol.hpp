@@ -31,6 +31,7 @@ struct DecoderJob {
   std::string mode;
   uint32_t input_rate = 12000;
   uint64_t frequency_hz = 0;
+  bool test = false;
   bool reporter_enabled = false;
   std::string reporter_callsign;
   std::string reporter_grid;
