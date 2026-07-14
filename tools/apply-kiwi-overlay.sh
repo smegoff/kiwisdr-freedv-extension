@@ -12,7 +12,7 @@ upstream_commit=417e2c8add196e879b8cc4eb4a488b35b4bf0df7
 release=$(date -u +%Y%m%dT%H%M%SZ)
 backup="/root/freedv-rollbacks/$release"
 install -d -m 0700 "$backup"
-for path in extensions/FreeDV web/extensions/FreeDV rx/rx_monitor.cpp \
+for path in extensions/FreeDV web/extensions/FreeDV rx/rx_monitor.cpp rx/rx_sound.cpp \
   web/extensions/ext.js web/extensions/ext.min.js; do
   if [[ -e "$kiwi/$path" ]]; then
     mkdir -p "$backup/$(dirname "$path")"
@@ -65,6 +65,19 @@ if ! grep -Fq "$monitor_marker" "$kiwi/rx/rx_monitor.cpp"; then
 fi
 [[ $(grep -Fc "$monitor_marker" "$kiwi/rx/rx_monitor.cpp") == 1 ]] || {
   echo "unexpected FreeDV monitor command integration" >&2; exit 3
+}
+
+sound_gate_marker='bool c2s_sound_mon(int rx_chan, int bytes)'
+if ! grep -Fq "$sound_gate_marker" "$kiwi/rx/rx_sound.cpp"; then
+  patch -d "$kiwi" -p1 --batch --forward < \
+    "$src/kiwi-overlay/patches/0003-silence-return-audio.patch"
+fi
+[[ $(grep -Fc "$sound_gate_marker" "$kiwi/rx/rx_sound.cpp") == 2 ]] || {
+  echo "unexpected FreeDV return-audio silence gate" >&2; exit 3
+}
+grep -Fq 'memset(((char *) &s->out_pkt_real) + header_bytes, 0, bytes - header_bytes);' \
+  "$kiwi/rx/rx_sound.cpp" || {
+  echo "FreeDV return-audio silence payload is missing" >&2; exit 3
 }
 printf '%s\n' "$release" > "$backup/release-id"
 echo "$backup"

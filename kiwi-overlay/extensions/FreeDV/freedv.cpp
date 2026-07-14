@@ -20,7 +20,7 @@
 #include <ctype.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.5"
+#define FREEDV_RELEASE "0.1.6"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -234,7 +234,9 @@ static void freedv_poll(int rx_chan)
     if (!e->running || !e->decoder_online || !e->last_status) return;
     if (timer_sec() - e->last_status <= FREEDV_STATUS_TIMEOUT) return;
     e->decoder_online = false;
-    freedv_set_return_audio(rx_chan, false);
+    // Keep ownership of the receiver audio stream while FreeDV is running.
+    // The return-audio gate supplies silence until the decoder reconnects.
+    freedv_set_return_audio(rx_chan, true);
     ext_send_msg(rx_chan, false, "EXT state=decoder-offline");
 }
 

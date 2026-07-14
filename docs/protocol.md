@@ -48,7 +48,13 @@ protocol regression test.
 
 libcodec2 input is resampled to 8 kHz. Decoded speech is resampled to the Kiwi
 audio rate and sent as a binary WebSocket message beginning `SET rev_bin=`.
-The Kiwi relays those bytes through the receiver's ordinary SND stream.
+The Kiwi relays those bytes through the receiver's ordinary SND stream. From
+the moment a FreeDV job starts, that stream carries silence until synchronized
+decoded PCM is available. The decoder does not return PCM while its modem is
+unsynchronized. The stream also carries silence between returned packets and
+during a decoder outage, so normal SSB noise cannot leak through while FreeDV
+is running. Stop or Close atomically discards queued decoded PCM and restores
+the ordinary receiver stream.
 
 Status is sent as:
 
@@ -59,7 +65,8 @@ SET rev_txt=<generation>,<url-encoded-json>
 It includes backend, state, sync, SNR, frequency offset, decoded callsign/text,
 dropped frames, Reporter state, and an error field. The Kiwi checks generation
 and encoded framing before forwarding it to the extension. A five-second
-status timeout restores normal receiver audio.
+status timeout marks the decoder offline but retains the silent FreeDV audio
+gate; only Stop or Close restores normal receiver audio.
 
 The daemon has no accumulated user-space audio work queue: one SND message is
 processed synchronously. A sequence gap, generation/mode/frequency change,

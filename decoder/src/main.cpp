@@ -37,7 +37,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.5";
+constexpr char kRelease[] = "0.1.6";
 
 struct Metrics {
   std::atomic<uint64_t> kiwi_connected{0};
@@ -445,7 +445,9 @@ class KiwiCamper {
     }
     metrics.synced = decoded.status.synced ? 1 : 0;
 
-    if (!decoded.pcm.empty()) {
+    // Never return modem noise or partial speech while the FreeDV modem is
+    // unsynchronized. The Kiwi-side return-audio gate supplies silence.
+    if (decoded.status.synced && !decoded.pcm.empty()) {
       const auto speech = output_resampler_.process(decoded.pcm, decoded.sample_rate, audio_rate_);
       if (compressed && !return_adpcm_valid_) {
         return_adpcm_ = input_adpcm_;
@@ -457,6 +459,9 @@ class KiwiCamper {
       message.insert(message.end(), payload.begin(), payload.end());
       send_binary(message);
       metrics.decoded_frames++;
+    } else if (!decoded.status.synced) {
+      output_resampler_.reset();
+      return_adpcm_valid_ = false;
     }
 
     const auto now = std::chrono::steady_clock::now();

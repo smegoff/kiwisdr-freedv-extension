@@ -8,6 +8,11 @@ returns audio through the Kiwi's `rev_bin` path. Status returns through
 `rev_txt`. Browsers use the standard Kiwi audio stream and never connect to the
 decoder host.
 
+While a FreeDV job is running, the extension owns the receiver audio path:
+ordinary SSB/static audio is replaced with silence until decoded FreeDV PCM is
+available, including during decoder gaps or outages. Stop or Close restores the
+normal Kiwi audio stream immediately.
+
 The production milestone targets FreeDV 1600, 700C, 700D, 700E, 2400A,
 2400B and 800XA through libcodec2. All seven are present in the selector,
 protocol allow-list and decoder backend. This is not yet a claim that all
