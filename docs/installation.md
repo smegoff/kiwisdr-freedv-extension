@@ -52,10 +52,16 @@ again before candidate activation.
 
 ## 3. Create the decoder guest
 
-You can create a normal Debian 12 guest manually. For the original Proxmox
-layout, `deploy/provision-lxc.ps1` creates an unprivileged, autostarting LXC.
-The script deliberately requires the Proxmox password through a temporary
-environment variable:
+Choose either a full Debian 12 VM or an unprivileged Debian 12 LXC. A VM gives
+stronger kernel isolation and is a good default when the Proxmox host has ample
+resources. An LXC has less overhead and is the form used by the current tested
+deployment. The reasons, trade-offs, resource sizing, Proxmox VM wizard steps,
+network rules and operating procedure are in
+[external-decoder-vm.md](external-decoder-vm.md).
+
+For the original Proxmox LXC layout, `deploy/provision-lxc.ps1` creates an
+unprivileged, autostarting guest. The script deliberately requires the Proxmox
+password through a temporary environment variable:
 
 ```powershell
 $secure = Read-Host 'Proxmox root password' -AsSecureString
@@ -72,6 +78,11 @@ Before running it, inspect the Debian template, storage pool, bridge, fixed MAC
 and TLS policy in the script. Reserve the resulting MAC in DHCP, start the
 guest and make sure its address remains stable. A local DNS or mDNS name is
 optional; a fixed private address is simpler for the Kiwi source-address check.
+
+If you create a full VM instead, complete the Debian and QEMU guest-agent setup
+in [external-decoder-vm.md](external-decoder-vm.md), then continue with the
+same decoder installation below. The application, secret, camper protocol and
+acceptance tests are identical for a VM and an LXC.
 
 ## 4. Install the decoder service
 

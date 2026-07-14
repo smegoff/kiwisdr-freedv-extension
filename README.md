@@ -39,6 +39,8 @@ Socket.IO dependency correction before its first controlled online test.
 
 See [docs/protocol.md](docs/protocol.md) for the transport,
 [docs/installation.md](docs/installation.md) for a safety-gated installation,
+[docs/external-decoder-vm.md](docs/external-decoder-vm.md) for why the decoder
+runs on external compute and how to create a Proxmox VM or LXC,
 [docs/deployment-status.md](docs/deployment-status.md) for live state, and
 [docs/rollback.md](docs/rollback.md) for recovery.
 
@@ -60,6 +62,13 @@ The complete commands, configuration fields, verification checks and rollback
 procedure are in [docs/installation.md](docs/installation.md). Do not run the
 site-specific Proxmox or backup scripts unchanged on another installation;
 review their node, storage, address, MAC and SSH host-key defaults first.
+
+The current production decoder is an unprivileged Proxmox LXC. A full VM is an
+architecturally supported deployment choice and provides stronger kernel
+isolation at the cost of modest additional memory and disk overhead; current
+live acceptance evidence is for the LXC path. The comparison and VM creation
+procedure are in
+[docs/external-decoder-vm.md](docs/external-decoder-vm.md).
 
 ## Repository layout
 

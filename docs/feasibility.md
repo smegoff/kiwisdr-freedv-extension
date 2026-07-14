@@ -8,6 +8,11 @@ waterfall, receiver and networking workload. CT 112 provides 2 vCPU and 2 GB
 RAM, and libcodec2 opened every required legacy mode there. Native decoding
 remains an adapter boundary only.
 
+The current guest is an unprivileged Proxmox LXC. A full VM uses the same
+architecture and service package when stronger kernel isolation is preferred.
+See [external-decoder-vm.md](external-decoder-vm.md) for the engineering reasons,
+VM/LXC choice and deployment procedure.
+
 RADE is pinned as tools-only at `peterbmarks/radae_decoder` commit
 `73016461252822002a256b2813432bc6e2d6f87a`. It remains disabled because the
 upstream project describes it as experimental and not fully reviewed.
