@@ -8,10 +8,16 @@ returns audio through the Kiwi's `rev_bin` path. Status returns through
 `rev_txt`. Browsers use the standard Kiwi audio stream and never connect to the
 decoder host.
 
-The production milestone supports FreeDV 1600, 700C, 700D, 700E, 2400A,
-2400B and 800XA through libcodec2. RADE remains disabled. FreeDV Reporter is
-implemented as an optional, RX-only station presence. There is one global
-FreeDV session.
+The production milestone targets FreeDV 1600, 700C, 700D, 700E, 2400A,
+2400B and 800XA through libcodec2. All seven are present in the selector,
+protocol allow-list and decoder backend. This is not yet a claim that all
+seven have passed live-RF acceptance: 700D has passed the end-to-end transport
+test, live speech tests remain outstanding, and 2400A/2400B still need their
+48 kHz and VHF/FM receive paths completed. See [docs/modes.md](docs/modes.md)
+for the waveforms, intended use and exact readiness of each mode.
+
+RADE remains disabled. FreeDV Reporter is implemented as an optional, RX-only
+station presence. There is one global FreeDV session.
 
 The live Kiwi and CT decoder are on `freedv-v0-1-5`. A real browser
 `Start -> Stop -> Start -> Close` cycle passed on the same receiver channel,
@@ -32,8 +38,28 @@ Socket.IO dependency correction before its first controlled online test.
 - A physical eMMC recovery still requires a supported backup microSD card.
 
 See [docs/protocol.md](docs/protocol.md) for the transport,
+[docs/installation.md](docs/installation.md) for a safety-gated installation,
 [docs/deployment-status.md](docs/deployment-status.md) for live state, and
 [docs/rollback.md](docs/rollback.md) for recovery.
+
+## Installation overview
+
+Installation has two independently reversible parts:
+
+1. Install the C++ decoder and optional Reporter sidecar on a private Debian 12
+   LXC or VM.
+2. Apply the pinned overlay to John Seamons' KiwiSDR source, build a production
+   `kiwid.bin`, and activate it through the atomic rollback gate.
+
+Both systems use the same generated 256-bit secret. The decoder initiates the
+only connection, outbound to the Kiwi's normal port; no decoder service is
+published to browsers or the Internet. Back up the Kiwi and snapshot the
+decoder guest before activation.
+
+The complete commands, configuration fields, verification checks and rollback
+procedure are in [docs/installation.md](docs/installation.md). Do not run the
+site-specific Proxmox or backup scripts unchanged on another installation;
+review their node, storage, address, MAC and SSH host-key defaults first.
 
 ## Repository layout
 
