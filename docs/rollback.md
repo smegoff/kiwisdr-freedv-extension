@@ -38,9 +38,10 @@ For the reference deployment, the Kiwi release is `freedv-v0-1-21`, the
 immediate Kiwi rollback is `freedv-v0-1-20`, the decoder guest runs `0.1.19`,
 and the latest pre-upgrade guest snapshot is
 `pre-test-race-v0-1-19`, taken immediately before the Test-race decoder
-upgrade. It includes the accepted v0.1.18 Reporter behavior. Earlier snapshots
-include `pre-reporter-v0-1-18`, `pre-reporter-v0-1-17`,
-`pre-freedv-v0-1-16` and `pre-radev1-v0-1-15`. If only
+upgrade. It includes the accepted v0.1.18 Reporter behavior. The retained
+architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
+clean operating-system baseline. Superseded per-release snapshots were removed
+after v0.1.19 passed its browser tests and stability soak. If only
 RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
 Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
 upgrade itself fails, restore the decoder-guest snapshot or retained previous
@@ -54,10 +55,9 @@ sessions
 and Reporter disabled. On the Kiwi require firmware 1.901, stock root HTML and
 `/status`, then run the stability soak before returning it to service.
 
-The older `pre-tdoa-v0-1-3` snapshot preserves the former transport-reset
-boundary. Do not restore the obsolete port-8074 ingress design into the live
-environment unless both Kiwi and decoder guest are intentionally returned to
-that older, protocol-compatible state.
+The obsolete `pre-tdoa-v0-1-3` snapshot was removed during retention cleanup.
+The old port-8074 ingress design remains unsupported and must not be restored
+into the live environment.
 
 ## Full recovery
 

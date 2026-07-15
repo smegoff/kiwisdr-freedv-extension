@@ -263,6 +263,29 @@ A snapshot is a short-term rollback point, not a backup. Retain scheduled
 Proxmox backups on separate storage and keep the previous decoder package or
 binary until the new version completes its stability soak.
 
+After the soak passes, prune superseded pre-release snapshots. Keep the clean
+operating-system baseline, the immediate pre-upgrade rollback and only an
+intentional architectural checkpoint that still has recovery value. The
+dry-run-first helper accepts either a Proxmox API token or password through
+process environment variables and never stores credentials:
+
+```powershell
+$env:PVE_API_TOKEN_ID = '<user@realm!token-name>'
+$env:PVE_API_TOKEN_SECRET = '<token-secret>'
+./tools/prune-decoder-snapshots.ps1 `
+  -Api 'https://proxmox.example:8006/api2/json' `
+  -Node '<node>' -Vmid <guest-id> `
+  -KeepSnapshots clean-debian12,pre-radev1-v0-1-15,pre-current-release
+
+# Review the printed removal list, then repeat the same command with -Apply.
+```
+
+Snapshot pruning is part of completing a decoder deployment, but must happen
+only after browser acceptance and the stability soak. Record retained and
+removed names in ignored deployment evidence. Never remove the current
+rollback snapshot just to save space, and do not treat snapshots as a
+replacement for scheduled backups.
+
 ## Official Proxmox references
 
 - [Proxmox VE Administration Guide](https://pve.proxmox.com/pve-docs/pve-admin-guide.pdf)

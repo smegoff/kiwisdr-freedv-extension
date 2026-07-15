@@ -123,6 +123,21 @@ archived locally as
 and removed from eMMC. The stock baseline, active v0.1.21 and immediate v0.1.20
 rollback remain on the Kiwi; free space increased from 147 MB to 284 MB.
 
+## Decoder snapshot retention
+
+After v0.1.19 passed browser acceptance and the 41-sample soak, 17 superseded
+decoder-guest snapshots were removed. The guest now retains only:
+
+- `clean-debian12` - clean operating-system baseline;
+- `pre-radev1-v0-1-15` - architectural checkpoint before RADEV1; and
+- `pre-test-race-v0-1-19` - immediate rollback for the active decoder.
+
+The cleanup did not stop or modify the active guest. Post-cleanup checks showed
+both services active, decoder v0.1.19 healthy and connected to the Kiwi, zero
+sessions and Reporter disabled. Future decoder deployments use the
+dry-run-first `tools/prune-decoder-snapshots.ps1` helper after acceptance and
+soak testing.
+
 ## v0.1.20 common calling frequencies
 
 The extension panel now provides 18 common FreeDV activity frequencies from

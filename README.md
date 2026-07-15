@@ -72,9 +72,9 @@ soak.
 - Kiwi firmware remains 1.901 and every candidate is an atomic versioned
   release with automatic service, `/status`, and root-HTML rollback checks.
 - `baseline-1.901` and streamed configuration archives are retained.
-- The reference decoder guest was snapshotted as `pre-reporter-v0-1-18` before
-  the current backend upgrade; the earlier RADEV1 and v0.1.16 snapshots are
-  also retained.
+- The decoder guest retains a clean Debian baseline, the pre-RADEV1
+  architectural checkpoint and the immediate pre-v0.1.19 rollback. Superseded
+  per-release snapshots are pruned after acceptance and soak testing.
 - The shared 256-bit secret exists only in root-readable environment files.
 - The decoder guest makes the only decoder connection. There is no browser-facing or
   public decoder listener.
