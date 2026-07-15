@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.19", source)
+        self.assertIn(b"FreeDV v0.1.20", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
 
@@ -67,7 +67,8 @@ class AudioGateTest(unittest.TestCase):
 
     def test_receiver_sideband_and_mode_filter_profiles(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
-        self.assertIn("(+freq_kHz < 10000)? 'lsb':'usb'", source)
+        self.assertIn("if (freq_kHz >= 5250 && freq_kHz < 5450) return 'usb'", source)
+        self.assertIn("return (freq_kHz < 10000)? 'lsb':'usb'", source)
         self.assertIn("if (ext_get_mode() != p.sideband) ext_set_mode(p.sideband)", source)
         self.assertIn("ext_set_passband(p.low, p.high)", source)
         for mode, width in {
@@ -87,6 +88,39 @@ class AudioGateTest(unittest.TestCase):
             "ext_set_passband(freedv.saved_passband.low, freedv.saved_passband.high)",
             source,
         )
+
+    def test_common_calling_frequency_selector(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        entries = (
+            ("160 m - 1.870 MHz LSB", "1870", "lsb"),
+            ("80 m - 3.625 MHz LSB", "3625", "lsb"),
+            ("80 m - 3.643 MHz LSB", "3643", "lsb"),
+            ("80 m - 3.693 MHz LSB", "3693", "lsb"),
+            ("80 m - 3.697 MHz LSB", "3697", "lsb"),
+            ("80 m - 3.803 MHz LSB", "3803", "lsb"),
+            ("60 m - 5.4035 MHz USB", "5403.5", "usb"),
+            ("60 m - 5.3685 MHz USB", "5368.5", "usb"),
+            ("40 m - 7.177 MHz LSB", "7177", "lsb"),
+            ("40 m - 7.197 MHz LSB", "7197", "lsb"),
+            ("20 m - 14.236 MHz USB (most common)", "14236", "usb"),
+            ("20 m - 14.240 MHz USB", "14240", "usb"),
+            ("17 m - 18.118 MHz USB", "18118", "usb"),
+            ("15 m - 21.313 MHz USB", "21313", "usb"),
+            ("12 m - 24.933 MHz USB", "24933", "usb"),
+            ("10 m - 28.330 MHz USB", "28330", "usb"),
+            ("10 m - 28.720 MHz USB", "28720", "usb"),
+            ("10 GHz QO-100 - 10489.640 MHz USB", "10489640", "usb"),
+        )
+        for label, khz, sideband in entries:
+            self.assertIn(
+                f"{{ label: '{label}', kHz: {khz}, sideband: '{sideband}' }}",
+                source,
+            )
+        self.assertIn("function freedv_calling_frequency_cb(path, index, first)", source)
+        self.assertIn("entry.kHz < range.lo_kHz || entry.kHz > range.hi_kHz", source)
+        self.assertIn("entry.kHz - range.offset_kHz", source)
+        self.assertIn("ext_tune(entry.kHz - range.offset_kHz, entry.sideband, ext_zoom.CUR)", source)
+        self.assertIn("QO-100 requires a suitable downconverter/transverter", source)
 
     def test_radev1_requires_server_and_admin_feature_gate(self) -> None:
         server = SERVER.read_text(encoding="utf-8")

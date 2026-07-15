@@ -31,13 +31,45 @@ the speech-codec rate alone.
 
 While the extension is open it follows the usual amateur voice convention:
 
-- frequencies below 10 MHz use LSB, covering 40, 80 and 160 metres;
+- 160, 80 and 40 metres use LSB;
+- 60 metres is the below-10-MHz exception and uses USB;
 - frequencies at 10 MHz and above use USB, covering the higher-frequency HF
   bands.
 
 The extension reapplies the correct sideband after a retune or manual mode
 change. On close it restores both the receiver mode and the passband that were
 active before FreeDV opened.
+
+## Common calling frequencies
+
+The panel's **Calling frequency** selector tunes the displayed RF frequency
+and applies the listed sideband. Selecting an entry does not start decoding:
+choose the transmitted FreeDV mode and press **Start**. The extension subtracts
+the Kiwi's configured frequency offset when tuning, so the QO-100 entry works
+with a correctly configured downconverter/transverter. On a normal 0-30 MHz
+Kiwi it is rejected with an explanatory message instead of attempting an
+out-of-range tune.
+
+| Band | Frequency | Sideband | Note |
+| --- | ---: | --- | --- |
+| 160 metres | 1.870 MHz | LSB | |
+| 80 metres | 3.625 MHz | LSB | |
+| 80 metres | 3.643 MHz | LSB | |
+| 80 metres | 3.693 MHz | LSB | |
+| 80 metres | 3.697 MHz | LSB | |
+| 80 metres | 3.803 MHz | LSB | |
+| 60 metres | 5.4035 MHz | USB | |
+| 60 metres | 5.3685 MHz | USB | |
+| 40 metres | 7.177 MHz | LSB | |
+| 40 metres | 7.197 MHz | LSB | |
+| 20 metres | 14.236 MHz | USB | Most common |
+| 20 metres | 14.240 MHz | USB | |
+| 17 metres | 18.118 MHz | USB | |
+| 15 metres | 21.313 MHz | USB | |
+| 12 metres | 24.933 MHz | USB | |
+| 10 metres | 28.330 MHz | USB | |
+| 10 metres | 28.720 MHz | USB | |
+| 10 GHz (QO-100) | 10489.640 MHz | USB | Requires a suitable frequency offset |
 
 The HF modem is centred at 1,500 Hz. Each filter starts with the upstream
 occupied RF bandwidth, adds 200 Hz of tuning/acquisition headroom at each edge,

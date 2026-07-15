@@ -9,6 +9,28 @@ var freedv = {
    last_test_result: '',
    rade_enabled: false,
    mode: '700D',
+   calling_index: 0,
+   calling_frequencies: [
+      { label: 'Select a calling frequency', kHz: 0, sideband: '' },
+      { label: '160 m - 1.870 MHz LSB', kHz: 1870, sideband: 'lsb' },
+      { label: '80 m - 3.625 MHz LSB', kHz: 3625, sideband: 'lsb' },
+      { label: '80 m - 3.643 MHz LSB', kHz: 3643, sideband: 'lsb' },
+      { label: '80 m - 3.693 MHz LSB', kHz: 3693, sideband: 'lsb' },
+      { label: '80 m - 3.697 MHz LSB', kHz: 3697, sideband: 'lsb' },
+      { label: '80 m - 3.803 MHz LSB', kHz: 3803, sideband: 'lsb' },
+      { label: '60 m - 5.4035 MHz USB', kHz: 5403.5, sideband: 'usb' },
+      { label: '60 m - 5.3685 MHz USB', kHz: 5368.5, sideband: 'usb' },
+      { label: '40 m - 7.177 MHz LSB', kHz: 7177, sideband: 'lsb' },
+      { label: '40 m - 7.197 MHz LSB', kHz: 7197, sideband: 'lsb' },
+      { label: '20 m - 14.236 MHz USB (most common)', kHz: 14236, sideband: 'usb' },
+      { label: '20 m - 14.240 MHz USB', kHz: 14240, sideband: 'usb' },
+      { label: '17 m - 18.118 MHz USB', kHz: 18118, sideband: 'usb' },
+      { label: '15 m - 21.313 MHz USB', kHz: 21313, sideband: 'usb' },
+      { label: '12 m - 24.933 MHz USB', kHz: 24933, sideband: 'usb' },
+      { label: '10 m - 28.330 MHz USB', kHz: 28330, sideband: 'usb' },
+      { label: '10 m - 28.720 MHz USB', kHz: 28720, sideband: 'usb' },
+      { label: '10 GHz QO-100 - 10489.640 MHz USB', kHz: 10489640, sideband: 'usb' }
+   ],
    legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    saved_setup: null,
@@ -22,13 +44,20 @@ var freedv = {
 // FreeDV HF waveforms are centred at 1500 Hz. These are the documented
 // occupied RF bandwidths; the applied filter adds 200 Hz per edge for modem
 // acquisition and rounds outward to a 25 Hz boundary. John uses the same
-// amateur convention in his original extension: below 10 MHz is LSB and
-// 10 MHz and above is USB (i.e. 40/80/160 m LSB, higher bands USB).
+// amateur voice convention: below 10 MHz is LSB except for the 60 metre
+// allocation, which uses USB. Frequencies at 10 MHz and above use USB.
+function freedv_sideband_for_frequency(freq_kHz)
+{
+   freq_kHz = +freq_kHz;
+   if (freq_kHz >= 5250 && freq_kHz < 5450) return 'usb';
+   return (freq_kHz < 10000)? 'lsb':'usb';
+}
+
 function freedv_receiver_profile(mode, freq_kHz)
 {
    var p = {
       mode: mode,
-      sideband: (+freq_kHz < 10000)? 'lsb':'usb',
+      sideband: freedv_sideband_for_frequency(freq_kHz),
       nominal_hz: 0,
       low: 300,
       high: 3000,
@@ -193,7 +222,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.19 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.20 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -204,8 +233,9 @@ function freedv_controls_setup()
       freedv.saved_passband = ext_get_passband();
    }
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
+   var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.19 receive decoder</b>'),
+      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.20 receive decoder</b>'),
       w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
       w3_div('w3-small w3-text-light-grey', 'Built with ',
          w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -215,6 +245,9 @@ function freedv_controls_setup()
             freedv.modes, 'freedv_mode_cb'),
          w3_button('id-freedv-start w3-green w3-margin-T-8', 'Start', 'freedv_start_cb'),
          w3_button('id-freedv-test w3-aqua w3-margin-T-8', 'Test', 'freedv_test_cb')),
+      w3_select('w3-text-red w3-margin-T-8', 'Calling frequency', '',
+         'freedv.calling_index', freedv.calling_index, calling_labels,
+         'freedv_calling_frequency_cb'),
       w3_div('w3-small', 'Test: ', w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
       w3_div('w3-small', 'Receiver: ',
          w3_div('id-freedv-radio w3-show-inline', freedv_receiver_profile_text(initial_profile))),
@@ -229,10 +262,35 @@ function freedv_controls_setup()
       w3_div('id-freedv-error w3-small w3-text-red'),
       w3_link('w3-small', 'https://qso.freedv.org/', 'FreeDV Reporter'));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(430, 410);
+   ext_set_controls_width_height(470, 450);
    w3_disable('id-freedv-test', !freedv.test_available);
    freedv_apply_receiver_profile();
    ext_send('SET freedv_setup');
+}
+
+function freedv_calling_frequency_cb(path, index, first)
+{
+   if (first || freedv.testing) return;
+   index = +index;
+   var entry = freedv.calling_frequencies[index];
+   if (!entry || !entry.kHz) return;
+
+   var range = ext_get_freq_range();
+   if (entry.kHz < range.lo_kHz || entry.kHz > range.hi_kHz) {
+      w3_innerHTML('id-freedv-error',
+         entry.label +' is outside this Kiwi\'s configured frequency range. ' +
+         'QO-100 requires a suitable downconverter/transverter frequency offset in Kiwi Admin.');
+      freedv.calling_index = 0;
+      w3_select_value(path, 0);
+      return;
+   }
+
+   freedv.calling_index = index;
+   w3_innerHTML('id-freedv-error', '');
+   // Calling frequencies are displayed RF frequencies. Kiwi tuning uses the
+   // receiver frequency after subtracting any configured transverter offset.
+   ext_tune(entry.kHz - range.offset_kHz, entry.sideband, ext_zoom.CUR);
+   freedv_apply_receiver_profile();
 }
 
 function freedv_mode_cb(path, index, first)
@@ -260,6 +318,7 @@ function freedv_start_ui(testing)
    w3_button_text('id-freedv-test', testing? 'Stop test':'Test',
       testing? 'w3-red':'w3-aqua', testing? 'w3-aqua':'w3-red');
    w3_disable('id-freedv.mode', testing);
+   w3_disable('id-freedv.calling_index', testing);
    w3_innerHTML('id-freedv-error', '');
    w3_innerHTML('id-freedv-test-progress', testing? '0%':'ready');
    freedv_force_uncompressed_audio();
@@ -276,6 +335,7 @@ function freedv_stop_ui(send_stop)
    w3_button_text('id-freedv-start', 'Start');
    w3_button_text('id-freedv-test', 'Test', 'w3-aqua', 'w3-red');
    w3_disable('id-freedv.mode', false);
+   w3_disable('id-freedv.calling_index', false);
    w3_innerHTML('id-freedv-reporter', 'disabled');
    freedv_restore_audio_compression();
 }
@@ -366,8 +426,8 @@ function FreeDV_help(show)
          'enables the reviewed external decoder build.<br><br>' +
 
          '<b>Listening</b><br>' +
-         'The extension follows the usual amateur SSB convention: frequencies below ' +
-         '10 MHz (40, 80 and 160 metres) use LSB; 10 MHz and above use USB. It changes ' +
+         'The extension follows the usual amateur voice convention: 160, 80 and 40 ' +
+         'metres use LSB, 60 metres is the USB exception, and 10 MHz and above use USB. It changes ' +
          'sideband automatically when you retune. Each HF mode gets a filter based on ' +
          'its documented occupied bandwidth, centred at 1500 Hz, plus 200 Hz of modem ' +
          'acquisition room on each edge. The active sideband and filter are shown in ' +
@@ -376,6 +436,13 @@ function FreeDV_help(show)
          'Press Start and wait for <i>Sync: yes</i>. While FreeDV is running, ordinary ' +
          'receiver noise is silenced and audio is heard only from synchronized FreeDV ' +
          'decoding. Press Stop or close the extension to restore normal Kiwi audio.<br><br>' +
+
+         '<b>Calling frequencies</b><br>' +
+         'The Calling frequency list tunes common FreeDV activity frequencies and sets ' +
+         'the listed sideband. The 14.236 MHz 20 metre entry is marked as the most common. ' +
+         'Selecting a frequency does not start decoding; choose the transmitted FreeDV ' +
+         'mode and press Start. The QO-100 entry is available only when the Kiwi has a ' +
+         'suitable downconverter/transverter frequency offset configured in Admin.<br><br>' +
 
          '<b>Test</b><br>' +
          'The Test button feeds John\'s bundled 700D reference recording through the ' +

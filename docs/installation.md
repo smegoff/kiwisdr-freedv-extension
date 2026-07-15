@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.19`, decoder service `0.1.18`, and KiwiSDR upstream commit
+written for Kiwi extension `0.1.20`, decoder service `0.1.18`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
@@ -221,7 +221,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-19-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-20-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as

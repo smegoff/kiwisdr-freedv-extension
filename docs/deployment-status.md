@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-15 17:46 UTC (2026-07-16 05:46 NZST)
+Last verified: 2026-07-15 19:17 UTC (2026-07-16 07:17 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,11 +10,11 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-19`
+- active Kiwi release: `freedv-v0-1-20`
 - active Kiwi SHA-256:
-  `684970294b5edbb7b6e7305a67b5f58b06b94f41b781f1a74ddfda3d3559a829`
-- Kiwi BuildID: `6210c6c781bc1a6b144af5557a6579da67015959`
-- immediate Kiwi rollback: `freedv-v0-1-16`
+  `418a574fc413696ad2eaac1f35f641301777950a4b6911a3e78cf9d6a23cff43`
+- Kiwi BuildID: `9a700fcd882a9e119e3369e5ad6d0c707812d7c8`
+- immediate Kiwi rollback: `freedv-v0-1-19`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
 - decoder-guest release: `0.1.18`
@@ -74,6 +74,40 @@ and has SHA-256
 The deployment preserved v0.1.16 as the immediate atomic rollback and created
 source rollback copy `/root/freedv-rollbacks/20260715T162237Z` before applying
 the overlay.
+
+The v0.1.20 pre-change streamed archive is
+`backups/kiwi-config-20260715T184611Z/kiwi.config.tgz`. It contains 39 entries
+and has SHA-256
+`e023f564a7192d4628f733dc8255b57ecf2d355da815cb09c5d52e45fe704483`.
+The deployment preserved v0.1.19 as the immediate atomic rollback and created
+source rollback copy `/root/freedv-rollbacks/20260715T184843Z` before applying
+the overlay. The candidate passed the pinned-source, ordinary-menu,
+optimized-asset, embedded-data and production-ARM checks before activation.
+
+## v0.1.20 common calling frequencies
+
+The extension panel now provides 18 common FreeDV activity frequencies from
+160 metres through QO-100. Each entry tunes the displayed RF frequency and
+applies its listed sideband. The automatic profile also handles the 60-metre
+USB exception rather than applying the general below-10-MHz LSB rule there.
+
+A real browser verified:
+
+1. The normal extension menu exposed FreeDV v0.1.20 and the selector contained
+   all 18 supplied entries.
+2. Selecting 5.4035 MHz tuned the receiver to 60 metres USB with the 700D
+   800-2,200 Hz filter.
+3. Selecting 7.177 MHz tuned the receiver to 40 metres LSB with the 700D
+   -2,200 to -800 Hz filter.
+4. On this normal 0-30 MHz Kiwi, selecting 10489.640 MHz QO-100 showed the
+   downconverter/transverter guidance, reset the selector and left the
+   existing 7.177 MHz tune unchanged.
+5. Selecting the most-common 14.236 MHz entry tuned USB and Help documented
+   the list, 60-metre exception, QO-100 offset requirement and Start behavior.
+6. The bundled 700D test reached `100% / test passed`, returned decoded audio,
+   reported zero dropped frames and kept Reporter disabled. Closing the
+   extension restored normal USB receiver mode and returned the decoder to
+   zero sessions with no camper.
 
 ## v0.1.19 sideband and filter profiles
 
@@ -174,6 +208,22 @@ Live on-air RADEV1 speech remains to be validated when a suitable transmission
 is available; the codec itself has passed the generated reference waveform.
 
 ## Stability evidence
+
+From 2026-07-15 19:07:20 UTC through 19:17:10 UTC, v0.1.20 completed fresh,
+parallel 41-sample soaks at 15-second intervals:
+
+- Kiwi: 41/41 samples passed with v0.1.20 active, firmware 1.901, healthy
+  service/status/root HTML, no deployment wrappers, zero critical journal
+  matches and zero `kiwid.service` restarts after activation.
+- Decoder guest: 41/41 samples passed with both services active, decoder
+  v0.1.18 healthy and connected, zero sessions, no camper, Reporter disabled
+  and zero critical matches.
+- Kiwi soak log SHA-256:
+  `64673d926afbc4df3ead355a77fa8d539176d69feee02f047708ab9ac937479c`.
+- Decoder soak log SHA-256:
+  `a3a594e3413ef753c0ae10a0965dc1acf445bc0a2758d7c7619b127e870bf937`.
+- Ignored evidence directory:
+  `backups/freedv-v0-1-20-20260715T190653Z/`.
 
 From 2026-07-15 17:36:35 UTC through 17:46:35 UTC, v0.1.19 completed fresh,
 parallel 41-sample soaks at 15-second intervals:
