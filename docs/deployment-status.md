@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-15 15:33 UTC (2026-07-16 03:33 NZST)
+Last verified: 2026-07-15 17:46 UTC (2026-07-16 05:46 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,11 +10,11 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-16`
+- active Kiwi release: `freedv-v0-1-19`
 - active Kiwi SHA-256:
-  `ada125f19794834cd5e6422c5b18b3d47140fc3ba882efe4192acd998a66686b`
-- Kiwi BuildID: `2715fb01040bf6547df6069181a2a19d8bcedc7c`
-- immediate Kiwi rollback: `freedv-v0-1-15`
+  `684970294b5edbb7b6e7305a67b5f58b06b94f41b781f1a74ddfda3d3559a829`
+- Kiwi BuildID: `6210c6c781bc1a6b144af5557a6579da67015959`
+- immediate Kiwi rollback: `freedv-v0-1-16`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
 - decoder-guest release: `0.1.18`
@@ -67,6 +67,42 @@ secret itself was never displayed or copied into the repository.
 Software and configuration rollback are available. Physical eMMC recovery is
 still unavailable until a supported Kiwi backup microSD card is created.
 
+The v0.1.19 pre-change streamed archive is
+`backups/kiwi-config-20260715T161826Z/kiwi.config.tgz`. It contains 39 entries
+and has SHA-256
+`a96ffe3d796905001748cc4ed46ceadc48a33c7da6bac419fb0cca91463dc9f9`.
+The deployment preserved v0.1.16 as the immediate atomic rollback and created
+source rollback copy `/root/freedv-rollbacks/20260715T162237Z` before applying
+the overlay.
+
+## v0.1.19 sideband and filter profiles
+
+The extension now follows the amateur HF voice convention automatically:
+below 10 MHz it selects LSB, covering 40 metres and the lower-frequency bands;
+at 10 MHz and above it selects USB. A retune or manual receiver-mode change
+reapplies the correct sideband while FreeDV is open. Closing the extension
+restores the receiver mode and passband that were active before it opened.
+
+Each HF mode uses its upstream occupied bandwidth centred at 1,500 Hz, plus
+200 Hz of tuning/acquisition headroom on each edge. The panel displays the
+active sideband and signed filter limits. A real browser verified:
+
+1. At 7.020 MHz, 700D selected LSB with a -2,200 to -800 Hz filter.
+2. At 14.236 MHz, 700D selected USB with an 800 to 2,200 Hz filter.
+3. At 14.236 MHz, selecting 1600 changed the filter to 725-2,275 Hz and
+   selecting 700E changed it to 550-2,450 Hz.
+4. Help documented the 10 MHz sideband boundary, occupied-bandwidth profiles,
+   filter headroom and the 2400A/2400B integration limitation.
+5. The bundled 700D test reached `100% / test passed`; the decoder showed one
+   camper/session, returned 24 decoded frames, zero dropped frames and
+   Reporter disabled. Completion and Close returned it to zero sessions,
+   un-camped and Reporter disabled.
+6. Closing at 14.236 MHz restored the pre-extension USB mode.
+
+The v0.1.19 Kiwi build passed the pinned-source, extension-registration,
+ordinary-menu, optimized-asset and production-ARM candidate checks before the
+atomic restart. No automatic rollback occurred.
+
 ## v0.1.16 reliability changes
 
 The v0.1.15 decoder could remain connected but stop making progress when its
@@ -115,7 +151,7 @@ After acceptance, the obsolete 667 MB `/opt/radae_decoder` tree, old
 recoverable from snapshot `pre-radev1-v0-1-15`; the live service uses only the
 official `radae_nopy` installation.
 
-## Browser and transport acceptance
+## v0.1.16 browser and transport acceptance
 
 A real browser confirmed:
 
@@ -138,6 +174,22 @@ Live on-air RADEV1 speech remains to be validated when a suitable transmission
 is available; the codec itself has passed the generated reference waveform.
 
 ## Stability evidence
+
+From 2026-07-15 17:36:35 UTC through 17:46:35 UTC, v0.1.19 completed fresh,
+parallel 41-sample soaks at 15-second intervals:
+
+- Kiwi: 41/41 samples passed with v0.1.19 active, firmware 1.901, healthy
+  service/status/root HTML, no deployment wrappers, zero critical journal
+  matches and zero `kiwid.service` restarts after activation.
+- Decoder guest: 41/41 samples passed with both services active, decoder
+  v0.1.18 healthy and connected, zero sessions, no camper, Reporter disabled
+  and zero critical matches.
+- Kiwi soak log SHA-256:
+  `44f5fa5adb2ab3ac39ba2ba52e2dac37cf91ca68c317241fb434c5432efc340f`.
+- Decoder soak log SHA-256:
+  `7f2ab1da13d1f04ad5e75da0bcfc420bb231ee4f9f46818d4a4a4863e50c5ff3`.
+- Ignored evidence directory:
+  `backups/freedv-v0-1-19-20260715T173601Z/`.
 
 From 2026-07-15 11:32:56 UTC through 11:43:05 UTC:
 

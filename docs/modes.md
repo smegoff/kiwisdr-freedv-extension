@@ -27,6 +27,40 @@ tuning error. The raw modem rate is the upstream accounting of channel payload,
 including speech-codec data, protection, text and synchronization rather than
 the speech-codec rate alone.
 
+## Automatic sideband and receiver filters
+
+While the extension is open it follows the usual amateur voice convention:
+
+- frequencies below 10 MHz use LSB, covering 40, 80 and 160 metres;
+- frequencies at 10 MHz and above use USB, covering the higher-frequency HF
+  bands.
+
+The extension reapplies the correct sideband after a retune or manual mode
+change. On close it restores both the receiver mode and the passband that were
+active before FreeDV opened.
+
+The HF modem is centred at 1,500 Hz. Each filter starts with the upstream
+occupied RF bandwidth, adds 200 Hz of tuning/acquisition headroom at each edge,
+and rounds outward to the next 25 Hz. For LSB, Kiwi mirrors the positive audio
+limits shown below into negative-frequency passband limits automatically.
+
+| FreeDV mode | Documented occupied width | USB filter | LSB filter |
+| --- | ---: | ---: | ---: |
+| 1600 | 1,125 Hz | 725 to 2,275 Hz | -2,275 to -725 Hz |
+| 700C | 1,500 Hz | 550 to 2,450 Hz | -2,450 to -550 Hz |
+| 700D | 1,000 Hz | 800 to 2,200 Hz | -2,200 to -800 Hz |
+| 700E | 1,500 Hz | 550 to 2,450 Hz | -2,450 to -550 Hz |
+| 800XA | 2,000 Hz | 300 to 2,700 Hz | -2,700 to -300 Hz |
+| RADEV1 | 1,500 Hz | 550 to 2,450 Hz | -2,450 to -550 Hz |
+
+2400A is a 5 kHz VHF SDR waveform, so the panel uses the widest practical
+300-5,700 Hz integration filter in the Kiwi's 12 kHz SSB path. 2400B uses the
+upstream 300-3,000 Hz FM-audio test path. Neither is claimed as live-RF ready:
+both still need a 48 kHz modem path and 2400B additionally needs FM
+demodulation. The main extension panel displays the active sideband and the
+actual signed Kiwi filter limits so this behaviour is visible rather than
+implicit.
+
 The first seven rows are the classic all-Codec2 modes selected for a small,
 predictable headless decoder. They are not the entire FreeDV catalogue. The
 LPCNet-based 2020 variants remain outside this milestone. RADEV1 uses the
@@ -67,8 +101,8 @@ same.
 
 There is an important integration gap for **2400A and 2400B**. Upstream
 libcodec2 uses a 48 kHz modem sample rate for both modes, while the current
-adapter advertises a fixed 8 kHz modem rate and the Kiwi panel forces a
-300-3,000 Hz USB passband. 2400B additionally needs an analog-FM demodulation
+adapter advertises a fixed 8 kHz modem rate. The Kiwi panel can select a wide
+integration filter, but 2400B additionally needs an analog-FM demodulation
 path. These two modes can be selected and their libcodec2 contexts open, but
 they should not be described as live-RF production-ready until the adapter
 uses `freedv_get_modem_sample_rate()`, the Kiwi selects a suitable passband and

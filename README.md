@@ -27,7 +27,7 @@ administrator, and is hidden from the selector until both the reviewed build
 and the site opt-in are ready. FreeDV Reporter is an optional, RX-only station
 presence. There is one global FreeDV session.
 
-The tested reference installation runs Kiwi extension `0.1.16` with decoder
+The tested reference installation runs Kiwi extension `0.1.19` with decoder
 service `0.1.18`. Here and throughout the documentation, **decoder guest** means the
 private Debian VM or unprivileged LXC that performs FreeDV decoding; its local
 hypervisor ID is not part of the architecture. A real browser verified the
@@ -36,6 +36,10 @@ operator-facing features:
 - The panel visibly acknowledges the FreeDV project and links to
   [freedv.org](https://freedv.org/).
 - Help opens a mode guide covering all seven selectable modes.
+- The extension follows the amateur HF convention automatically: LSB below
+  10 MHz (40 metres and the lower-frequency bands), USB at 10 MHz and above.
+  It also selects a mode-specific receiver filter from the documented FreeDV
+  occupied bandwidth with tuning headroom on both edges.
 - Test decodes John's bundled 700D recording end to end and reached
   `100% / test passed` with returned Codec2 audio and zero dropped frames.
 - A normal 700D session reached the external Codec2 backend and published the

@@ -12,10 +12,84 @@ var freedv = {
    legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    saved_setup: null,
+   saved_passband: null,
+   receiver_profile: null,
    saved_audio_comp: false,
    audio_comp_forced: false,
    generation: 0
 };
+
+// FreeDV HF waveforms are centred at 1500 Hz. These are the documented
+// occupied RF bandwidths; the applied filter adds 200 Hz per edge for modem
+// acquisition and rounds outward to a 25 Hz boundary. John uses the same
+// amateur convention in his original extension: below 10 MHz is LSB and
+// 10 MHz and above is USB (i.e. 40/80/160 m LSB, higher bands USB).
+function freedv_receiver_profile(mode, freq_kHz)
+{
+   var p = {
+      mode: mode,
+      sideband: (+freq_kHz < 10000)? 'lsb':'usb',
+      nominal_hz: 0,
+      low: 300,
+      high: 3000,
+      note: ''
+   };
+
+   var widths = {
+      '1600': 1125,
+      '700C': 1500,
+      '700D': 1000,
+      '700E': 1500,
+      '800XA': 2000,
+      'RADEV1': 1500
+   };
+   p.nominal_hz = widths[mode] || 0;
+
+   if (p.nominal_hz) {
+      p.low = Math.max(300,
+         Math.floor((1500 - p.nominal_hz/2 - 200) / 25) * 25);
+      p.high = Math.min(5700,
+         Math.ceil((1500 + p.nominal_hz/2 + 200) / 25) * 25);
+   } else if (mode == '2400A') {
+      // 2400A is a 5 kHz VHF SDR waveform. The Kiwi's 12 kHz SSB path can
+      // expose a wide integration filter, but still lacks the required
+      // 48 kHz modem path and is not claimed as live-RF ready.
+      p.nominal_hz = 5000;
+      p.low = 300;
+      p.high = 5700;
+      p.note = 'integration only';
+   } else if (mode == '2400B') {
+      // Upstream tests 2400B through a 300-3000 Hz audio path, after an FM
+      // receiver. The current Kiwi transport has no FM/48 kHz modem path.
+      p.low = 300;
+      p.high = 3000;
+      p.note = 'analog FM audio (integration only)';
+   }
+   return p;
+}
+
+function freedv_receiver_profile_text(p)
+{
+   var low = p.sideband == 'lsb'? -p.high : p.low;
+   var high = p.sideband == 'lsb'? -p.low : p.high;
+   var occupied = p.nominal_hz?
+      (p.nominal_hz / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '') +
+      ' kHz signal; ' : '';
+   return p.sideband.toUpperCase() +'; '+ occupied +'filter '+ low +' to '+ high +' Hz' +
+      (p.note? '; '+ p.note:'');
+}
+
+function freedv_apply_receiver_profile()
+{
+   var p = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
+   freedv.receiver_profile = p;
+   if (ext_get_mode() != p.sideband) ext_set_mode(p.sideband);
+   // ext_set_passband() mirrors positive audio limits into negative
+   // frequencies automatically when the selected demodulator is LSB.
+   ext_set_passband(p.low, p.high);
+   var el = w3_el('id-freedv-radio');
+   if (el) w3_innerHTML('id-freedv-radio', freedv_receiver_profile_text(p));
+}
 
 function freedv_force_uncompressed_audio()
 {
@@ -119,17 +193,19 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.16 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.19 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
       return;
    }
-   if (!freedv.saved_setup) freedv.saved_setup = ext_save_setup();
-   ext_set_mode('usb');
-   ext_set_passband(300, 3000);
+   if (!freedv.saved_setup) {
+      freedv.saved_setup = ext_save_setup();
+      freedv.saved_passband = ext_get_passband();
+   }
+   var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.16 receive decoder</b>'),
+      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.19 receive decoder</b>'),
       w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
       w3_div('w3-small w3-text-light-grey', 'Built with ',
          w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -140,6 +216,8 @@ function freedv_controls_setup()
          w3_button('id-freedv-start w3-green w3-margin-T-8', 'Start', 'freedv_start_cb'),
          w3_button('id-freedv-test w3-aqua w3-margin-T-8', 'Test', 'freedv_test_cb')),
       w3_div('w3-small', 'Test: ', w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
+      w3_div('w3-small', 'Receiver: ',
+         w3_div('id-freedv-radio w3-show-inline', freedv_receiver_profile_text(initial_profile))),
       w3_div('w3-margin-T-8', 'State: ', w3_div('id-freedv-state w3-show-inline', 'stopped')),
       w3_div('', 'Backend: ', w3_div('id-freedv-backend w3-show-inline', 'external')),
       w3_div('', 'Sync: ', w3_div('id-freedv-sync w3-show-inline', 'no')),
@@ -151,8 +229,9 @@ function freedv_controls_setup()
       w3_div('id-freedv-error w3-small w3-text-red'),
       w3_link('w3-small', 'https://qso.freedv.org/', 'FreeDV Reporter'));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(430, 390);
+   ext_set_controls_width_height(430, 410);
    w3_disable('id-freedv-test', !freedv.test_available);
+   freedv_apply_receiver_profile();
    ext_send('SET freedv_setup');
 }
 
@@ -160,6 +239,7 @@ function freedv_mode_cb(path, index, first)
 {
    if (first || freedv.testing) return;
    freedv.mode = freedv.modes[+index];
+   freedv_apply_receiver_profile();
    if (freedv.running) ext_send('SET freedv_start=1 mode='+ freedv.mode);
 }
 
@@ -183,8 +263,7 @@ function freedv_start_ui(testing)
    w3_innerHTML('id-freedv-error', '');
    w3_innerHTML('id-freedv-test-progress', testing? '0%':'ready');
    freedv_force_uncompressed_audio();
-   ext_set_mode('usb');
-   ext_set_passband(300, 3000);
+   freedv_apply_receiver_profile();
    ext_send(testing? 'SET freedv_test=1 mode='+ freedv.mode :
       'SET freedv_start=1 mode='+ freedv.mode);
 }
@@ -219,8 +298,11 @@ function freedv_test_cb()
 
 function FreeDV_environment_changed(changed)
 {
-   if (freedv.running && (changed.freq || changed.mode))
-      w3_innerHTML('id-freedv-state', 'retuning');
+   if (!freedv.saved_setup) return;
+   if (changed.freq || changed.mode) {
+      freedv_apply_receiver_profile();
+      if (freedv.running) w3_innerHTML('id-freedv-state', 'retuning');
+   }
 }
 
 function FreeDV_blur()
@@ -229,7 +311,10 @@ function FreeDV_blur()
    freedv_stop_ui(false);
    freedv.generation = 0;
    if (freedv.saved_setup) ext_restore_setup(freedv.saved_setup);
+   if (freedv.saved_passband)
+      ext_set_passband(freedv.saved_passband.low, freedv.saved_passband.high);
    freedv.saved_setup = null;
+   freedv.saved_passband = null;
 }
 
 function FreeDV_help(show)
@@ -281,7 +366,13 @@ function FreeDV_help(show)
          'enables the reviewed external decoder build.<br><br>' +
 
          '<b>Listening</b><br>' +
-         'The extension selects USB and a 300-3000 Hz passband for the current HF modes. ' +
+         'The extension follows the usual amateur SSB convention: frequencies below ' +
+         '10 MHz (40, 80 and 160 metres) use LSB; 10 MHz and above use USB. It changes ' +
+         'sideband automatically when you retune. Each HF mode gets a filter based on ' +
+         'its documented occupied bandwidth, centred at 1500 Hz, plus 200 Hz of modem ' +
+         'acquisition room on each edge. The active sideband and filter are shown in ' +
+         'the main panel. 2400A and 2400B remain integration-only because they require ' +
+         'a VHF/FM 48 kHz receive path.<br><br>' +
          'Press Start and wait for <i>Sync: yes</i>. While FreeDV is running, ordinary ' +
          'receiver noise is silenced and audio is heard only from synchronized FreeDV ' +
          'decoding. Press Stop or close the extension to restore normal Kiwi audio.<br><br>' +

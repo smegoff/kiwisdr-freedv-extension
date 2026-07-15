@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.16", source)
+        self.assertIn(b"FreeDV v0.1.19", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
 
@@ -64,6 +64,29 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("return true;", help_callback.group(1))
         for mode in ("1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1"):
             self.assertIn(mode, help_callback.group(1))
+
+    def test_receiver_sideband_and_mode_filter_profiles(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        self.assertIn("(+freq_kHz < 10000)? 'lsb':'usb'", source)
+        self.assertIn("if (ext_get_mode() != p.sideband) ext_set_mode(p.sideband)", source)
+        self.assertIn("ext_set_passband(p.low, p.high)", source)
+        for mode, width in {
+            "1600": 1125,
+            "700C": 1500,
+            "700D": 1000,
+            "700E": 1500,
+            "800XA": 2000,
+            "RADEV1": 1500,
+        }.items():
+            self.assertRegex(source, rf"'{mode}':\s*{width}")
+        self.assertIn("p.nominal_hz = 5000", source)
+        self.assertIn("p.high = 5700", source)
+        self.assertIn("analog FM audio (integration only)", source)
+        self.assertIn("freedv.saved_passband = ext_get_passband()", source)
+        self.assertIn(
+            "ext_set_passband(freedv.saved_passband.low, freedv.saved_passband.high)",
+            source,
+        )
 
     def test_radev1_requires_server_and_admin_feature_gate(self) -> None:
         server = SERVER.read_text(encoding="utf-8")
