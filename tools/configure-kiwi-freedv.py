@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """Install FreeDV camper settings without placing the shared secret in Kiwi JSON."""
 
+import argparse
+import ipaddress
 import json
 import os
 import shutil
 import stat
-import sys
 import tempfile
 from datetime import datetime, timezone
 
 
 def main():
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "/root/kiwi.config/kiwi.json"
-    decoder_ip = sys.argv[2] if len(sys.argv) > 2 else "192.168.10.145"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("decoder_ip", help="private IPv4 address of the decoder guest")
+    parser.add_argument("--config", default="/root/kiwi.config/kiwi.json")
+    args = parser.parse_args()
+    config_path = args.config
+    decoder_ip = str(ipaddress.IPv4Address(args.decoder_ip))
     info = os.stat(config_path)
     with open(config_path, encoding="utf-8") as source:
         config = json.load(source)

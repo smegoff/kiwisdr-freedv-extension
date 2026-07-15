@@ -114,6 +114,17 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("http::status::service_unavailable", decoder)
         self.assertIn("freedv_status_updates_total", decoder)
 
+    def test_public_docs_use_portable_decoder_guest_terminology(self) -> None:
+        public_paths = [ROOT / "README.md", *(ROOT / "docs").glob("*.md")]
+        public_text = "\n".join(path.read_text(encoding="utf-8") for path in public_paths)
+        self.assertNotIn("CT 112", public_text)
+        self.assertNotIn("set-ct-radev1", public_text)
+        self.assertIn("**decoder guest**", public_text)
+        self.assertIn("## Release publication gate", public_text)
+        self.assertFalse((ROOT / "deploy" / "112.fw").exists())
+        self.assertTrue((ROOT / "deploy" / "freedv-decoder.fw.example").exists())
+        self.assertTrue((ROOT / "tools" / "soak-decoder-guest.sh").exists())
+
     def test_patch_applies_to_pinned_upstream_when_available(self) -> None:
         upstream = ROOT / "upstream-kiwisdr"
         if not (upstream / ".git").exists():

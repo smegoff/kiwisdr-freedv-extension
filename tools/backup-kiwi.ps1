@@ -1,6 +1,7 @@
 param(
-  [string]$Kiwi = '192.168.10.238',
-  [string]$Proxmox = '192.168.10.1',
+  [Parameter(Mandatory)][string]$Kiwi,
+  [Parameter(Mandatory)][string]$KiwiHostKey,
+  [string]$BackupDestination = '',
   [string]$OutputRoot = "$PSScriptRoot/../backups"
 )
 $ErrorActionPreference = 'Stop'
@@ -12,7 +13,7 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 $archive = Join-Path $out 'kiwi.config.tgz'
 $stderr = Join-Path $out 'stream.stderr.txt'
 $plink = 'C:\Program Files\PuTTY\plink.exe'
-$hostKey = 'SHA256:iFv8heOojSiOR12IGhjVhPM1vg+dXuKrpyme6NaB5CM'
+$hostKey = $KiwiHostKey
 
 # Redirect native stdout directly to the archive so PowerShell never decodes or
 # rewrites the gzip bytes. Nothing is staged on the Kiwi filesystem.
@@ -41,7 +42,7 @@ if ($status.Count -lt 2) { throw 'Kiwi firmware status is incomplete' }
 @{
   captured_utc = $stamp
   kiwi = $Kiwi
-  proxmox = $Proxmox
+  backup_destination = $BackupDestination
   ssh_host_key = $hostKey
   archive = 'kiwi.config.tgz'
   archive_sha256 = $hash

@@ -368,7 +368,7 @@ bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan)
     freedv_set_return_audio(rx_chan, true);
     // Do not consume the acquisition portion of the reference recording while
     // the external service is still polling and attaching its camper. The
-    // first running status is sent only after CT has received a camped packet.
+    // first running status is sent only after the decoder has camped.
     if (e->test && !e->test_sample && freedv_status_running(end + 1)) {
         e->test_sample = test_signal.samples;
         e->test_samples_sent = 0;
@@ -478,7 +478,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         e->running = true;
         e->test = true;
         e->test_done_sent = false;
-        // The sample starts only after CT confirms the camper is running.
+        // The sample starts only after the decoder confirms the camper is running.
         e->test_sample = NULL;
         e->test_samples_sent = 0;
         e->test_last_percent = -1;

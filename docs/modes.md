@@ -62,7 +62,7 @@ same.
 | Live RF decoded speech | Pending for every mode |
 | Reporter | Verified RX-only online presence during a normal session; callsign reports depend on valid decoded metadata |
 | RADEV1 backend | Official portable C adapter; reference WAV synchronized and produced 181,600 speech samples at 16 kHz |
-| RADEV1 transport | Real browser no-signal session reached `running / rade-v1`, one CT camper/session, zero drops, then cleaned up to zero |
+| RADEV1 transport | Real browser no-signal session reached `running / rade-v1`, one decoder camper/session, zero drops, then cleaned up to zero |
 | RADEV1 live RF decoded speech | Pending a suitable on-air transmission |
 
 There is an important integration gap for **2400A and 2400B**. Upstream
@@ -96,7 +96,7 @@ decoding in every advertised mode.
   with the 700-series waveforms despite sharing the Codec2 700C speech codec.
 - Use **RADEV1** only for a matching RADE transmission. It occupies about
   1.5 kHz and produces 16 kHz decoded speech. The mode is visible only after
-  both the CT service and Kiwi administrator gates are enabled.
+  both the decoder service and Kiwi administrator gates are enabled.
 
 ## Upstream references
 

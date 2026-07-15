@@ -2,6 +2,11 @@
 
 Last verified: 2026-07-15 11:43 UTC (2026-07-15 23:43 NZST)
 
+This page records the project's reference installation. Hypervisor guest IDs,
+hostnames and LAN addresses are site-local operational details, not product
+requirements; the portable documentation calls this system the **decoder
+guest**.
+
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
@@ -12,13 +17,13 @@ Last verified: 2026-07-15 11:43 UTC (2026-07-15 23:43 NZST)
 - immediate Kiwi rollback: `freedv-v0-1-15`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
-- CT 112 decoder release: `0.1.16`
-- CT decoder SHA-256:
+- decoder-guest release: `0.1.16`
+- decoder binary SHA-256:
   `80f5fde2b1547906600dae8e966cc62c7fe7572a1fca3f5ed893bbdcc635d05b`
 - Reporter sidecar SHA-256:
   `ef77f6f346f0a76967dc5afc17b5445e385aca3d068255bc9deaccd7fd4da2be`
-- CT snapshot: `pre-freedv-v0-1-16`
-- RADEV1: compiled and enabled by matching CT/Kiwi gates
+- decoder-guest snapshot: `pre-freedv-v0-1-16`
+- RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions, Reporter
   disabled
 
@@ -34,7 +39,7 @@ The pre-deployment streamed archive is
 and has SHA-256
 `310218b686b6afc15abe51fcc1ab96d27128243584e09bcbf5b0004c41f8c175`.
 The stock baseline checksum, root page, `/status`, two zero-listener readings,
-CT snapshot and shared-secret hash match all passed before activation. The
+decoder snapshot and shared-secret hash match all passed before activation. The
 secret itself was never displayed or copied into the repository.
 
 Software and configuration rollback are available. Physical eMMC recovery is
@@ -57,7 +62,7 @@ is one and did not increase during the following soak.
 
 The Kiwi now installs its reverse-status callback defensively on Setup, Start
 and Test, and relays decoded `rev_txt` through the standard encoded extension
-helper. A `test_ready` handshake prevents CT from decoding live receiver noise
+helper. A `test_ready` handshake prevents the decoder guest from consuming live receiver noise
 before the bundled recording is armed. Reference transport tests passed all 12
 byte-order/rate/first-packet combinations, and the standalone 700D and RADEV1
 reference decoders both passed.
@@ -98,12 +103,12 @@ A real browser confirmed:
 3. Help opens and includes the RADEV1 bandwidth, sample-rate, sync-gate and
    enablement guidance.
 4. After enabling both gates, RADEV1 appears in the selector.
-5. A normal RADEV1 session reached `running / rade-v1 / sync no`, CT moved to
+5. A normal RADEV1 session reached `running / rade-v1 / sync no`; the decoder moved to
    one camper/session, Reporter reached online and dropped frames remained 0.
 6. With no synchronized RADE signal, no decoded frames were returned; the
    Kiwi return-audio gate therefore supplied silence instead of
    analogue/static audio.
-7. Stop returned the browser to `stopped`, CT to zero/un-camped and Reporter to
+7. Stop returned the browser to `stopped`, the decoder to zero/un-camped and Reporter to
    disabled. A following deterministic 700D bundled test reached
    `100% / test passed`, with zero drops and Reporter disabled.
 
@@ -117,7 +122,7 @@ From 2026-07-15 11:32:56 UTC through 11:43:05 UTC:
 - Kiwi: 41/41 samples passed at 15-second intervals. Every sample showed
   v0.1.16 active, firmware 1.901, healthy service/status/root HTML, no
   deployment wrappers and zero critical journal matches.
-- CT: 41/41 samples passed. Every sample showed both services active, decoder
+- Decoder guest: 41/41 samples passed. Every sample showed both services active, decoder
   0.1.16 healthy, Kiwi connected, zero sessions, un-camped and Reporter
   disabled.
 - Final `NRestarts` was zero for `kiwid.service`. Decoder `NRestarts` remained

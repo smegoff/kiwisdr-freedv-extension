@@ -27,8 +27,11 @@ administrator, and is hidden from the selector until both the reviewed build
 and the site opt-in are ready. FreeDV Reporter is an optional, RX-only station
 presence. There is one global FreeDV session.
 
-The live Kiwi extension and CT 112 decoder service are both `0.1.16`. A real
-browser verified the operator-facing features:
+The tested reference installation runs Kiwi extension and decoder service
+`0.1.16`. Here and throughout the documentation, **decoder guest** means the
+private Debian VM or unprivileged LXC that performs FreeDV decoding; its local
+hypervisor ID is not part of the architecture. A real browser verified the
+operator-facing features:
 
 - The panel visibly acknowledges the FreeDV project and links to
   [freedv.org](https://freedv.org/).
@@ -46,19 +49,20 @@ browser verified the operator-facing features:
   WebSocket can no longer look healthy just because a separate watchdog thread
   is alive; the process exits and systemd reconnects it automatically.
 
-The browser tests were followed by independent 41-sample Kiwi and CT stability
-soaks at 15-second intervals. All 82 checks passed. A deliberate decoder hang
-was also recovered automatically in about 33 seconds before the soak.
+The browser tests were followed by independent 41-sample Kiwi and decoder-guest
+stability soaks at 15-second intervals. All 82 checks passed. A deliberate
+decoder hang was also recovered automatically in about 33 seconds before the
+soak.
 
 ## Safety model
 
 - Kiwi firmware remains 1.901 and every candidate is an atomic versioned
   release with automatic service, `/status`, and root-HTML rollback checks.
 - `baseline-1.901` and streamed configuration archives are retained.
-- CT 112 was snapshotted as `pre-freedv-v0-1-16` before this decoder upgrade;
-  the earlier RADEV1 snapshot is also retained.
+- The reference decoder guest was snapshotted as `pre-freedv-v0-1-16` before
+  this upgrade; the earlier RADEV1 snapshot is also retained.
 - The shared 256-bit secret exists only in root-readable environment files.
-- CT 112 makes the only decoder connection. There is no browser-facing or
+- The decoder guest makes the only decoder connection. There is no browser-facing or
   public decoder listener.
 - A physical eMMC recovery still requires a supported backup microSD card.
 
@@ -95,12 +99,21 @@ live acceptance evidence is for the LXC path. The comparison and VM creation
 procedure are in
 [docs/external-decoder-vm.md](docs/external-decoder-vm.md).
 
+## Release publication gate
+
+A deployment is not complete until its matching source, tests and public
+documentation are committed and pushed to GitHub. The tracked branch must be
+clean and synchronized with its upstream branch, and the open pull request must
+record the deployed version, validation and rollback point. Secrets, private
+configuration archives and operational logs remain in ignored storage and are
+never published.
+
 ## Repository layout
 
 - `decoder/` - C++17 Kiwi camper client, resampler and Codec2/RADE adapters
 - `reporter/` - isolated RX-only Reporter sidecar
 - `kiwi-overlay/` - FreeDV server/client overlay pinned to Kiwi commit
   `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`
-- `deploy/` - CT firewall, environment and systemd definitions
+- `deploy/` - decoder-guest provisioning, firewall, environment and systemd definitions
 - `tools/` - backup, overlay, build, atomic deployment and rollback tooling
 - `docs/` - architecture, protocol, deployment evidence and recovery runbooks

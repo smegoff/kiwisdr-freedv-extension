@@ -2,20 +2,21 @@
 
 ## Connection direction
 
-CT 112 opens the standard Kiwi `SND?camp` WebSocket. The browser and Kiwi do
-not open any connection to CT 112. After normal Kiwi authentication, the Kiwi
-responds with `MSG monitor` and the CT client may poll or camp.
+The private decoder guest opens the standard Kiwi `SND?camp` WebSocket. The
+browser and Kiwi do not open a connection to the decoder guest. After normal
+Kiwi authentication, the Kiwi responds with `MSG monitor` and the decoder
+client may poll or camp.
 
 ## Authenticated job polling
 
-The CT sends:
+The decoder client sends:
 
 ```text
 SET freedv_poll=2,<unix-seconds>,<16-hex-nonce>,<hmac-sha256>
 ```
 
 The signed value is `2|<unix-seconds>|<nonce>`. The Kiwi accepts only the
-configured CT IPv4 address on the local LAN, timestamps within 30 seconds,
+configured decoder-guest IPv4 address on the local LAN, timestamps within 30 seconds,
 previously unseen nonces, protocol 2, and a constant-time matching HMAC. The
 secret is loaded from `/root/decoder.env`; it is not stored in `kiwi.json` or
 sent to a browser.
@@ -29,25 +30,25 @@ MSG freedv_job=<encoded-json>
 Running jobs contain `protocol`, `generation`, `running`, `rx_chan`, `mode`,
 `input_rate`, `frequency_hz`, `test`, `test_ready`, and disabled-by-default
 Reporter station fields.
-Only a higher generation changes the CT state. Older jobs are discarded and a
+Only a higher generation changes the decoder state. Older jobs are discarded and a
 same-generation conflict is rejected. There is no job queue.
 
-For a bundled test, CT first camps and sends authoritative running status while
+For a bundled test, the decoder first camps and sends authoritative running status while
 `test_ready=false`. The Kiwi then arms John's reference sample and returns the
-same generation with `test_ready=true`. CT resets its decoder and resamplers at
+same generation with `test_ready=true`. The service resets its decoder and resamplers at
 that transition and ignores live SND audio beforehand. This prevents receiver
 noise or a stale packet from becoming the first test frame.
 
 ## Audio and status
 
-For a running job, CT sends `SET MON_CAMP=<rx_chan>`. This subscribes to the
+For a running job, the decoder sends `SET MON_CAMP=<rx_chan>`. This subscribes to the
 selected receiver's normal post-detector sound packets without allocating
 another receiver. SND sequence, flags, byte order and optional IMA ADPCM are
 validated. The browser extension temporarily requests uncompressed audio, as
 John's reverse-audio path expects linear PCM, and restores the prior setting on
 Stop or Close.
 
-On Stop or Close, CT sends `SET MON_CAMP=-1`; Kiwi acknowledges the audio
+On Stop or Close, the decoder sends `SET MON_CAMP=-1`; Kiwi acknowledges the audio
 disconnect with `MSG audio_camp=1,0`. Message fields are matched only at the
 start of a whitespace-delimited token, so the `camp=` parser must not match the
 substring inside `audio_camp=`. This exact-token rule is covered by the 0.1.16

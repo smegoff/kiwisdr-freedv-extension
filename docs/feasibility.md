@@ -4,7 +4,8 @@
 
 External decoding is the production design. The target KiwiSDR 2 runs firmware
 1.901 on a single-core AM335x with about 483 MB RAM and already carries the RF,
-waterfall, receiver and networking workload. CT 112 currently provides 4 vCPU and 2 GB
+waterfall, receiver and networking workload. The reference decoder guest
+currently provides 4 vCPU and 2 GB
 RAM, and libcodec2 opened every required legacy mode there. Native decoding
 remains an adapter boundary only.
 
@@ -16,7 +17,7 @@ VM/LXC choice and deployment procedure.
 RADEV1 now uses the official portable C implementation at the reviewed,
 V1-only pin `peterbmarks/radae_nopy@6e6fff3fc0546363693b60b52f463e08c71117e6`
 and FARGAN/Opus pin `940d4e5af64351ca8ba8390df3f555484c567fbb`.
-It is disabled by default in the repository and requires matching CT and Kiwi
+It is disabled by default in the repository and requires matching decoder and Kiwi
 administrator feature flags.
 
 ## Architecture
@@ -28,7 +29,7 @@ public browser
 Kiwi receiver channel (firmware 1.901)
   ^  normal camper SND packets       | rev_bin PCM + rev_txt status
   |                                  v
-CT 112 outbound Kiwi monitor connection
+private decoder guest outbound Kiwi monitor connection
   -> resampler -> Codec2 or RADEV1 backend -> resampler
   -> localhost health/metrics
   -> disabled RX-only Reporter sidecar
@@ -41,12 +42,12 @@ does not consume an additional receiver.
 
 ## Measured external headroom
 
-Earlier CT measurements processed eight simultaneous 700D test clients for 30
+Earlier decoder-guest measurements processed eight simultaneous 700D test clients for 30
 seconds with zero sequence drops. Mean, p95 and maximum request times were
 1.48, 2.72 and 43.51 ms. Production is nevertheless capped at one session
 until live RF/audio validation is complete. The decoder 0.1.16 Release build exercises
 every legacy mode with assertions enabled and includes the exact-token camper
-control regression test. It is now the production CT binary and passed a real
+control regression test. It is now the reference production decoder binary and passed a real
 browser Help, Test, normal Start and Stop cycle with zero dropped frames or
 authentication failures, followed by a 41-sample service soak. A forced process
 hang was recovered automatically in about 33 seconds. Adding CPU cores did not
@@ -54,7 +55,7 @@ address the earlier wait state because its cause was a blocked synchronous
 WebSocket loop, not decoder headroom.
 
 The RADEV1 reference waveform represented about 11.9 seconds of modem audio.
-CT 112 synchronized, produced 181,600 speech samples and completed the decode
+The reference decoder guest synchronized, produced 181,600 speech samples and completed the decode
 in 0.253-0.256 seconds: real-time factor about 0.0215. An eight-worker,
 20-repetition stress test completed with per-worker real-time factor 0.0855
 and peak container memory 385,695,744 bytes. This is ample external-compute

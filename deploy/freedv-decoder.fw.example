@@ -1,0 +1,11 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+dhcp: 1
+
+[RULES]
+# Replace the documentation-only TEST-NET CIDR before installing this file.
+IN ACCEPT -source 192.0.2.0/24 -p tcp -dport 22 -log nolog
+IN ACCEPT -source 192.0.2.0/24 -p udp -dport 5353 -log nolog
+IN ACCEPT -source 192.0.2.0/24 -p icmp -log nolog

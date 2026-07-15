@@ -5,9 +5,9 @@ private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
 written for the current Kiwi extension and decoder service `0.1.16`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
-The supplied automation contains defaults for the development installation.
-Review and replace every address, VMID, storage name, MAC address, template and
-SSH host key before using it elsewhere.
+The supplied automation requires site-specific addresses, VMID, storage,
+template, MAC address and SSH host key as explicit parameters. The Proxmox
+guest number used by one installation has no protocol significance.
 
 ## 1. Prerequisites
 
@@ -29,13 +29,15 @@ change. It does not recover failed eMMC, a damaged bootloader or hardware. See
 
 Use **Admin > Backup > Click to write backup SD card** and remove and label the
 completed card after the Kiwi is powered down. From the management workstation,
-review the address and pinned SSH host key in `tools/backup-kiwi.ps1`, then run:
+record the Kiwi's verified SSH host-key fingerprint, then run:
 
 ```powershell
 $secure = Read-Host 'Kiwi root password' -AsSecureString
 $env:KIWI_PASSWORD = [Net.NetworkCredential]::new('', $secure).Password
 try {
-    .\tools\backup-kiwi.ps1 -Kiwi '<kiwi-address>' -Proxmox '<proxmox-address>'
+    .\tools\backup-kiwi.ps1 -Kiwi '<kiwi-address>' `
+        -KiwiHostKey 'SHA256:<verified-host-key>' `
+        -BackupDestination '<optional-independent-storage-label>'
 } finally {
     Remove-Item Env:KIWI_PASSWORD -ErrorAction SilentlyContinue
 }
@@ -68,14 +70,17 @@ $secure = Read-Host 'Proxmox root password' -AsSecureString
 $env:PVE_PASSWORD = [Net.NetworkCredential]::new('', $secure).Password
 try {
     .\deploy\provision-lxc.ps1 -Api 'https://<proxmox>:8006/api2/json' `
-        -Node '<node>' -Vmid 112
+        -Node '<node>' -Vmid 200 -Storage '<storage>' `
+        -Template '<storage>:vztmpl/debian-12-standard_<version>_amd64.tar.zst' `
+        -Mac '<locally-administered-mac>'
 } finally {
     Remove-Item Env:PVE_PASSWORD -ErrorAction SilentlyContinue
 }
 ```
 
-Before running it, inspect the Debian template, storage pool, bridge, fixed MAC
-and TLS policy in the script. Reserve the resulting MAC in DHCP, start the
+Choose an unused Proxmox VMID in place of the example `200`. Before running it,
+inspect the Debian template, storage pool, bridge, fixed MAC and TLS policy.
+Reserve the resulting MAC in DHCP, start the
 guest and make sure its address remains stable. A local DNS or mDNS name is
 optional; a fixed private address is simpler for the Kiwi source-address check.
 
@@ -251,14 +256,14 @@ After the legacy test passes, enable RADEV1 in this order:
 ```bash
 # Run on the decoder guest. This backs up the environment and applies a
 # service health gate before it returns success.
-sudo /opt/kiwi-freedv/tools/set-ct-radev1.sh 1
+sudo /opt/kiwi-freedv/tools/set-decoder-radev1.sh 1
 ```
 
 Then switch **RADEV1 on** in **Admin > Extensions > FreeDV**. Reopen the
 extension and require RADEV1 to appear in the selector; it must remain absent
 when the Admin flag is off. Start a no-signal RADEV1 session and require
-`State: running`, backend `rade-v1`, one CT session/camper and zero drops. With
-no modem sync the Kiwi audio gate must remain silent. Stop and require the CT
+`State: running`, backend `rade-v1`, one decoder session/camper and zero drops. With
+no modem sync the Kiwi audio gate must remain silent. Stop and require the decoder
 session/camper and Reporter presence to return to zero/disabled. A live RF
 speech check follows when a suitable RADE transmission is available.
 
@@ -314,7 +319,7 @@ To restore the stock Kiwi release explicitly:
 ```
 
 To disable only RADEV1 while retaining all legacy FreeDV modes, switch it off
-in the Kiwi Admin panel and run `sudo tools/set-ct-radev1.sh 0` on the decoder
+in the Kiwi Admin panel and run `sudo tools/set-decoder-radev1.sh 0` on the decoder
 guest.
 
 Verify root HTML and `/status` after rollback. Restore the pre-install decoder

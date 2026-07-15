@@ -8,7 +8,7 @@
    next boot. Label it with firmware `1.901` and the UTC date.
 4. Run `tools/backup-kiwi.ps1` with `KIWI_PASSWORD` set in the process
    environment. Verify the archive checksum and copy the result to Proxmox
-   backup storage.
+   independent backup storage.
 5. Do not treat the receiver as having physical disaster recovery until both
    artifacts exist.
 
@@ -34,25 +34,27 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the current deployment, the Kiwi release is `freedv-v0-1-16`, CT 112 runs
-decoder `0.1.16`, and the latest pre-upgrade CT snapshot is
+For the reference deployment, the Kiwi release is `freedv-v0-1-16`, the
+decoder guest runs `0.1.16`, and the latest pre-upgrade guest snapshot is
 `pre-freedv-v0-1-16`. Additional earlier snapshots, including
 `pre-radev1-v0-1-15`, remain available. If only
-RADEV1 fails, first run `tools/set-ct-radev1.sh 0`, turn **RADEV1 off** in
+RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
 Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
-upgrade itself fails, restore the CT snapshot or the retained previous binary
+upgrade itself fails, restore the decoder-guest snapshot or retained previous
+binary
 and restart `freedv-decoder.service`. If the Kiwi candidate fails, use the
 immediate `freedv-v0-1-15` release or run
 `tools/rollback-kiwi-release.sh baseline-1.901` for the stock firmware behavior.
 
-After either rollback, require CT `/healthz` to show `status=ok`, zero sessions
+After either rollback, require decoder `/healthz` to show `status=ok`, zero
+sessions
 and Reporter disabled. On the Kiwi require firmware 1.901, stock root HTML and
 `/status`, then run the stability soak before returning it to service.
 
 The older `pre-tdoa-v0-1-3` snapshot preserves the former transport-reset
 boundary. Do not restore the obsolete port-8074 ingress design into the live
-environment unless both Kiwi and CT are intentionally returned to that older,
-protocol-compatible state.
+environment unless both Kiwi and decoder guest are intentionally returned to
+that older, protocol-compatible state.
 
 ## Full recovery
 
