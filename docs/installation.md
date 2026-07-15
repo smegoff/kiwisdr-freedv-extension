@@ -2,12 +2,12 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for the current `0.1.5` source and KiwiSDR upstream commit
+written for Kiwi extension `0.1.21`, decoder service `0.1.19`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
-The supplied automation contains defaults for the development installation.
-Review and replace every address, VMID, storage name, MAC address, template and
-SSH host key before using it elsewhere.
+The supplied automation requires site-specific addresses, VMID, storage,
+template, MAC address and SSH host key as explicit parameters. The Proxmox
+guest number used by one installation has no protocol significance.
 
 ## 1. Prerequisites
 
@@ -29,13 +29,15 @@ change. It does not recover failed eMMC, a damaged bootloader or hardware. See
 
 Use **Admin > Backup > Click to write backup SD card** and remove and label the
 completed card after the Kiwi is powered down. From the management workstation,
-review the address and pinned SSH host key in `tools/backup-kiwi.ps1`, then run:
+record the Kiwi's verified SSH host-key fingerprint, then run:
 
 ```powershell
 $secure = Read-Host 'Kiwi root password' -AsSecureString
 $env:KIWI_PASSWORD = [Net.NetworkCredential]::new('', $secure).Password
 try {
-    .\tools\backup-kiwi.ps1 -Kiwi '<kiwi-address>' -Proxmox '<proxmox-address>'
+    .\tools\backup-kiwi.ps1 -Kiwi '<kiwi-address>' `
+        -KiwiHostKey 'SHA256:<verified-host-key>' `
+        -BackupDestination '<optional-independent-storage-label>'
 } finally {
     Remove-Item Env:KIWI_PASSWORD -ErrorAction SilentlyContinue
 }
@@ -68,14 +70,17 @@ $secure = Read-Host 'Proxmox root password' -AsSecureString
 $env:PVE_PASSWORD = [Net.NetworkCredential]::new('', $secure).Password
 try {
     .\deploy\provision-lxc.ps1 -Api 'https://<proxmox>:8006/api2/json' `
-        -Node '<node>' -Vmid 112
+        -Node '<node>' -Vmid 200 -Storage '<storage>' `
+        -Template '<storage>:vztmpl/debian-12-standard_<version>_amd64.tar.zst' `
+        -Mac '<locally-administered-mac>'
 } finally {
     Remove-Item Env:PVE_PASSWORD -ErrorAction SilentlyContinue
 }
 ```
 
-Before running it, inspect the Debian template, storage pool, bridge, fixed MAC
-and TLS policy in the script. Reserve the resulting MAC in DHCP, start the
+Choose an unused Proxmox VMID in place of the example `200`. Before running it,
+inspect the Debian template, storage pool, bridge, fixed MAC and TLS policy.
+Reserve the resulting MAC in DHCP, start the
 guest and make sure its address remains stable. A local DNS or mDNS name is
 optional; a fixed private address is simpler for the Kiwi source-address check.
 
@@ -94,10 +99,16 @@ sudo apt-get update
 sudo apt-get install -y git curl
 sudo install -d -o "$USER" -g "$USER" /opt/kiwi-freedv
 git clone git@github.com:smegoff/kiwisdr-freedv-extension.git /opt/kiwi-freedv
+sudo /opt/kiwi-freedv/deploy/build-radae.sh
 sudo /opt/kiwi-freedv/deploy/install-decoder.sh /opt/kiwi-freedv
 ```
 
-The installer adds the Debian build dependencies, builds the C++17 daemon in
+`build-radae.sh` pins and installs the official V1-only portable C library plus
+its FARGAN/Opus dependency. It does not enable RADEV1. Skip that command only
+for a legacy-Codec2-only installation; CMake will then build the daemon without
+the optional adapter and the Kiwi RADEV1 switch must remain off.
+
+The installer adds the remaining Debian build dependencies, builds the C++17 daemon in
 Release mode, installs the Reporter Python environment, creates the unprivileged
 `freedv` service account and installs both systemd units. It enables the units
 but deliberately does not start them until configuration and tests pass.
@@ -138,10 +149,15 @@ FREEDV_REPORTER_URL=https://qso.freedv.org
 ```
 
 Build-time smoke tests confirm that all advertised libcodec2 mode identifiers
-can be opened and reset:
+can be opened and reset. When the RADE library is present, generate and decode
+a reference waveform before enabling it:
 
 ```bash
 ctest --test-dir /opt/kiwi-freedv/build --output-on-failure
+sudo rade_modulate_wav -v 0 /usr/local/share/freedv-rade/voice.wav \
+    /tmp/radev1-reference.wav
+/opt/kiwi-freedv/build/freedv-rade-reference-test /tmp/radev1-reference.wav
+sudo /opt/kiwi-freedv/tools/test-radev1-load.sh /opt/kiwi-freedv 8 20
 sudo systemctl start freedv-decoder.service freedv-reporter.service
 sudo systemctl --no-pager --full status freedv-decoder.service freedv-reporter.service
 curl --fail http://127.0.0.1:8074/healthz
@@ -197,15 +213,15 @@ of optimized web assets, their gzip packages, embedded data and the production
 
 In **Admin > Extensions > FreeDV**, set **Decoder LAN address** to the decoder
 guest's private source address. This must match the address from which the
-outbound camper connection reaches the Kiwi. Leave Reporter off for the first
-test.
+outbound camper connection reaches the Kiwi. Leave Reporter and RADEV1 off for
+the first legacy test.
 
 Reconfirm the configuration archive, current baseline health, two zero-listener
 readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-5-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-21-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -217,14 +233,39 @@ candidate check automatically restores the previous release.
 
 1. Load the receiver in a current Chrome, Firefox or Edge browser and verify
    that **FreeDV** appears in the normal extension menu.
-2. Open it, choose **700D**, and select **Start**. On no signal, sync may remain
-   `no`, but state must reach `running` and backend must read `codec2`.
-3. On the decoder guest, require `freedv_sessions 1`, an active camper and
+2. Open it and press **help**. Require the modal to describe 1600, 700C, 700D,
+   700E, 2400A, 2400B, 800XA, RADEV1, normal listening and Test mode.
+3. Press **Test**. It forces 700D and feeds John's bundled reference recording
+   through the normal Kiwi sound channel, the external decoder and `rev_bin`
+   return path. The v0.1.16 readiness handshake prevents the decoder from
+   consuming live receiver noise before the reference recording is armed.
+   Require `Test: 100%`, `State: test passed`, backend `codec2`, zero dropped
+   frames and Reporter `disabled`.
+4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
+   state must reach `running`, backend must read `codec2`, and ordinary
+   analogue/static audio must be silent. Decoded PCM is audible only while the
+   modem is synchronized.
+5. On the decoder guest, require `freedv_sessions 1`, an active camper and
    increasing SND counters in `http://127.0.0.1:8074/metrics`.
-4. Stop and close the extension. Require sessions and camper state to return to
-   zero, and confirm the browser's normal receiver audio state is restored.
-5. Confirm the Kiwi root receiver and Admin pages still load and that Reporter
-   remains disabled.
+6. Stop and close the extension. Require sessions and camper state to return to
+   zero, Reporter to read `disabled`, and normal receiver audio to return.
+7. Confirm the Kiwi root receiver and Admin pages still load.
+
+After the legacy test passes, enable RADEV1 in this order:
+
+```bash
+# Run on the decoder guest. This backs up the environment and applies a
+# service health gate before it returns success.
+sudo /opt/kiwi-freedv/tools/set-decoder-radev1.sh 1
+```
+
+Then switch **RADEV1 on** in **Admin > Extensions > FreeDV**. Reopen the
+extension and require RADEV1 to appear in the selector; it must remain absent
+when the Admin flag is off. Start a no-signal RADEV1 session and require
+`State: running`, backend `rade-v1`, one decoder session/camper and zero drops. With
+no modem sync the Kiwi audio gate must remain silent. Stop and require the decoder
+session/camper and Reporter presence to return to zero/disabled. A live RF
+speech check follows when a suitable RADE transmission is available.
 
 Inspect both journals for authentication, watchdog, sequence or crash errors:
 
@@ -244,9 +285,24 @@ known transmissions. The per-mode RF readiness and limitations are recorded in
 
 Only enable Reporter after decoding is stable. In **Admin > Extensions >
 FreeDV**, enter the station owner's valid callsign and four- or six-character
-Maidenhead locator, optionally add a public message, then switch Reporter on.
-The Kiwi job overrides the disabled sidecar defaults for that receiving
-session. It never uses a public listener's identity.
+Maidenhead locator, optionally add a public message, then switch Reporter on
+and save/restart if the Admin page requests it. The Kiwi job overrides the
+disabled sidecar defaults for that receiving session. It never uses a public
+listener's identity.
+
+`Reporter: disabled` is the correct idle display even when the Admin switch is
+enabled. The sidecar creates an RX-only presence only while a normal FreeDV
+session is running. Test mode deliberately never reports. Press **Start** (not
+**Test**) and expect `connecting`, then `online`. `online` means the Reporter
+server has sent its application-level acceptance event, not merely that a
+Socket.IO transport opened. Stop or Close must return the panel and `/healthz`
+to `disabled` and remove the presence.
+
+Open [FreeDV Reporter](https://qso.freedv.org/) and find the exact station
+callsign entered in Admin. The row should say **Receive Only**, show the
+configured locator/message and display the Kiwi's current tuned frequency even
+before a modem synchronizes. The client version belongs to the decoder service,
+so it can be newer than the version shown in the Kiwi extension heading.
 
 Start a FreeDV session and check the panel plus:
 
@@ -255,9 +311,15 @@ cat /tmp/freedv-reporter-state
 journalctl -u freedv-reporter.service --since '-10 min' --no-pager
 ```
 
-Expected states are `connecting` followed by `online`. The Reporter disconnects
-when no FreeDV session is active. If it reports `error`, turn the Kiwi setting
-off and diagnose the sidecar without interrupting decoding.
+The Reporter virtual environment requires the asyncio-capable Socket.IO stack
+from `reporter/requirements.txt` (`python-socketio` plus `aiohttp`). If the
+panel remains `disabled` during a normal running session, first confirm that
+the callsign and locator validate and that the Admin setting was saved. If it
+reports `error`, inspect the sidecar journal and Python dependencies; turning
+Reporter off does not interrupt decoding. Decoder v0.1.19 repeats the opt-in
+identity in its private loopback status event, allowing a restarted Reporter
+sidecar to reconstruct the active session and reconnect without a listener
+Stop/Start cycle.
 
 ## 9. Rollback
 
@@ -266,6 +328,10 @@ To restore the stock Kiwi release explicitly:
 ```bash
 /root/kiwi-freedv/tools/rollback-kiwi-release.sh baseline-1.901
 ```
+
+To disable only RADEV1 while retaining all legacy FreeDV modes, switch it off
+in the Kiwi Admin panel and run `sudo tools/set-decoder-radev1.sh 0` on the decoder
+guest.
 
 Verify root HTML and `/status` after rollback. Restore the pre-install decoder
 snapshot independently if its service upgrade failed. Do not restore an older

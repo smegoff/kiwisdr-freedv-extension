@@ -224,6 +224,8 @@ DecoderJob parse_decoder_job(const std::string& encoded_json) {
     job.mode = value.at("mode").get<std::string>();
     job.input_rate = value.at("input_rate").get<uint32_t>();
     job.frequency_hz = value.at("frequency_hz").get<uint64_t>();
+    job.test = value.value("test", false);
+    job.test_ready = value.value("test_ready", !job.test);
     const auto reporter = value.value("reporter", nlohmann::json::object());
     job.reporter_enabled = reporter.value("enabled", false);
     job.reporter_callsign = reporter.value("callsign", std::string{});
@@ -250,6 +252,8 @@ JobDisposition classify_job(const DecoderJob& current, const DecoderJob& incomin
                      incoming.mode == current.mode &&
                      incoming.input_rate == current.input_rate &&
                      incoming.frequency_hz == current.frequency_hz &&
+                     incoming.test == current.test &&
+                     incoming.test_ready == current.test_ready &&
                      incoming.reporter_enabled == current.reporter_enabled &&
                      incoming.reporter_callsign == current.reporter_callsign &&
                      incoming.reporter_grid == current.reporter_grid &&

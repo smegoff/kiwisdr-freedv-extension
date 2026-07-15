@@ -1,0 +1,81 @@
+diff --git a/rx/rx_sound.cpp b/rx/rx_sound.cpp
+index 366a87f..f94d7f1 100644
+--- a/rx/rx_sound.cpp
++++ b/rx/rx_sound.cpp
+@@ -1356,7 +1356,7 @@ void c2s_sound(void *param)
+     
+             int aud_bytes;
+             int c2s_sound_camp(rx_chan_t *rxc, conn_t *conn, u1_t flags, char *bp, int bytes, int aud_bytes, bool masked_area);
+-            bool c2s_sound_mon(int rx_chan);
++            bool c2s_sound_mon(int rx_chan, int bytes);
+             
+             evSnd(EC_EVENT, EV_SND, -1, "rx_snd", "app_to_web..");
+             if (isWB) {
+@@ -1392,7 +1392,7 @@ void c2s_sound(void *param)
+                 aud_bytes = sizeof(s->out_pkt_real.h.smeter) + bc;
+                 if (rxc->n_camp)
+                     aud_bytes += c2s_sound_camp(rxc, conn, *flags, (char*) &s->out_pkt_real, bytes, aud_bytes, masked_area);
+-                if (!c2s_sound_mon(rx_chan))
++                if (!c2s_sound_mon(rx_chan, bytes))
+                     app_to_web(conn, (char*) &s->out_pkt_real, bytes);
+             }
+             evSnd(EC_EVENT, EV_SND, -1, "rx_snd", "..app_to_web");
+@@ -1487,7 +1487,7 @@ int c2s_sound_camp(rx_chan_t *rxc, conn_t *conn, u1_t flags, char *bp, int bytes
+     return additional_bytes;
+ }
+ 
+-bool c2s_sound_mon(int rx_chan)
++bool c2s_sound_mon(int rx_chan, int bytes)
+ {
+ 	snd_t *s = &snd_inst[rx_chan];
+ 	conn_t *c = s->conn;
+@@ -1495,10 +1495,21 @@ bool c2s_sound_mon(int rx_chan)
+ 	wf_inst_t *wf = &WF_SHMEM->wf_inst[rx_chan];
+ 	rx_chan_t *rxc = &rx_channels[rx_chan];
+ 
++    // Disabling return sound restores the receiver stream immediately and
++    // discards any decoded audio that was queued before Stop or Close.
++    if (!wf->want_rtn_snd) {
++        if (wf->have_rtn_snd) {
++            nbuf_cleanup(&rxc->rtn_snd_nd);
++            wf->have_rtn_snd = false;
++        }
++        return false;
++    }
++
+     // Camper via c2s_sound_camp() above always gets received audio.
+     // But web UI might want externally processed audio by camper returning
+     // sound on a reverse netcat connection, e.g. audio returned from a
+     // decoder on an external server.
++    bool sent_return_audio = false;
+     if (wf->have_rtn_snd) {
+         while (1) {
+             int qct = 0;
+@@ -1522,15 +1533,21 @@ bool c2s_sound_mon(int rx_chan)
+             }
+             nbuf_allocq(&c->s2c, (char*) &s->out_pkt_real, sizeof(s->out_pkt_real.h), &nb->buf[12], nb->len - 12);
+             nb->done = TRUE;
++            sent_return_audio = true;
+         }
+-        if (!wf->want_rtn_snd) {
+-            nbuf_cleanup(&rxc->rtn_snd_nd);
+-            wf->have_rtn_snd = false;
+-            //real_printf(YELLOW "STOP" NONL); fflush(stdout);
++    }
++
++    // A running external-decoder job owns the browser audio stream. Preserve
++    // normal SND packet cadence but replace receiver noise with silence until
++    // decoded speech is returned, and during any gap or decoder outage.
++    if (!sent_return_audio) {
++        int header_bytes = sizeof(s->out_pkt_real.h);
++        if (bytes >= header_bytes && bytes <= (int) sizeof(s->out_pkt_real)) {
++            memset(((char *) &s->out_pkt_real) + header_bytes, 0, bytes - header_bytes);
++            app_to_web(c, (char *) &s->out_pkt_real, bytes);
+         }
+-        return true;
+     }
+-    return false;
++    return true;
+ }
+ 
+ void c2s_sound_shutdown(void *param)

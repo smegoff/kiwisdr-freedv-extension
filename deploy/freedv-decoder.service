@@ -16,7 +16,10 @@ NoNewPrivileges=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 IPAddressDeny=any
 IPAddressAllow=127.0.0.0/8
-IPAddressAllow=192.168.10.238/32
+IPAddressAllow=10.0.0.0/8
+IPAddressAllow=172.16.0.0/12
+IPAddressAllow=192.168.0.0/16
+IPAddressAllow=fc00::/7
 MemoryMax=1536M
 CPUQuota=190%
 

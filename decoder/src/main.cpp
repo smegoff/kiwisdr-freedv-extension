@@ -1,10 +1,10 @@
 #include "freedv/backend.hpp"
 #include "freedv/kiwi_protocol.hpp"
+#include "freedv/resampler.hpp"
 
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <nlohmann/json.hpp>
-#include <samplerate.h>
 
 #include <atomic>
 #include <algorithm>
@@ -37,7 +37,8 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.5";
+constexpr char kRelease[] = "0.1.19";
+constexpr uint64_t kStalledMainLoopSeconds = 15;
 
 struct Metrics {
   std::atomic<uint64_t> kiwi_connected{0};
@@ -54,9 +55,24 @@ struct Metrics {
   std::atomic<uint64_t> decode_nanoseconds{0};
   std::atomic<uint64_t> generation{0};
   std::atomic<uint64_t> synced{0};
+  std::atomic<uint64_t> status_updates{0};
+  std::atomic<uint64_t> main_loop_heartbeat{0};
 };
 
 Metrics metrics;
+
+uint64_t monotonic_seconds() {
+  return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+void mark_main_loop_progress() { metrics.main_loop_heartbeat = monotonic_seconds(); }
+
+uint64_t main_loop_age_seconds() {
+  const uint64_t heartbeat = metrics.main_loop_heartbeat.load();
+  const uint64_t now = monotonic_seconds();
+  return heartbeat == 0 || heartbeat > now ? UINT64_MAX : now - heartbeat;
+}
 
 std::string env_or(const char* name, const char* fallback) {
   const char* value = std::getenv(name);
@@ -100,6 +116,8 @@ std::string metrics_text() {
       << "freedv_decode_seconds_total " << metrics.decode_nanoseconds.load() / 1.0e9 << '\n'
       << "freedv_generation " << metrics.generation.load() << '\n'
       << "freedv_sync " << metrics.synced.load() << '\n'
+      << "freedv_status_updates_total " << metrics.status_updates.load() << '\n'
+      << "freedv_main_loop_age_seconds " << main_loop_age_seconds() << '\n'
       << "freedv_audio_queue_milliseconds 0\n"
       << "freedv_reporter_state{state=\"" << reporter_state() << "\"} 1\n";
   return out.str();
@@ -117,18 +135,24 @@ void health_server(unsigned short port) {
       http::read(socket, buffer, request);
       const bool is_metrics = request.target() == "/metrics";
       const bool is_health = request.target() == "/healthz" || request.target() == "/";
+      const bool live = main_loop_age_seconds() <= kStalledMainLoopSeconds;
+      const bool healthy = live && metrics.kiwi_connected.load() != 0;
       http::response<http::string_body> response{
-          is_metrics || is_health ? http::status::ok : http::status::not_found, request.version()};
+          is_metrics ? http::status::ok :
+          is_health ? (healthy ? http::status::ok : http::status::service_unavailable) :
+                      http::status::not_found,
+          request.version()};
       response.set(http::field::server, std::string("freedv-decoder/") + kRelease);
       response.set(http::field::content_type,
                    is_metrics ? "text/plain; version=0.0.4" : "application/json");
       if (is_metrics) response.body() = metrics_text();
       else if (is_health) {
-        response.body() = json{{"status", "ok"},
+        response.body() = json{{"status", healthy ? "ok" : "degraded"},
                                {"release", kRelease},
                                {"kiwi_connected", metrics.kiwi_connected.load() != 0},
                                {"camper_connected", metrics.camper_connected.load() != 0},
                                {"sessions", metrics.sessions.load()},
+                               {"main_loop_age_seconds", main_loop_age_seconds()},
                                {"reporter", reporter_state()}}.dump() + "\n";
       } else response.body() = "{\"status\":\"not-found\"}\n";
       response.keep_alive(false);
@@ -162,60 +186,16 @@ void systemd_notify(const char* state) {
 
 void systemd_watchdog() {
   for (;;) {
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    const uint64_t age = main_loop_age_seconds();
+    if (age > kStalledMainLoopSeconds) {
+      std::cerr << "main loop stalled for " << age
+                << " seconds; exiting for systemd recovery\n";
+      _exit(4);
+    }
     systemd_notify("WATCHDOG=1");
   }
 }
-
-class Resampler {
- public:
-  ~Resampler() { clear(); }
-
-  std::vector<int16_t> process(const std::vector<int16_t>& input, uint32_t input_rate,
-                               uint32_t output_rate) {
-    if (input.empty() || input_rate == 0 || output_rate == 0) return {};
-    if (input_rate == output_rate) return input;
-    if (!state_ || input_rate != input_rate_ || output_rate != output_rate_) {
-      clear();
-      int error = 0;
-      state_ = src_new(SRC_SINC_FASTEST, 1, &error);
-      if (!state_) throw std::runtime_error(src_strerror(error));
-      input_rate_ = input_rate;
-      output_rate_ = output_rate;
-    }
-    std::vector<float> source(input.size());
-    src_short_to_float_array(input.data(), source.data(), static_cast<int>(input.size()));
-    const double ratio = static_cast<double>(output_rate) / input_rate;
-    std::vector<float> destination(static_cast<std::size_t>(std::ceil(input.size() * ratio)) + 256);
-    SRC_DATA data{};
-    data.data_in = source.data();
-    data.input_frames = static_cast<long>(source.size());
-    data.data_out = destination.data();
-    data.output_frames = static_cast<long>(destination.size());
-    data.src_ratio = ratio;
-    const int error = src_process(state_, &data);
-    if (error) throw std::runtime_error(src_strerror(error));
-    if (data.input_frames_used != data.input_frames)
-      throw std::runtime_error("resampler output bound exhausted");
-    std::vector<int16_t> output(static_cast<std::size_t>(data.output_frames_gen));
-    src_float_to_short_array(destination.data(), output.data(), static_cast<int>(output.size()));
-    return output;
-  }
-
-  void reset() {
-    if (state_) src_reset(state_);
-  }
-
- private:
-  void clear() {
-    if (state_) src_delete(state_);
-    state_ = nullptr;
-    input_rate_ = output_rate_ = 0;
-  }
-  SRC_STATE* state_ = nullptr;
-  uint32_t input_rate_ = 0;
-  uint32_t output_rate_ = 0;
-};
 
 std::string random_nonce() {
   static std::mt19937_64 engine(std::random_device{}());
@@ -240,18 +220,21 @@ class KiwiCamper {
         secret_(std::move(secret)), rade_enabled_(rade_enabled), resolver_(ioc_), ws_(ioc_) {}
 
   void run() {
+    mark_main_loop_progress();
     const auto endpoints = resolver_.resolve(host_, port_);
     asio::connect(ws_.next_layer(), endpoints);
     ws_.set_option(websocket::stream_base::timeout::suggested(beast::role_type::client));
     ws_.read_message_max(1024 * 1024);
     const auto stamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     ws_.handshake(host_ + ":" + port_, "/" + std::to_string(stamp) + "/SND?camp");
+    mark_main_loop_progress();
     metrics.kiwi_connected = 1;
     send_text("SET auth t=kiwi p=" + password_);
 
     for (;;) {
       beast::flat_buffer buffer;
       ws_.read(buffer);
+      mark_main_loop_progress();
       const std::string frame = beast::buffers_to_string(buffer.data());
       if (frame.size() < 3) continue;
       const std::string tag = frame.substr(0, 3);
@@ -288,7 +271,8 @@ class KiwiCamper {
     const auto unix_seconds = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     send_text(kfd::make_poll_command(secret_, unix_seconds, random_nonce()));
-    next_poll_ = now + std::chrono::seconds(1);
+    next_poll_ = now + (job_.test && !job_.test_ready ?
+        std::chrono::milliseconds(100) : std::chrono::milliseconds(1000));
   }
 
   void maybe_keepalive() {
@@ -337,6 +321,11 @@ class KiwiCamper {
       if (comma != std::string::npos && value.substr(0, comma) == "1") {
         camped_channel_ = std::stoi(value.substr(comma + 1));
         metrics.camper_connected = 1;
+        // The pre-camp status cannot be routed to a receiver. Announce the
+        // running camper immediately so Kiwi can arm a reference test before
+        // this process is allowed to consume any test audio.
+        send_status({});
+        if (job_.test && !job_.test_ready) maybe_poll(true);
       }
       return;
     }
@@ -360,6 +349,19 @@ class KiwiCamper {
   }
 
   void apply_job(const kfd::DecoderJob& incoming) {
+    if (job_.running && incoming.running && job_.generation == incoming.generation &&
+        job_.test && incoming.test && !job_.test_ready && incoming.test_ready &&
+        job_.rx_channel == incoming.rx_channel && job_.mode == incoming.mode &&
+        job_.input_rate == incoming.input_rate && job_.frequency_hz == incoming.frequency_hz) {
+      job_.test_ready = true;
+      backend_->reset();
+      input_resampler_.reset();
+      output_resampler_.reset();
+      expected_sequence_valid_ = false;
+      return_adpcm_valid_ = false;
+      std::cerr << "test reference armed: generation=" << job_.generation << '\n';
+      return;
+    }
     const auto disposition = kfd::classify_job(job_, incoming);
     if (disposition == kfd::JobDisposition::stale) {
       metrics.stale_jobs++;
@@ -389,9 +391,14 @@ class KiwiCamper {
     input_resampler_.reset();
     output_resampler_.reset();
     return_adpcm_valid_ = false;
+    first_audio_packet_ = true;
+    job_decoded_frames_ = 0;
+    std::cerr << "job start: generation=" << job_.generation
+              << " mode=" << job_.mode << " input_rate=" << job_.input_rate
+              << " test=" << (job_.test ? 1 : 0) << '\n';
     reporter_send({{"type", "start"}, {"session_id", job_.generation},
                    {"mode", job_.mode}, {"frequency", job_.frequency_hz},
-                   {"sync", false}, {"enabled", job_.reporter_enabled},
+                   {"sync", false}, {"enabled", job_.reporter_enabled && !job_.test},
                    {"station_callsign", job_.reporter_callsign},
                    {"grid_square", job_.reporter_grid},
                    {"message", job_.reporter_message}});
@@ -408,6 +415,8 @@ class KiwiCamper {
     input_adpcm_valid_ = false;
     return_adpcm_valid_ = false;
     expected_sequence_valid_ = false;
+    first_audio_packet_ = true;
+    job_decoded_frames_ = 0;
     metrics.sessions = 0;
     metrics.synced = 0;
   }
@@ -416,6 +425,20 @@ class KiwiCamper {
     if (!backend_ || !job_.running || camped_channel_ != job_.rx_channel) return;
     const auto packet = kfd::parse_kiwi_snd(frame.data(), frame.size());
     metrics.snd_frames++;
+    if (job_.test && !job_.test_ready) {
+      // Never decode live receiver noise as part of the deterministic test.
+      // The first running status can race Kiwi's MON-to-SND camper transition
+      // and be discarded before rev_txt routing is ready. Repeat it while
+      // waiting so a lost acknowledgement cannot deadlock Test at 0%.
+      const auto now = std::chrono::steady_clock::now();
+      if (now >= next_status_) {
+        send_status({});
+        next_status_ = now + std::chrono::milliseconds(250);
+      }
+      // The next authenticated job poll carries Kiwi's test_ready handshake.
+      maybe_poll();
+      return;
+    }
     if (expected_sequence_valid_ && packet.sequence != expected_sequence_) {
       metrics.dropped_frames += static_cast<uint32_t>(packet.sequence - expected_sequence_);
       backend_->reset();
@@ -429,6 +452,13 @@ class KiwiCamper {
     const auto input = kfd::decode_kiwi_audio(packet, input_adpcm_,
                                                !compressed || input_adpcm_valid_);
     if (compressed) input_adpcm_valid_ = true;
+    if (first_audio_packet_) {
+      std::cerr << "audio format: flags=" << static_cast<unsigned>(packet.flags)
+                << " payload_bytes=" << packet.payload.size()
+                << " samples=" << input.size() << " input_rate=" << input_rate_
+                << " audio_rate=" << audio_rate_ << '\n';
+      first_audio_packet_ = false;
+    }
     const auto modem = input_resampler_.process(input, input_rate_, backend_->modem_sample_rate());
     const auto started = std::chrono::steady_clock::now();
     auto decoded = backend_->push(modem.data(), modem.size());
@@ -445,7 +475,9 @@ class KiwiCamper {
     }
     metrics.synced = decoded.status.synced ? 1 : 0;
 
-    if (!decoded.pcm.empty()) {
+    // Never return modem noise or partial speech while the FreeDV modem is
+    // unsynchronized. The Kiwi-side return-audio gate supplies silence.
+    if (decoded.status.synced && !decoded.pcm.empty()) {
       const auto speech = output_resampler_.process(decoded.pcm, decoded.sample_rate, audio_rate_);
       if (compressed && !return_adpcm_valid_) {
         return_adpcm_ = input_adpcm_;
@@ -457,15 +489,25 @@ class KiwiCamper {
       message.insert(message.end(), payload.begin(), payload.end());
       send_binary(message);
       metrics.decoded_frames++;
+      job_decoded_frames_++;
+    } else if (!decoded.status.synced) {
+      output_resampler_.reset();
+      return_adpcm_valid_ = false;
     }
 
     const auto now = std::chrono::steady_clock::now();
     if (now >= next_status_) {
       send_status(decoded.status);
-      reporter_send({{"type", "status"}, {"session_id", job_.generation},
-                     {"mode", job_.mode}, {"frequency", job_.frequency_hz},
-                     {"sync", decoded.status.synced}, {"snr", decoded.status.snr_db},
-                     {"callsign", decoded.status.callsign}});
+      if (!job_.test) {
+        reporter_send({{"type", "status"}, {"session_id", job_.generation},
+                       {"mode", job_.mode}, {"frequency", job_.frequency_hz},
+                       {"sync", decoded.status.synced}, {"snr", decoded.status.snr_db},
+                       {"callsign", decoded.status.callsign},
+                       {"enabled", job_.reporter_enabled},
+                       {"station_callsign", job_.reporter_callsign},
+                       {"grid_square", job_.reporter_grid},
+                       {"message", job_.reporter_message}});
+      }
       next_status_ = now + std::chrono::milliseconds(250);
     }
   }
@@ -476,16 +518,19 @@ class KiwiCamper {
                      {"generation", job_.generation},
                      {"state", camped_channel_ == job_.rx_channel ? "running" : "connecting"},
                      {"backend", backend_ ? backend_->name() : "none"},
+                     {"test", job_.test},
                      {"sync", status.synced},
                      {"snr", status.snr_db},
                      {"frequency_offset", status.frequency_offset_hz},
                      {"callsign", status.callsign},
                      {"text", status.text},
                      {"dropped", metrics.dropped_frames.load()},
+                     {"decoded_frames", job_decoded_frames_},
                      {"reporter", reporter_state()},
                      {"error", status.error}};
     send_text("SET rev_txt=" + std::to_string(job_.generation) + "," +
               kfd::url_encode(value.dump()));
+    metrics.status_updates++;
   }
 
   std::string host_;
@@ -508,8 +553,10 @@ class KiwiCamper {
   kfd::AdpcmState return_adpcm_;
   bool input_adpcm_valid_ = false;
   bool return_adpcm_valid_ = false;
-  Resampler input_resampler_;
-  Resampler output_resampler_;
+  bool first_audio_packet_ = true;
+  uint64_t job_decoded_frames_ = 0;
+  kfd::StreamingResampler input_resampler_;
+  kfd::StreamingResampler output_resampler_;
   std::chrono::steady_clock::time_point next_poll_{};
   std::chrono::steady_clock::time_point next_keepalive_{};
   std::chrono::steady_clock::time_point next_status_{};
@@ -523,6 +570,7 @@ int main() {
     std::cerr << "FREEDV_SHARED_SECRET must contain at least 32 characters\n";
     return 2;
   }
+  mark_main_loop_progress();
   const auto health_port = static_cast<unsigned short>(
       std::stoul(env_or("FREEDV_HEALTH_PORT", "8074")));
   std::thread(health_server, health_port).detach();
@@ -533,6 +581,7 @@ int main() {
   std::mt19937 jitter(std::random_device{}());
   for (;;) {
     try {
+      mark_main_loop_progress();
       KiwiCamper camper(env_or("FREEDV_KIWI_HOST", "192.168.10.238"),
                         env_or("FREEDV_KIWI_PORT", "8073"),
                         env_or("FREEDV_KIWI_PASSWORD", ""), secret,
@@ -542,6 +591,7 @@ int main() {
       camper.shutdown();
       backoff = 1;
     } catch (const std::exception& error) {
+      mark_main_loop_progress();
       metrics.kiwi_connected = 0;
       metrics.camper_connected = 0;
       metrics.sessions = 0;
@@ -549,7 +599,13 @@ int main() {
       metrics.reconnects++;
       std::cerr << "camper transport: " << error.what() << '\n';
       const unsigned delay_ms = backoff * 1000 + (jitter() % 500);
-      std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+      unsigned remaining_ms = delay_ms;
+      while (remaining_ms) {
+        const unsigned slice_ms = std::min(remaining_ms, 1000u);
+        std::this_thread::sleep_for(std::chrono::milliseconds(slice_ms));
+        remaining_ms -= slice_ms;
+        mark_main_loop_progress();
+      }
       backoff = std::min(backoff * 2, 30u);
     }
   }

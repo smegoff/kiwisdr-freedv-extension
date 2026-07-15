@@ -4,8 +4,9 @@ The FreeDV modem runs on a private Debian guest instead of on the KiwiSDR. In
 this documentation, **guest** means either a full Proxmox QEMU/KVM virtual
 machine or an unprivileged Proxmox LXC container.
 
-The current production installation uses unprivileged LXC `112`, hostname
-`freedv-decoder`. It is not a full VM. A full VM is architecturally compatible
+The reference installation uses an unprivileged LXC named `freedv-decoder`.
+Its numeric Proxmox guest ID is site-local and intentionally omitted from the
+portable documentation. It is not a full VM. A full VM is architecturally compatible
 and runs the same decoder and Reporter services, but it has not yet completed
 this project's live acceptance and soak tests.
 
@@ -22,18 +23,22 @@ Running that work in a separate guest provides five practical advantages:
 
 1. **Receiver stability.** Decoder CPU spikes cannot starve the Kiwi audio,
    waterfall or network tasks. If the guest stops, the extension falls back to
-   normal receiver audio instead of taking down the Kiwi service.
-2. **Known headroom.** The guest has 2 vCPU and 2 GB RAM. The measured 700D
-   workload is comfortably below that allocation, while production remains
-   capped at one session until every mode completes live-RF acceptance.
+   the Kiwi service remains available; the extension keeps the receiver silent
+   until the decoder returns or the user presses Stop/Close, which then restores
+   normal receiver audio.
+2. **Known headroom.** The recommended starting allocation is 2 vCPU and 2 GB
+   RAM. The reference guest currently has 4 vCPU, although testing confirmed
+   that the earlier wait state was a blocked control loop rather than CPU
+   exhaustion. Production remains capped at one session until every mode
+   completes live-RF acceptance.
 3. **Dependency isolation.** libcodec2, libsamplerate, OpenSSL, Boost and the
    Python Socket.IO Reporter client can be updated on Debian without expanding
    the Kiwi firmware image or its runtime dependency set.
 4. **Independent rollback.** The guest can be snapshotted, upgraded and rolled
    back without changing the Kiwi. Kiwi releases retain their own atomic
    `baseline-1.901` rollback path.
-5. **Future capacity.** Experimental RADE work and later multi-session testing
-   can use additional x86 CPU and memory without changing the Kiwi hardware.
+5. **Neural-codec capacity.** RADEV1 and later multi-session testing can use
+   x86 CPU and memory without changing the Kiwi hardware.
 
 Native decoding is therefore disabled until it meets the headroom gate in
 [feasibility.md](feasibility.md): every mode at real-time factor 0.50 or lower,
@@ -73,7 +78,7 @@ connection to `qso.freedv.org`.
 | Portability | Conventional VM image; straightforward migration to another hypervisor | Best kept on a compatible Proxmox/Linux host |
 | Kernel control | Guest owns its kernel and kernel update schedule | Uses the Proxmox host kernel |
 | Hardware requirement | Requires CPU virtualization support | No hardware virtualization requirement beyond the host |
-| Project status | Architecturally compatible; live acceptance pending | Current tested production path, CT 112 |
+| Project status | Architecturally compatible; live acceptance pending | Current tested reference path |
 
 Choose a **full VM** when isolation and portability matter more than the small
 resource saving, when unrelated users administer the Proxmox host, or when
@@ -97,6 +102,12 @@ The production starting point for either guest type is:
 | Swap | Disabled | Avoids latency stalls; investigate memory pressure instead of swapping audio work |
 | NIC | VirtIO on a private bridged LAN | Low overhead and direct reachability to the Kiwi |
 | Autostart | Enabled | Restores decoding automatically after Proxmox maintenance |
+
+The tested RADEV1 reference decode ran at real-time factor about 0.0215 on the
+reference decoder guest. Eight concurrent stress workers remained below the 0.50 gate at 0.0855
+per worker, with peak container memory about 386 MB. The 2 vCPU/2 GB allocation
+therefore has substantial headroom for the one-session production limit; it is
+not a justification for increasing that limit without end-to-end testing.
 
 For a full VM, the Proxmox default CPU type is portable across unlike cluster
 nodes. CPU type `host` can expose more native features, but may restrict live
@@ -251,6 +262,29 @@ Before each guest service upgrade:
 A snapshot is a short-term rollback point, not a backup. Retain scheduled
 Proxmox backups on separate storage and keep the previous decoder package or
 binary until the new version completes its stability soak.
+
+After the soak passes, prune superseded pre-release snapshots. Keep the clean
+operating-system baseline, the immediate pre-upgrade rollback and only an
+intentional architectural checkpoint that still has recovery value. The
+dry-run-first helper accepts either a Proxmox API token or password through
+process environment variables and never stores credentials:
+
+```powershell
+$env:PVE_API_TOKEN_ID = '<user@realm!token-name>'
+$env:PVE_API_TOKEN_SECRET = '<token-secret>'
+./tools/prune-decoder-snapshots.ps1 `
+  -Api 'https://proxmox.example:8006/api2/json' `
+  -Node '<node>' -Vmid <guest-id> `
+  -KeepSnapshots clean-debian12,pre-radev1-v0-1-15,pre-current-release
+
+# Review the printed removal list, then repeat the same command with -Apply.
+```
+
+Snapshot pruning is part of completing a decoder deployment, but must happen
+only after browser acceptance and the stability soak. Record retained and
+removed names in ignored deployment evidence. Never remove the current
+rollback snapshot just to save space, and do not treat snapshots as a
+replacement for scheduled backups.
 
 ## Official Proxmox references
 

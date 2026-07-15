@@ -8,7 +8,7 @@
    next boot. Label it with firmware `1.901` and the UTC date.
 4. Run `tools/backup-kiwi.ps1` with `KIWI_PASSWORD` set in the process
    environment. Verify the archive checksum and copy the result to Proxmox
-   backup storage.
+   independent backup storage.
 5. Do not treat the receiver as having physical disaster recovery until both
    artifacts exist.
 
@@ -34,19 +34,30 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the current v0.1.5 deployment, CT 112 has snapshot
-`pre-freedv-v0-1-5`. The prior production decoder binary and service files are
-also retained root-only under
-`/root/freedv-rollbacks/pre-v0-1-5-20260713T1823Z`. If only the decoder upgrade
-fails, restore that binary atomically and restart `freedv-decoder.service`. If
-the Kiwi candidate fails, first run
-`tools/rollback-kiwi-release.sh baseline-1.901`; CT v0.1.5 may remain connected
-and idle while the stock Kiwi ignores its authenticated polling command.
+For the reference deployment, the Kiwi release is `freedv-v0-1-21`, the
+immediate Kiwi rollback is `freedv-v0-1-20`, the decoder guest runs `0.1.19`,
+and the latest pre-upgrade guest snapshot is
+`pre-test-race-v0-1-19`, taken immediately before the Test-race decoder
+upgrade. It includes the accepted v0.1.18 Reporter behavior. The retained
+architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
+clean operating-system baseline. Superseded per-release snapshots were removed
+after v0.1.19 passed its browser tests and stability soak. If only
+RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
+Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
+upgrade itself fails, restore the decoder-guest snapshot or retained previous
+binary
+and restart `freedv-decoder.service`. If the Kiwi candidate fails, use the
+immediate `freedv-v0-1-20` Kiwi release or run
+`tools/rollback-kiwi-release.sh baseline-1.901` for the stock firmware behavior.
 
-The older `pre-tdoa-v0-1-3` snapshot preserves the former transport-reset
-boundary. Do not restore the obsolete port-8074 ingress design into the live
-environment unless both Kiwi and CT are intentionally returned to that older,
-protocol-compatible state.
+After either rollback, require decoder `/healthz` to show `status=ok`, zero
+sessions
+and Reporter disabled. On the Kiwi require firmware 1.901, stock root HTML and
+`/status`, then run the stability soak before returning it to service.
+
+The obsolete `pre-tdoa-v0-1-3` snapshot was removed during retention cleanup.
+The old port-8074 ingress design remains unsupported and must not be restored
+into the live environment.
 
 ## Full recovery
 
