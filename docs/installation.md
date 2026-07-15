@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.20`, decoder service `0.1.18`, and KiwiSDR upstream commit
+written for Kiwi extension `0.1.21`, decoder service `0.1.19`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
@@ -221,7 +221,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-20-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-21-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -316,7 +316,7 @@ from `reporter/requirements.txt` (`python-socketio` plus `aiohttp`). If the
 panel remains `disabled` during a normal running session, first confirm that
 the callsign and locator validate and that the Admin setting was saved. If it
 reports `error`, inspect the sidecar journal and Python dependencies; turning
-Reporter off does not interrupt decoding. Decoder v0.1.18 repeats the opt-in
+Reporter off does not interrupt decoding. Decoder v0.1.19 repeats the opt-in
 identity in its private loopback status event, allowing a restarted Reporter
 sidecar to reconstruct the active session and reconnect without a listener
 Stop/Start cycle.

@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.20", source)
+        self.assertIn(b"FreeDV v0.1.21", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
 
@@ -140,7 +140,21 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn('"SET freedv_test=%d mode=%15s"', server)
         self.assertIn('e->test? "true":"false"', server)
         self.assertIn('\\"test_ready\\":%s', server)
+        self.assertIn("bool test_job_seen;", server)
+        self.assertIn("arm_test_after_response", server)
+        self.assertIn("test_ready? \"true\":\"false\"", server)
+        self.assertIn("job_e->test_sample = test_signal.samples;", server)
+        self.assertIn("job_e->test_job_seen = true;", server)
         self.assertIn("job_.test && !job_.test_ready", DECODER.read_text(encoding="utf-8"))
+        waiting = re.search(
+            r"if \(job_\.test && !job_\.test_ready\) \{(.*?)\n    \}",
+            DECODER.read_text(encoding="utf-8"),
+            re.DOTALL,
+        )
+        self.assertIsNotNone(waiting)
+        self.assertIn("send_status({});", waiting.group(1))
+        self.assertIn("std::chrono::milliseconds(250)", waiting.group(1))
+        self.assertIn("maybe_poll();", waiting.group(1))
         self.assertIn('cfg_true("freedv.reporter_enabled") && !e->test', server)
         self.assertIn("freedv_status_running(end + 1)", server)
         self.assertIn("e->test_sample = NULL;", server)
@@ -158,6 +172,9 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("freedv.test_synced && freedv.test_audio", browser)
         self.assertIn("+status.decoded_frames > 0", browser)
         self.assertIn("last_test_result", browser)
+        self.assertIn("freedv.test_arm_timer = setTimeout", browser)
+        self.assertIn("within 15 seconds", browser)
+        self.assertIn("freedv_clear_test_arm_timer()", browser)
         self.assertIn("w3_innerHTML('id-freedv-reporter', 'disabled')", browser)
         self.assertIn("freedv.running? (status.reporter || 'disabled') : 'disabled'", browser)
         self.assertIn('{"decoded_frames", job_decoded_frames_}', DECODER.read_text(encoding="utf-8"))

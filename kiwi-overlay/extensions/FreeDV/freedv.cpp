@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.20"
+#define FREEDV_RELEASE "0.1.21"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -33,6 +33,7 @@ typedef struct {
     bool setup;
     bool running;
     bool test;
+    bool test_job_seen;
     bool test_done_sent;
     bool decoder_online;
     char mode[16];
@@ -324,6 +325,7 @@ static void freedv_stop(int rx_chan)
         e->running = false;
     }
     e->test = false;
+    e->test_job_seen = false;
     e->test_done_sent = false;
     e->test_sample = NULL;
     e->test_samples_sent = 0;
@@ -435,6 +437,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         active_rx = rx_chan;
         e->running = true;
         e->test = false;
+        e->test_job_seen = false;
         e->test_done_sent = false;
         e->test_sample = NULL;
         e->test_samples_sent = 0;
@@ -477,6 +480,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         active_rx = rx_chan;
         e->running = true;
         e->test = true;
+        e->test_job_seen = false;
         e->test_done_sent = false;
         // The sample starts only after the decoder confirms the camper is running.
         e->test_sample = NULL;
@@ -544,6 +548,9 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
     }
 
     char job[1024];
+    freedv_t *job_e = NULL;
+    bool arm_test_after_response = false;
+    u4_t job_generation = 0;
     if (active_rx >= 0 && active_rx < rx_chans && freedv[active_rx].running) {
         freedv_t *e = &freedv[active_rx];
         u64_t current_frequency = (u64_t) (ext_get_displayed_freq_kHz(active_rx) * 1000.0 + 0.5);
@@ -551,7 +558,22 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
             e->frequency_hz = current_frequency;
             e->generation = next_generation++;
             e->decoder_online = false;
+            if (e->test) {
+                e->test_job_seen = false;
+                e->test_sample = NULL;
+                e->test_samples_sent = 0;
+                e->test_last_percent = -1;
+            }
         }
+        job_e = e;
+        job_generation = e->generation;
+        // The first response advertises the job with test_ready=false. The
+        // decoder can only issue its next poll after processing MON_CAMP and
+        // the camper acknowledgement, so that authenticated second poll is a
+        // reliable readiness signal even if the first rev_txt status raced
+        // the MON-to-SND transition.
+        arm_test_after_response = e->test && e->test_job_seen && !e->test_sample;
+        bool test_ready = !e->test || e->test_sample || arm_test_after_response;
         char *call = (char *) cfg_string("freedv.reporter_callsign", NULL, CFG_OPTIONAL);
         char *grid = (char *) cfg_string("freedv.reporter_grid", NULL, CFG_OPTIONAL);
         char *message = (char *) cfg_string("freedv.reporter_message", NULL, CFG_OPTIONAL);
@@ -566,7 +588,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
             FREEDV_PROTOCOL, e->generation, active_rx, e->mode,
             e->input_rate, (unsigned long long) e->frequency_hz,
             e->test? "true":"false",
-            !e->test || e->test_sample? "true":"false",
+            test_ready? "true":"false",
             cfg_true("freedv.reporter_enabled") && !e->test? "true":"false",
             call_j, grid_j, message_j);
         if (call) cfg_string_free(call);
@@ -579,6 +601,17 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
     char *encoded = kiwi_str_encode(job);
     send_msg(conn_mon, false, "MSG freedv_job=%s", encoded);
     kiwi_ifree(encoded, "freedv_job");
+    if (job_e && job_e->running && job_e->test && job_e->generation == job_generation) {
+        job_e->test_job_seen = true;
+        if (arm_test_after_response && !job_e->test_sample) {
+            // Queue test_ready=true before the real-sample callback can begin
+            // advancing the deterministic reference recording.
+            job_e->test_sample = test_signal.samples;
+            job_e->test_samples_sent = 0;
+            job_e->test_last_percent = -1;
+            ext_send_msg(active_rx, false, "EXT state=test-signal-running");
+        }
+    }
     return true;
 }
 

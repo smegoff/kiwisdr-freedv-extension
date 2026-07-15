@@ -45,7 +45,7 @@ does not consume an additional receiver.
 Earlier decoder-guest measurements processed eight simultaneous 700D test clients for 30
 seconds with zero sequence drops. Mean, p95 and maximum request times were
 1.48, 2.72 and 43.51 ms. Production is nevertheless capped at one session
-until live RF/audio validation is complete. The decoder 0.1.18 Release build exercises
+until live RF/audio validation is complete. The decoder 0.1.19 Release build exercises
 every legacy mode with assertions enabled and includes the exact-token camper
 control regression test. It is now the reference production decoder binary and passed a real
 browser Help, Test, normal Start and Stop cycle with zero dropped frames or
@@ -53,6 +53,13 @@ authentication failures, followed by a 41-sample service soak. A forced process
 hang was recovered automatically in about 33 seconds. Adding CPU cores did not
 address the earlier wait state because its cause was a blocked synchronous
 WebSocket loop, not decoder headroom.
+
+The deterministic Test path also had a control race rather than a compute
+limit. Early `rev_txt` status could arrive before Kiwi completed its MON-to-SND
+camper transition, leaving both sides waiting at zero percent. v0.1.19 repeats
+status while waiting, and Kiwi v0.1.21 uses the decoder's authenticated second
+job poll after the camper acknowledgement as the authoritative readiness
+fallback. Three consecutive browser tests armed within 2.4 seconds and passed.
 
 The RADEV1 reference waveform represented about 11.9 seconds of modem audio.
 The reference decoder guest synchronized, produced 181,600 speech samples and completed the decode

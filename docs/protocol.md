@@ -33,11 +33,16 @@ Reporter station fields.
 Only a higher generation changes the decoder state. Older jobs are discarded and a
 same-generation conflict is rejected. There is no job queue.
 
-For a bundled test, the decoder first camps and sends authoritative running status while
-`test_ready=false`. The Kiwi then arms John's reference sample and returns the
-same generation with `test_ready=true`. The service resets its decoder and resamplers at
-that transition and ignores live SND audio beforehand. This prevents receiver
-noise or a stale packet from becoming the first test frame.
+For a bundled test, the first authenticated job response has
+`test_ready=false`. The decoder requests the camper and can issue its next poll
+only after processing Kiwi's camper acknowledgement. Kiwi therefore treats
+that authenticated second poll as authoritative readiness, queues a response
+for the same generation with `test_ready=true`, then arms John's reference
+sample. Returned running status remains an additional fast-path signal and the
+decoder repeats it while waiting. The service resets its decoder and
+resamplers at the readiness transition and ignores live SND audio beforehand.
+This avoids both receiver noise as the first test frame and a deadlock when an
+early `rev_txt` message arrives before returned-status routing is established.
 
 ## Audio and status
 

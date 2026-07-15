@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-18}
-release=${2:-v0.1.18}
+candidate=${1:-/opt/kiwi-freedv-v0-1-19}
+release=${2:-v0.1.19}
 health_release=${release#v}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 rollback="/root/freedv-rollbacks/pre-${release}-${stamp}"

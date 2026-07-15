@@ -37,7 +37,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.18";
+constexpr char kRelease[] = "0.1.19";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 
 struct Metrics {
@@ -427,6 +427,14 @@ class KiwiCamper {
     metrics.snd_frames++;
     if (job_.test && !job_.test_ready) {
       // Never decode live receiver noise as part of the deterministic test.
+      // The first running status can race Kiwi's MON-to-SND camper transition
+      // and be discarded before rev_txt routing is ready. Repeat it while
+      // waiting so a lost acknowledgement cannot deadlock Test at 0%.
+      const auto now = std::chrono::steady_clock::now();
+      if (now >= next_status_) {
+        send_status({});
+        next_status_ = now + std::chrono::milliseconds(250);
+      }
       // The next authenticated job poll carries Kiwi's test_ready handshake.
       maybe_poll();
       return;

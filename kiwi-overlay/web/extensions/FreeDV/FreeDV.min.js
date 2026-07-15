@@ -6,6 +6,7 @@ var freedv = {
    test_available: false,
    test_synced: false,
    test_audio: false,
+   test_arm_timer: null,
    last_test_result: '',
    rade_enabled: false,
    mode: '700D',
@@ -176,9 +177,11 @@ function freedv_recv(data)
             w3_innerHTML('id-freedv-state', 'decoded audio');
             break;
          case 'test_pct':
+            if (+value > 0) freedv_clear_test_arm_timer();
             w3_innerHTML('id-freedv-test-progress', value +'%');
             break;
          case 'test_done':
+            freedv_clear_test_arm_timer();
             var passed = freedv.test_synced && freedv.test_audio;
             freedv.last_test_result = passed? 'test passed':'test failed';
             freedv_stop_ui(true);
@@ -222,7 +225,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.20 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.21 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -235,7 +238,7 @@ function freedv_controls_setup()
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.20 receive decoder</b>'),
+      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.21 receive decoder</b>'),
       w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
       w3_div('w3-small w3-text-light-grey', 'Built with ',
          w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -325,10 +328,28 @@ function freedv_start_ui(testing)
    freedv_apply_receiver_profile();
    ext_send(testing? 'SET freedv_test=1 mode='+ freedv.mode :
       'SET freedv_start=1 mode='+ freedv.mode);
+   if (testing) {
+      freedv_clear_test_arm_timer();
+      freedv.test_arm_timer = setTimeout(function() {
+         if (!freedv.testing) return;
+         freedv.last_test_result = 'test failed';
+         freedv_stop_ui(true);
+         w3_innerHTML('id-freedv-state', freedv.last_test_result);
+         w3_innerHTML('id-freedv-error',
+            'The decoder did not arm the reference signal within 15 seconds. Please retry; if it repeats, check decoder health.');
+      }, 15000);
+   }
+}
+
+function freedv_clear_test_arm_timer()
+{
+   if (freedv.test_arm_timer) clearTimeout(freedv.test_arm_timer);
+   freedv.test_arm_timer = null;
 }
 
 function freedv_stop_ui(send_stop)
 {
+   freedv_clear_test_arm_timer();
    if (send_stop) ext_send('SET freedv_stop');
    freedv.running = false;
    freedv.testing = false;

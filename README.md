@@ -27,8 +27,8 @@ administrator, and is hidden from the selector until both the reviewed build
 and the site opt-in are ready. FreeDV Reporter is an optional, RX-only station
 presence. There is one global FreeDV session.
 
-The tested reference installation runs Kiwi extension `0.1.20` with decoder
-service `0.1.18`. Here and throughout the documentation, **decoder guest** means the
+The tested reference installation runs Kiwi extension `0.1.21` with decoder
+service `0.1.19`. Here and throughout the documentation, **decoder guest** means the
 private Debian VM or unprivileged LXC that performs FreeDV decoding; its local
 hypervisor ID is not part of the architecture. A real browser verified the
 operator-facing features:
@@ -45,6 +45,10 @@ operator-facing features:
   downconverter/transverter frequency offset configured.
 - Test decodes John's bundled 700D recording end to end and reached
   `100% / test passed` with returned Codec2 audio and zero dropped frames.
+- Test readiness uses the authenticated control channel after the camper
+  acknowledgement, avoiding a `Test: 0%` deadlock if early returned status is
+  lost during the monitor-to-sound transition. A 15-second UI timeout reports
+  a clear failure if the reference signal still cannot arm.
 - A normal 700D session reached the external Codec2 backend and published the
   RX-only station on FreeDV Reporter at the receiver's tuned frequency. The
   sidecar also recovered its listing after a forced process restart; Stop

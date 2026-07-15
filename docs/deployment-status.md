@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-15 19:17 UTC (2026-07-16 07:17 NZST)
+Last verified: 2026-07-15 19:58 UTC (2026-07-16 07:58 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,19 +10,19 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-20`
+- active Kiwi release: `freedv-v0-1-21`
 - active Kiwi SHA-256:
-  `418a574fc413696ad2eaac1f35f641301777950a4b6911a3e78cf9d6a23cff43`
-- Kiwi BuildID: `9a700fcd882a9e119e3369e5ad6d0c707812d7c8`
-- immediate Kiwi rollback: `freedv-v0-1-19`
+  `f611eaee14244416688a72d6de4be9291dc60f50752efc9ca927065e1834d253`
+- Kiwi BuildID: `cc89336b7314519721fb02cb425cc3c9297245b7`
+- immediate Kiwi rollback: `freedv-v0-1-20`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
-- decoder-guest release: `0.1.18`
+- decoder-guest release: `0.1.19`
 - decoder binary SHA-256:
-  `1eee6cc920ee36b9fca3bec6eeb87d6ee0a602866e02c74d30ba2328d7acb4bd`
+  `4d72eb78c55feb07d255d1eb9d5c18bcb9c126b13d6a58935aeb310b893d14da`
 - Reporter sidecar SHA-256:
   `ce0a3245a135c88a6f47342a06e6c8167fe957f4b507fd84fdea1dfac9e78328`
-- decoder-guest snapshot: `pre-reporter-v0-1-18`
+- decoder-guest snapshot: `pre-test-race-v0-1-19`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions, Reporter
   disabled
@@ -83,6 +83,45 @@ The deployment preserved v0.1.19 as the immediate atomic rollback and created
 source rollback copy `/root/freedv-rollbacks/20260715T184843Z` before applying
 the overlay. The candidate passed the pinned-source, ordinary-menu,
 optimized-asset, embedded-data and production-ARM checks before activation.
+
+The v0.1.21 pre-change streamed archive is
+`backups/kiwi-config-20260715T193403Z/kiwi.config.tgz`. It contains 39 entries
+and has SHA-256
+`52e68b629928b2f5801a6d4c4571c0b713b765bd313750bac4dd5f070c357dee`.
+The deployment preserved v0.1.20 as the immediate atomic rollback and created
+source rollback copy `/root/freedv-rollbacks/20260715T193603Z` before applying
+the overlay. Decoder snapshot `pre-test-race-v0-1-19` was taken before the
+v0.1.19 service upgrade.
+
+## v0.1.21 deterministic Test handshake
+
+The reported failure was reproduced in a real browser: the panel remained at
+`Test: 0% / State: testing`, the decoder camped and received SND packets, but
+the reference signal never armed and decoded frames remained zero. Repeating
+the decoder's running status alone did not resolve it; 233 status updates were
+sent while the test remained stuck. This proved the failure was a routing race,
+not insufficient decoder CPU.
+
+The first `rev_txt` running status could arrive while Kiwi was still changing
+the connection from MON to SND, before returned-status routing was ready. The
+final handshake now uses the already authenticated job-control path: the first
+response advertises `test_ready=false`; after the decoder processes the camper
+acknowledgement and polls again, Kiwi queues `test_ready=true` and then starts
+the reference recording. Decoder v0.1.19 also repeats running status while
+waiting, and the v0.1.21 panel fails clearly after 15 seconds if arming does not
+begin instead of waiting indefinitely.
+
+Three consecutive real-browser tests then armed in 1.3-2.4 seconds and each
+reached `100% / test passed`, with 85 decoded frames in total, zero dropped
+frames and Reporter disabled. Each completion returned the decoder to zero
+sessions and no camper.
+
+After acceptance, inactive Kiwi releases v0.1.13-v0.1.16 and v0.1.19 were
+archived locally as
+`backups/retired-kiwi-releases-before-v0-1-21-cleanup.tgz` (SHA-256
+`ce231054086c5d96541da9a4570bd5c9a4f96b513cc65b220759846494950bef`)
+and removed from eMMC. The stock baseline, active v0.1.21 and immediate v0.1.20
+rollback remain on the Kiwi; free space increased from 147 MB to 284 MB.
 
 ## v0.1.20 common calling frequencies
 
@@ -208,6 +247,24 @@ Live on-air RADEV1 speech remains to be validated when a suitable transmission
 is available; the codec itself has passed the generated reference waveform.
 
 ## Stability evidence
+
+From 2026-07-15 19:48:41 UTC through 19:58:32 UTC, the Test-race fix completed
+fresh, parallel 41-sample soaks at 15-second intervals:
+
+- Kiwi: 41/41 samples passed with v0.1.21 active, firmware 1.901, healthy
+  service/status/root HTML, no deployment wrappers, zero critical matches and
+  zero `kiwid.service` restarts.
+- Decoder guest: 41/41 samples passed with decoder v0.1.19 connected and
+  healthy, both services active, zero sessions, no camper, Reporter disabled
+  and zero critical matches. Its two restart-count entries occurred during
+  the preceding Kiwi restart/reconnection window and did not increase during
+  the accepted browser tests or soak.
+- Kiwi soak log SHA-256:
+  `e4dd569758479d1c60c470a90a04738b629a0f202038529d852bbcfe32b56672`.
+- Decoder soak log SHA-256:
+  `a4569705d3e1ab42b679c230b2d18a4e78dc77f4efcc6a86b720409390b74382`.
+- Ignored evidence directory:
+  `backups/freedv-test-race-v0-1-21-20260715T194813Z/`.
 
 From 2026-07-15 19:07:20 UTC through 19:17:10 UTC, v0.1.20 completed fresh,
 parallel 41-sample soaks at 15-second intervals:
