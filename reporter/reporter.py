@@ -16,7 +16,7 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.15"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.16"
 
 
 def build_auth(config):
@@ -36,6 +36,7 @@ class ReporterState:
     def __init__(self, config=None):
         self.sessions = {}
         self.last_reports = {}
+        self.revision = 0
         self.config = config or {"enabled": False, "callsign": "", "grid_square": "", "message": ""}
 
     def update(self, event):
@@ -50,7 +51,10 @@ class ReporterState:
         if event["type"] == "stop":
             self.sessions.pop(sid, None)
         else:
-            event["updated"] = time.monotonic()
+            # A monotonic clock may return the same value for back-to-back UDP
+            # updates. A local sequence makes "most recently synced" exact.
+            self.revision += 1
+            event["updated"] = self.revision
             self.sessions[sid] = event
 
     def selected(self):

@@ -29,10 +29,10 @@ int main() {
   assert(!kfd::parse_message_pair("audio_camp=1,0", "camp", pair));
   assert(kfd::parse_message_pair("audio_camp=1,0", "audio_camp", pair) && pair == "1,0");
 
-  const std::string raw = R"({"protocol":2,"generation":9,"running":true,"rx_chan":3,"mode":"700D","input_rate":12000,"frequency_hz":7177000,"test":true})";
+  const std::string raw = R"({"protocol":2,"generation":9,"running":true,"rx_chan":3,"mode":"700D","input_rate":12000,"frequency_hz":7177000,"test":true,"test_ready":false})";
   const auto job = kfd::parse_decoder_job(kfd::url_encode(raw));
   assert(job.running && job.generation == 9 && job.rx_channel == 3 &&
-         job.mode == "700D" && job.test);
+         job.mode == "700D" && job.test && !job.test_ready);
   assert(kfd::url_decode(kfd::url_encode(raw)) == raw);
   const auto stopped = kfd::parse_decoder_job(kfd::url_encode(
       R"({"protocol":2,"generation":10,"running":false})"));
@@ -49,6 +49,9 @@ int main() {
   assert(kfd::classify_job(job, conflict) == kfd::JobDisposition::conflict);
   conflict = job;
   conflict.test = false;
+  assert(kfd::classify_job(job, conflict) == kfd::JobDisposition::conflict);
+  conflict = job;
+  conflict.test_ready = true;
   assert(kfd::classify_job(job, conflict) == kfd::JobDisposition::conflict);
   assert(throws([] { kfd::parse_decoder_job("%7Bbad-json%7D"); }));
   assert(throws([] { kfd::parse_decoder_job(kfd::url_encode(

@@ -50,7 +50,9 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.15", source)
+        self.assertIn(b"FreeDV v0.1.16", source)
+        self.assertIn(b"Built with ", source)
+        self.assertIn(b"https://freedv.org/", source)
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -80,6 +82,8 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("ext_register_receive_real_samps(freedv_test_audio", server)
         self.assertIn('"SET freedv_test=%d mode=%15s"', server)
         self.assertIn('e->test? "true":"false"', server)
+        self.assertIn('\\"test_ready\\":%s', server)
+        self.assertIn("job_.test && !job_.test_ready", DECODER.read_text(encoding="utf-8"))
         self.assertIn('cfg_true("freedv.reporter_enabled") && !e->test', server)
         self.assertIn("freedv_status_running(end + 1)", server)
         self.assertIn("e->test_sample = NULL;", server)
@@ -100,6 +104,15 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("w3_innerHTML('id-freedv-reporter', 'disabled')", browser)
         self.assertIn("freedv.running? (status.reporter || 'disabled') : 'disabled'", browser)
         self.assertIn('{"decoded_frames", job_decoded_frames_}', DECODER.read_text(encoding="utf-8"))
+
+    def test_health_and_watchdog_follow_the_decoder_main_loop(self) -> None:
+        decoder = DECODER.read_text(encoding="utf-8")
+        self.assertIn("main_loop_heartbeat", decoder)
+        self.assertIn("main_loop_age_seconds", decoder)
+        self.assertIn("main loop stalled for", decoder)
+        self.assertIn("_exit(4);", decoder)
+        self.assertIn("http::status::service_unavailable", decoder)
+        self.assertIn("freedv_status_updates_total", decoder)
 
     def test_patch_applies_to_pinned_upstream_when_available(self) -> None:
         upstream = ROOT / "upstream-kiwisdr"

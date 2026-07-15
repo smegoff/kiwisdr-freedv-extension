@@ -4,7 +4,7 @@
 
 External decoding is the production design. The target KiwiSDR 2 runs firmware
 1.901 on a single-core AM335x with about 483 MB RAM and already carries the RF,
-waterfall, receiver and networking workload. CT 112 provides 2 vCPU and 2 GB
+waterfall, receiver and networking workload. CT 112 currently provides 4 vCPU and 2 GB
 RAM, and libcodec2 opened every required legacy mode there. Native decoding
 remains an adapter boundary only.
 
@@ -44,11 +44,14 @@ does not consume an additional receiver.
 Earlier CT measurements processed eight simultaneous 700D test clients for 30
 seconds with zero sequence drops. Mean, p95 and maximum request times were
 1.48, 2.72 and 43.51 ms. Production is nevertheless capped at one session
-until live RF/audio validation is complete. The decoder 0.1.15 Release build exercises
+until live RF/audio validation is complete. The decoder 0.1.16 Release build exercises
 every legacy mode with assertions enabled and includes the exact-token camper
 control regression test. It is now the production CT binary and passed a real
 browser Help, Test, normal Start and Stop cycle with zero dropped frames or
-authentication failures, followed by a 41-sample service soak.
+authentication failures, followed by a 41-sample service soak. A forced process
+hang was recovered automatically in about 33 seconds. Adding CPU cores did not
+address the earlier wait state because its cause was a blocked synchronous
+WebSocket loop, not decoder headroom.
 
 The RADEV1 reference waveform represented about 11.9 seconds of modem audio.
 CT 112 synchronized, produced 181,600 speech samples and completed the decode

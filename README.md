@@ -27,9 +27,11 @@ administrator, and is hidden from the selector until both the reviewed build
 and the site opt-in are ready. FreeDV Reporter is an optional, RX-only station
 presence. There is one global FreeDV session.
 
-The live Kiwi extension and CT 112 decoder service are both `0.1.15`. A real
+The live Kiwi extension and CT 112 decoder service are both `0.1.16`. A real
 browser verified the operator-facing features:
 
+- The panel visibly acknowledges the FreeDV project and links to
+  [freedv.org](https://freedv.org/).
 - Help opens a mode guide covering all seven selectable modes.
 - Test decodes John's bundled 700D recording end to end and reached
   `100% / test passed` with returned Codec2 audio and zero dropped frames.
@@ -40,16 +42,21 @@ browser verified the operator-facing features:
 - RADEV1 appeared only after the admin gate was enabled, started through the
   normal Kiwi camper path with backend `rade-v1`, brought Reporter online, and
   stopped with the camper/session and Reporter presence fully removed.
+- Decoder health now follows the real Kiwi control-loop heartbeat. A wedged
+  WebSocket can no longer look healthy just because a separate watchdog thread
+  is alive; the process exits and systemd reconnects it automatically.
 
 The browser tests were followed by independent 41-sample Kiwi and CT stability
-soaks at 15-second intervals. All 82 checks passed.
+soaks at 15-second intervals. All 82 checks passed. A deliberate decoder hang
+was also recovered automatically in about 33 seconds before the soak.
 
 ## Safety model
 
 - Kiwi firmware remains 1.901 and every candidate is an atomic versioned
   release with automatic service, `/status`, and root-HTML rollback checks.
 - `baseline-1.901` and streamed configuration archives are retained.
-- CT 112 was snapshotted as `pre-radev1-v0-1-15` before the RADEV1 upgrade.
+- CT 112 was snapshotted as `pre-freedv-v0-1-16` before this decoder upgrade;
+  the earlier RADEV1 snapshot is also retained.
 - The shared 256-bit secret exists only in root-readable environment files.
 - CT 112 makes the only decoder connection. There is no browser-facing or
   public decoder listener.

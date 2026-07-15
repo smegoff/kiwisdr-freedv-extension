@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for the current Kiwi extension and decoder service `0.1.15`, and KiwiSDR upstream commit
+written for the current Kiwi extension and decoder service `0.1.16`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation contains defaults for the development installation.
@@ -216,7 +216,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-15-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-16-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -232,8 +232,10 @@ candidate check automatically restores the previous release.
    700E, 2400A, 2400B, 800XA, RADEV1, normal listening and Test mode.
 3. Press **Test**. It forces 700D and feeds John's bundled reference recording
    through the normal Kiwi sound channel, the external decoder and `rev_bin`
-   return path. Require `Test: 100%`, `State: test passed`, backend `codec2`,
-   zero dropped frames and Reporter `disabled`.
+   return path. The v0.1.16 readiness handshake prevents the decoder from
+   consuming live receiver noise before the reference recording is armed.
+   Require `Test: 100%`, `State: test passed`, backend `codec2`, zero dropped
+   frames and Reporter `disabled`.
 4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
    state must reach `running`, backend must read `codec2`, and ordinary
    analogue/static audio must be silent. Decoded PCM is audible only while the

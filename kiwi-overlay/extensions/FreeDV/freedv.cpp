@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.15"
+#define FREEDV_RELEASE "0.1.16"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -66,6 +66,8 @@ static int nonce_position;
 static char shared_secret[192];
 static bool secret_loaded;
 static freedv_test_t test_signal;
+
+bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan);
 
 static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     TYPEMONO16 *samples, int freq_hz)
@@ -302,6 +304,17 @@ static void freedv_set_return_audio(int rx_chan, bool enabled)
     freedv_return_audio(rx_chan, enabled);
 }
 
+static void freedv_ensure_setup(int rx_chan)
+{
+    if (rx_chan < 0 || rx_chan >= rx_chans) return;
+    freedv_t *e = &freedv[rx_chan];
+    if (e->setup) return;
+    ext_register_receive_cmds(freedv_receive_cmds, rx_chan);
+    if (test_signal.sample_count)
+        ext_register_receive_real_samps(freedv_test_audio, rx_chan);
+    e->setup = true;
+}
+
 static void freedv_stop(int rx_chan)
 {
     if (rx_chan < 0 || rx_chan >= rx_chans) return;
@@ -342,6 +355,14 @@ bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan)
         ext_send_msg_encoded(rx_chan, false, "EXT", "error", "invalid decoder status");
         return true;
     }
+    char status[2049];
+    kiwi_strncpy(status, end + 1, sizeof(status));
+    kiwi_str_decode_inplace(status);
+    size_t status_length = strlen(status);
+    if (status_length < 2 || status[0] != '{' || status[status_length-1] != '}') {
+        ext_send_msg_encoded(rx_chan, false, "EXT", "error", "invalid decoded status");
+        return true;
+    }
     e->last_status = timer_sec();
     e->decoder_online = true;
     freedv_set_return_audio(rx_chan, true);
@@ -354,8 +375,10 @@ bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan)
         e->test_last_percent = -1;
         ext_send_msg(rx_chan, false, "EXT state=test-signal-running");
     }
-    // The JSON is already URL encoded by the external decoder.
-    ext_send_msg(rx_chan, false, "EXT status_json=%s", end + 1);
+    // Decode the monitor transport once and let the extension helper perform
+    // the single browser-safe encoding. This follows John's FreeDV/TDoA relay
+    // pattern and avoids passing transport escapes through two subsystems.
+    ext_send_msg_encoded(rx_chan, false, "EXT", "status_json", "%s", status);
     return true;
 }
 
@@ -384,12 +407,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         return true;
     }
     if (strcmp(msg, "SET freedv_setup") == 0) {
-        if (!e->setup) {
-            ext_register_receive_cmds(freedv_receive_cmds, rx_chan);
-            if (test_signal.sample_count)
-                ext_register_receive_real_samps(freedv_test_audio, rx_chan);
-            e->setup = true;
-        }
+        freedv_ensure_setup(rx_chan);
         return true;
     }
 
@@ -409,6 +427,7 @@ bool freedv_msgs(char *msg, int rx_chan)
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv1 is disabled by the administrator");
             return true;
         }
+        freedv_ensure_setup(rx_chan);
         if (active_rx != -1 && active_rx != rx_chan && freedv[active_rx].running) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "FreeDV decoder is already in use");
             return true;
@@ -450,6 +469,7 @@ bool freedv_msgs(char *msg, int rx_chan)
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv1 is disabled by the administrator");
             return true;
         }
+        freedv_ensure_setup(rx_chan);
         if (active_rx != -1 && active_rx != rx_chan && freedv[active_rx].running) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "FreeDV decoder is already in use");
             return true;
@@ -541,11 +561,12 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
         freedv_json_escape(message_j, sizeof(message_j), message);
         kiwi_snprintf_buf(job,
             "{\"protocol\":%d,\"generation\":%u,\"running\":true,\"rx_chan\":%d,"
-            "\"mode\":\"%s\",\"input_rate\":%u,\"frequency_hz\":%llu,\"test\":%s,"
+            "\"mode\":\"%s\",\"input_rate\":%u,\"frequency_hz\":%llu,\"test\":%s,\"test_ready\":%s,"
             "\"reporter\":{\"enabled\":%s,\"callsign\":\"%s\",\"grid\":\"%s\",\"message\":\"%s\"}}",
             FREEDV_PROTOCOL, e->generation, active_rx, e->mode,
             e->input_rate, (unsigned long long) e->frequency_hz,
             e->test? "true":"false",
+            !e->test || e->test_sample? "true":"false",
             cfg_true("freedv.reporter_enabled") && !e->test? "true":"false",
             call_j, grid_j, message_j);
         if (call) cfg_string_free(call);
