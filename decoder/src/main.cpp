@@ -37,7 +37,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.16";
+constexpr char kRelease[] = "0.1.18";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 
 struct Metrics {
@@ -494,7 +494,11 @@ class KiwiCamper {
         reporter_send({{"type", "status"}, {"session_id", job_.generation},
                        {"mode", job_.mode}, {"frequency", job_.frequency_hz},
                        {"sync", decoded.status.synced}, {"snr", decoded.status.snr_db},
-                       {"callsign", decoded.status.callsign}});
+                       {"callsign", decoded.status.callsign},
+                       {"enabled", job_.reporter_enabled},
+                       {"station_callsign", job_.reporter_callsign},
+                       {"grid_square", job_.reporter_grid},
+                       {"message", job_.reporter_message}});
       }
       next_status_ = now + std::chrono::milliseconds(250);
     }

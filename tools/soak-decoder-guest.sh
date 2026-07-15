@@ -5,9 +5,17 @@ vmid=${1:-}
 samples=${2:-41}
 interval=${3:-15}
 evidence_log=${4:-}
+expected_sessions=${5:-0}
+expected_camper=${6:-false}
+expected_reporter=${7:-disabled}
+expected_release=${8:-}
 [[ $vmid =~ ^[1-9][0-9]*$ ]] || {
-  echo "usage: $0 <proxmox-vmid> [samples] [interval-seconds] [evidence-log]" >&2
+  echo "usage: $0 <proxmox-vmid> [samples] [interval-seconds] [evidence-log] [sessions] [camper] [reporter] [release]" >&2
   exit 2
+}
+[[ $expected_sessions =~ ^[0-9]+$ ]] || { echo "sessions must be numeric" >&2; exit 2; }
+[[ $expected_camper == true || $expected_camper == false ]] || {
+  echo "camper must be true or false" >&2; exit 2;
 }
 if [[ -n $evidence_log ]]; then
   [[ ! -e $evidence_log ]] || { echo "evidence log already exists: $evidence_log" >&2; exit 2; }
@@ -32,7 +40,12 @@ for ((sample = 1; sample <= samples; sample++)); do
     "$sample" "$timestamp" "$guest_state" "$services" "$private_port" "$critical" "$health"
 
   [[ $guest_state == running && $services == active,active && $private_port == 1 &&
-     $critical == 0 && $health == *'"status":"ok"'* && $health == *'"sessions":0'* &&
-     $health == *'"kiwi_connected":true'* && $health == *'"camper_connected":false'* &&
-     $health == *'"reporter":"disabled"'* ]]
+     $critical == 0 && $health == *'"status":"ok"'* &&
+     $health == *"\"sessions\":$expected_sessions"* &&
+     $health == *'"kiwi_connected":true'* &&
+     $health == *"\"camper_connected\":$expected_camper"* &&
+     $health == *"\"reporter\":\"$expected_reporter\""* ]]
+  if [[ -n $expected_release ]]; then
+    [[ $health == *"\"release\":\"$expected_release\""* ]]
+  fi
 done

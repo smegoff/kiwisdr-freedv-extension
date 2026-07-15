@@ -35,15 +35,16 @@ rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
 For the reference deployment, the Kiwi release is `freedv-v0-1-16`, the
-decoder guest runs `0.1.16`, and the latest pre-upgrade guest snapshot is
-`pre-freedv-v0-1-16`. Additional earlier snapshots, including
-`pre-radev1-v0-1-15`, remain available. If only
+decoder guest runs `0.1.18`, and the latest pre-upgrade guest snapshot is
+`pre-reporter-v0-1-18`. It contains the accepted v0.1.17 Reporter fix;
+`pre-reporter-v0-1-17`, `pre-freedv-v0-1-16` and
+`pre-radev1-v0-1-15` also remain available. If only
 RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
 Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
 upgrade itself fails, restore the decoder-guest snapshot or retained previous
 binary
 and restart `freedv-decoder.service`. If the Kiwi candidate fails, use the
-immediate `freedv-v0-1-15` release or run
+immediate `freedv-v0-1-15` Kiwi release or run
 `tools/rollback-kiwi-release.sh baseline-1.901` for the stock firmware behavior.
 
 After either rollback, require decoder `/healthz` to show `status=ok`, zero

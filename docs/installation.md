@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for the current Kiwi extension and decoder service `0.1.16`, and KiwiSDR upstream commit
+written for Kiwi extension `0.1.16`, decoder service `0.1.18`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
@@ -293,8 +293,16 @@ listener's identity.
 `Reporter: disabled` is the correct idle display even when the Admin switch is
 enabled. The sidecar creates an RX-only presence only while a normal FreeDV
 session is running. Test mode deliberately never reports. Press **Start** (not
-**Test**) and expect `connecting`, then `online`. Stop or Close must return the
-panel and `/healthz` to `disabled` and remove the presence.
+**Test**) and expect `connecting`, then `online`. `online` means the Reporter
+server has sent its application-level acceptance event, not merely that a
+Socket.IO transport opened. Stop or Close must return the panel and `/healthz`
+to `disabled` and remove the presence.
+
+Open [FreeDV Reporter](https://qso.freedv.org/) and find the exact station
+callsign entered in Admin. The row should say **Receive Only**, show the
+configured locator/message and display the Kiwi's current tuned frequency even
+before a modem synchronizes. The client version belongs to the decoder service,
+so it can be newer than the version shown in the Kiwi extension heading.
 
 Start a FreeDV session and check the panel plus:
 
@@ -308,7 +316,10 @@ from `reporter/requirements.txt` (`python-socketio` plus `aiohttp`). If the
 panel remains `disabled` during a normal running session, first confirm that
 the callsign and locator validate and that the Admin setting was saved. If it
 reports `error`, inspect the sidecar journal and Python dependencies; turning
-Reporter off does not interrupt decoding.
+Reporter off does not interrupt decoding. Decoder v0.1.18 repeats the opt-in
+identity in its private loopback status event, allowing a restarted Reporter
+sidecar to reconstruct the active session and reconnect without a listener
+Stop/Start cycle.
 
 ## 9. Rollback
 

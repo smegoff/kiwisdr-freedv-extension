@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-15 11:43 UTC (2026-07-15 23:43 NZST)
+Last verified: 2026-07-15 15:33 UTC (2026-07-16 03:33 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -17,12 +17,12 @@ guest**.
 - immediate Kiwi rollback: `freedv-v0-1-15`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
-- decoder-guest release: `0.1.16`
+- decoder-guest release: `0.1.18`
 - decoder binary SHA-256:
-  `80f5fde2b1547906600dae8e966cc62c7fe7572a1fca3f5ed893bbdcc635d05b`
+  `1eee6cc920ee36b9fca3bec6eeb87d6ee0a602866e02c74d30ba2328d7acb4bd`
 - Reporter sidecar SHA-256:
-  `ef77f6f346f0a76967dc5afc17b5445e385aca3d068255bc9deaccd7fd4da2be`
-- decoder-guest snapshot: `pre-freedv-v0-1-16`
+  `ce0a3245a135c88a6f47342a06e6c8167fe957f4b507fd84fdea1dfac9e78328`
+- decoder-guest snapshot: `pre-reporter-v0-1-18`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions, Reporter
   disabled
@@ -31,6 +31,28 @@ FreeDV remains visible to ordinary users without developer mode. Only FreeDV
 was removed from `extint.excl_devl`; the other developer extensions remain
 hidden. RADEV1 is separately hidden from the mode selector whenever its Kiwi
 administrator flag is off.
+
+## v0.1.18 Reporter correctness and recovery
+
+The earlier sidecar treated the generic Socket.IO connection callback as proof
+that FreeDV Reporter had accepted the station. The upstream server uses
+`always_connect`, so transport connection can occur before authentication and
+application registration finish. v0.1.18 waits for the server's explicit
+`connection_successful` event; a rejection, disconnect or timeout now becomes
+an error instead of a false `online` state.
+
+Frequency publication no longer waits for modem sync. The current receiver
+frequency is sent as soon as a normal FreeDV session starts; a synchronized
+session still wins selection if multiple sessions are later enabled. Periodic
+private status events now repeat the administrator-owned Reporter settings so
+an independently restarted sidecar reconstructs the session and reconnects.
+No listener name, browser identity or listener address is included.
+
+A real browser and the public Reporter page confirmed the configured RX-only
+station with decoder version `KiwiSDR-FreeDV/0.1.18`, its locator/message and
+`7.0200 MHz`. Restarting `freedv-reporter.service` while the decoder remained
+active restored `online` and the same listing within five seconds. Stop changed
+the panel and health endpoint to `disabled` and removed the public row.
 
 ## Backup and rollback gate
 
@@ -131,6 +153,15 @@ From 2026-07-15 11:32:56 UTC through 11:43:05 UTC:
 
 The ignored local evidence directory is
 `backups/freedv-v0-1-16-20260715T114305Z/`.
+
+Reporter v0.1.18 also completed a separate active-session soak from
+2026-07-15 15:23:42 UTC through 15:33:42 UTC. All 41 samples required and
+observed one camper/session, Reporter `online`, decoder release `0.1.18`, a
+fresh Kiwi heartbeat, both services active and zero critical matches. The
+ignored evidence log contains 41 records and has SHA-256
+`c37486deb8015f5aa8c1c5c7e0d9b1e62746248134365da2f31184de704c50ac`.
+After the soak, Stop returned to zero sessions/un-camped/disabled; both service
+restart counters were zero and the error-priority journal was empty.
 
 ## Follow-up
 

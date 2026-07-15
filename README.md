@@ -27,8 +27,8 @@ administrator, and is hidden from the selector until both the reviewed build
 and the site opt-in are ready. FreeDV Reporter is an optional, RX-only station
 presence. There is one global FreeDV session.
 
-The tested reference installation runs Kiwi extension and decoder service
-`0.1.16`. Here and throughout the documentation, **decoder guest** means the
+The tested reference installation runs Kiwi extension `0.1.16` with decoder
+service `0.1.18`. Here and throughout the documentation, **decoder guest** means the
 private Debian VM or unprivileged LXC that performs FreeDV decoding; its local
 hypervisor ID is not part of the architecture. A real browser verified the
 operator-facing features:
@@ -38,8 +38,10 @@ operator-facing features:
 - Help opens a mode guide covering all seven selectable modes.
 - Test decodes John's bundled 700D recording end to end and reached
   `100% / test passed` with returned Codec2 audio and zero dropped frames.
-- A normal 700D session reached the external Codec2 backend and brought
-  Reporter online; Stop returned it to disabled and removed the presence.
+- A normal 700D session reached the external Codec2 backend and published the
+  RX-only station on FreeDV Reporter at the receiver's tuned frequency. The
+  sidecar also recovered its listing after a forced process restart; Stop
+  returned it to disabled and removed the presence.
 - A running, unsynchronized session owns the Kiwi audio path and receives zero
   PCM instead of analogue/static audio. Stop or Close restores normal audio.
 - RADEV1 appeared only after the admin gate was enabled, started through the
@@ -59,8 +61,9 @@ soak.
 - Kiwi firmware remains 1.901 and every candidate is an atomic versioned
   release with automatic service, `/status`, and root-HTML rollback checks.
 - `baseline-1.901` and streamed configuration archives are retained.
-- The reference decoder guest was snapshotted as `pre-freedv-v0-1-16` before
-  this upgrade; the earlier RADEV1 snapshot is also retained.
+- The reference decoder guest was snapshotted as `pre-reporter-v0-1-18` before
+  the current backend upgrade; the earlier RADEV1 and v0.1.16 snapshots are
+  also retained.
 - The shared 256-bit secret exists only in root-readable environment files.
 - The decoder guest makes the only decoder connection. There is no browser-facing or
   public decoder listener.

@@ -91,4 +91,10 @@ and Reporter state. `/healthz` returns HTTP 503 when the Kiwi control loop is
 disconnected or stale. The in-process watchdog exits after 15 seconds without
 control-loop progress, allowing systemd to replace a wedged process; the
 systemd service watchdog remains a second failure boundary. Reporter events use
-UDP loopback port 8075.
+UDP loopback port 8075. The periodic event repeats the administrator-owned
+Reporter opt-in identity so the sidecar can recover after an independent
+restart. The sidecar reports `online` only after FreeDV Reporter sends
+`connection_successful`; the lower-level Socket.IO connect event is not an
+acceptance signal. An active unsynchronized session publishes its tuned
+frequency immediately, while a synchronized session takes precedence if more
+than one session is supported in the future.

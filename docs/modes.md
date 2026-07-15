@@ -60,7 +60,7 @@ same.
 | libcodec2 backend open/reset smoke test | All seven modes |
 | Browser-to-Kiwi-to-decoder transport acceptance | 700D bundled reference test plus normal no-signal session |
 | Live RF decoded speech | Pending for every mode |
-| Reporter | Verified RX-only online presence during a normal session; callsign reports depend on valid decoded metadata |
+| Reporter | Verified RX-only public presence at the tuned frequency, application-level acceptance, restart recovery and clean removal; received-callsign reports depend on valid decoded metadata |
 | RADEV1 backend | Official portable C adapter; reference WAV synchronized and produced 181,600 speech samples at 16 kHz |
 | RADEV1 transport | Real browser no-signal session reached `running / rade-v1`, one decoder camper/session, zero drops, then cleaned up to zero |
 | RADEV1 live RF decoded speech | Pending a suitable on-air transmission |
