@@ -15,8 +15,11 @@ replace the Kiwi wideband waterfall.
 
 The main view provides:
 
-- Waterfall, spectrum or split display with Cividis, Viridis and greyscale
-  palettes.
+- Waterfall, spectrum or split display with Cividis, Viridis, greyscale and
+  the OpenWebRX Turbo, Classic/teejeez and HA7ILM palettes. The OpenWebRX
+  choices reproduce its current default and two retained historical schemes,
+  as defined in
+  [OpenWebRX's waterfall source](https://github.com/jketterl/openwebrx/blob/640c5b0b3e19b10d823a7ee703f2a683ec848eac/owrx/waterfall.py).
 - Configurable dBFS floor, ceiling, averaging and five- or ten-frame refresh.
 - The nominal modem passband and 1500 Hz centre-frequency overlay.
 - Current session, backend, sync, SNR, frequency offset, callsign/text and

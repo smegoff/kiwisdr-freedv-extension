@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 21:00 UTC (2026-07-17 09:00 NZST)
+Last verified: 2026-07-16 21:35 UTC (2026-07-17 09:35 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -23,7 +23,8 @@ guest**.
 - Reporter sidecar SHA-256:
   `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
 - Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder-guest snapshot: `pre-dashboard-lan-v0-1-21`
+- decoder dashboard assets: `0.1.21-openwebrx-palettes`
+- decoder-guest snapshot: `pre-dashboard-openwebrx-palettes`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
@@ -54,6 +55,20 @@ session and one client. A three-sample active soak advanced the waterfall from
 `enabled (idle)`, and the decoder to zero sessions. A following three-sample
 idle check held at zero sessions, one dashboard client and a stationary
 waterfall sequence. All C++ tests and all 17 Python tests passed.
+
+The following asset-only update adds the exact OpenWebRX Google Turbo default,
+original teejeez/Classic and historical HA7ILM waterfall schemes alongside
+Cividis, Viridis and greyscale. All schemes are expanded once into 256-colour
+lookup tables, so selecting an additional palette does not add interpolation
+work to the live rendering loop.
+
+The assets were activated through the versioned dashboard symlink after a
+decoder-guest snapshot. A real browser exposed all six choices, selected each
+one, retained HA7ILM after reload and continued receiving a live 700D stream.
+The three-sample active check advanced waterfall frames from 1,976 to 2,064
+with zero visualization drops; Stop returned Reporter to `enabled (idle)` and
+the following three idle samples held at zero sessions and a stationary
+waterfall sequence. Eighteen Python tests and the JavaScript syntax check pass.
 
 Extended RADEV1 no-signal testing separately exposed an existing decoder
 main-loop watchdog after roughly nine minutes. The isolated dashboard worker,
@@ -339,8 +354,8 @@ decoder-guest snapshots were removed. The guest now retains only:
 
 - `clean-debian12` - clean operating-system baseline;
 - `pre-radev1-v0-1-15` - architectural checkpoint before RADEV1; and
-- `pre-dashboard-lan-v0-1-21` - immediate rollback for the active token-free
-  dashboard and decoder service.
+- `pre-dashboard-openwebrx-palettes` - immediate rollback for the active
+  OpenWebRX palette assets and decoder service.
 
 The cleanup did not stop or modify the active guest. Post-cleanup checks showed
 both services active, decoder v0.1.19 healthy and connected to the Kiwi, zero
@@ -352,6 +367,8 @@ superseded by `pre-reporter-v0-1-28` and removed.
 After decoder v0.1.21 acceptance, `pre-dashboard-v0-1-20` was superseded by
 `pre-dashboard-lan-v0-1-21` and removed. The Reporter sidecar itself was
 unchanged and remains covered by the new immediate rollback snapshot.
+After the OpenWebRX palette acceptance, `pre-dashboard-lan-v0-1-21` was
+superseded by `pre-dashboard-openwebrx-palettes` and removed.
 Future decoder deployments use the dry-run-first
 `tools/prune-decoder-snapshots.ps1` helper after acceptance and soak testing.
 

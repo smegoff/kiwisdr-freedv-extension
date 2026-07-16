@@ -154,6 +154,8 @@ Decoder service 0.1.21 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.
+The waterfall offers Cividis, Viridis, greyscale and the OpenWebRX Turbo,
+Classic/teejeez and HA7ILM colour schemes.
 See [Decoder diagnostics dashboard](docs/dashboard.md) for installation,
 network security, display options, API framing and troubleshooting.
 
