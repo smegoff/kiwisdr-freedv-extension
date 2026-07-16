@@ -38,7 +38,7 @@ standard audio path. Browsers never connect directly to the decoder guest.
 | Kiwi extension | 0.1.24 | Deployed and browser-tested on KiwiSDR 1.901 |
 | Decoder service | 0.1.19 | Deployed on Debian 12 and stability-soak tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
-| FreeDV Reporter | RX-only | Opt-in; presence, restart recovery and removal tested |
+| FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
 
 The bundled 700D test has passed end to end with returned audio and zero
@@ -158,6 +158,9 @@ The decoder
 guest's Reporter sidecar connects outbound to `qso.freedv.org`; no inbound
 firewall rule is required. Full setup and troubleshooting are in
 [Optional FreeDV Reporter](docs/installation.md#8-optional-freedv-reporter).
+While a normal session is running, the public station row reports the selected
+codec in **RX Mode**. It never sends a TX event, so **TX Mode** correctly remains
+`N/A` for this receive-only integration.
 
 ## RADEV1
 

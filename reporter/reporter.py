@@ -16,8 +16,9 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.24"
-SESSION_TIMEOUT_SECONDS = 3.0
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.28"
+MODE_ACTIVITY_INTERVAL_SECONDS = 10.0
+SESSION_TIMEOUT_SECONDS = 15.0
 
 
 def build_auth(config):
@@ -31,6 +32,24 @@ def build_auth(config):
         "os": "linux",
         "protocol_version": 2,
     }
+
+
+def rx_mode_activity(mode, snr=0.0):
+    """Advertise the selected receive codec without inventing a callsign."""
+    return {"callsign": "", "snr": float(snr), "mode": str(mode or "")}
+
+
+async def publish_rx_selection(sio, frequency, mode, frequency_changed, mode_changed):
+    """Publish frequency before RX mode so the server's frequency reset cannot win a race."""
+    if frequency_changed:
+        await sio.call("freq_change", {"freq": frequency}, timeout=5)
+    if frequency_changed or mode_changed:
+        await sio.emit("rx_report", rx_mode_activity(mode))
+
+
+def mode_activity_due(last_activity, now):
+    """Refresh RX mode periodically because Reporter does not replay last-RX state to new viewers."""
+    return last_activity is None or now - last_activity >= MODE_ACTIVITY_INTERVAL_SECONDS
 
 
 class ReporterState:
@@ -162,13 +181,15 @@ async def main():
     retry_delay, next_retry = 1.0, 0.0
     last_freq = last_mode = last_message = None
     last_rade_activity = 0.0
+    last_mode_activity = None
     write_state("disabled")
 
     async def disconnect(new_state="disabled"):
-        nonlocal last_freq, last_mode, last_message
+        nonlocal last_freq, last_mode, last_message, last_mode_activity
         if sio.connected:
             await sio.disconnect()
         last_freq = last_mode = last_message = None
+        last_mode_activity = None
         write_state(new_state)
 
     while True:
@@ -199,6 +220,7 @@ async def main():
                 await connect_and_wait_for_acceptance(sio, url, build_auth(cfg), timeout=10)
                 retry_delay, next_retry = 1.0, 0.0
                 last_freq = last_mode = last_message = None
+                last_mode_activity = None
                 write_state("online")
             except Exception as exc:
                 label = "rate-limited" if "429" in str(exc) else "error"
@@ -215,10 +237,14 @@ async def main():
             if selected:
                 frequency = int(selected.get("frequency", 0))
                 mode = selected.get("mode", "")
-                if last_mode is not None and mode != last_mode:
-                    await sio.emit("rx_report", {"callsign": "", "snr": 0, "mode": ""})
-                if frequency != last_freq:
-                    await sio.emit("freq_change", {"freq": frequency})
+                now = time.monotonic()
+                frequency_changed = frequency != last_freq
+                mode_changed = mode != last_mode
+                activity_due = mode_activity_due(last_mode_activity, now)
+                await publish_rx_selection(sio, frequency, mode, frequency_changed, mode_changed or activity_due)
+                if frequency_changed or mode_changed or activity_due:
+                    last_mode_activity = now
+                if frequency_changed:
                     last_freq = frequency
                 last_mode = mode
             if cfg.get("message", "") != last_message:
@@ -230,6 +256,7 @@ async def main():
                 freq = int(event.get("frequency", 0))
                 if state.reportable(call, mode, freq):
                     await sio.emit("rx_report", {"callsign": call, "snr": float(event.get("snr", 0)), "mode": mode})
+                    last_mode_activity = time.monotonic()
                 elif mode == "RADEV1" and event.get("sync") and time.monotonic() - last_rade_activity >= 1:
                     await sio.emit("rx_report", {"callsign": "", "snr": float(event.get("snr", 0)), "mode": mode})
                     last_rade_activity = time.monotonic()
