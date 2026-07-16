@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 08:22 UTC (2026-07-16 20:22 NZST)
+Last verified: 2026-07-16 09:13 UTC (2026-07-16 21:13 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,11 +10,11 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-24`
+- active Kiwi release: `freedv-v0-1-26`
 - active Kiwi SHA-256:
-  `4eb96482f50f7b681eb33b77737ea5675061e24ad6585b010083352396b48de6`
-- Kiwi BuildID: `5fb773c54cf14bbbde9c8ca2d55d51fdaee3d300`
-- immediate Kiwi rollback: `freedv-v0-1-23`
+  `e8b5cf7eaf5000d8fe1c20100ec9acb5f17341943d34599358197eb23f8536bc`
+- Kiwi BuildID: `e9df12a4cb46bf672a0ae6d00b33afcad35bfaed`
+- immediate Kiwi rollback: `freedv-v0-1-25`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
 - decoder-guest release: `0.1.19`
@@ -28,6 +28,37 @@ guest**.
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.26 panel spacing and RADEV1 default
+
+The receiver panel continues to inherit Kiwi's native typography (`DejaVu
+Sans`, with Verdana, Geneva and generic sans-serif fallbacks). Its content is
+now grouped into intro, action, tuning, receiver, decoder-status and footer
+sections. The panel adds modest 8-12 px section gaps, 3 px status-row spacing,
+12 x 14 px internal padding and a subtle one-pixel divider above decoder
+status. No independent font or global Kiwi style is introduced.
+
+Kiwi's `w3_*` helpers emit `id-*` style tokens as classes. v0.1.26 therefore
+uses class selectors so both the new layout and the extension's existing aqua
+status-value rules actually apply. RADEV1 is the initial mode when its Admin
+feature gate is on; a Kiwi with RADEV1 disabled automatically falls back to
+700D. The fixed 700D reference Test remains unchanged.
+
+A real browser verified v0.1.26 in the ordinary extension menu, RADEV1 selected
+by default, the native font stack, all computed spacing values and the rendered
+status divider. A RADEV1 session reached backend `rade-v1`, Reporter `online`
+and zero dropped frames. Stop returned Reporter to `enabled (idle)` and the
+decoder guest to zero sessions and no camper. Fourteen Kiwi-overlay tests and
+15 Reporter tests pass. The production binary SHA-256 and BuildID are recorded
+above; v0.1.25 is retained as the immediate atomic rollback.
+
+The post-deployment soak passed 41/41 samples. Every sample reported active
+v0.1.26, firmware 1.901, healthy service/status/root HTML, zero users, zero
+deployment wrappers and zero critical log matches. The pre-change streamed
+configuration archive contains 39 entries and has SHA-256
+`019d115f294d086a537b2b37f6b0a007928ebf69a0b13a5c79876ffcbbb01252`.
+Ignored evidence is stored under
+`backups/freedv-v0-1-26-deployment-20260716T085800Z/`.
 
 ## Reporter v0.1.28 RX codec publication
 
