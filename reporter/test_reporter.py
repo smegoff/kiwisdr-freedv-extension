@@ -2,6 +2,7 @@ import asyncio
 import unittest
 from reporter.reporter import (
     CALLSIGN,
+    CLIENT_VERSION,
     GRID,
     ReporterState,
     build_auth,
@@ -101,6 +102,8 @@ class ReporterTests(unittest.TestCase):
         self.assertEqual(auth["protocol_version"], 2)
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
+        self.assertEqual(auth["version"], CLIENT_VERSION)
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.22")
 
 
 class ReporterConnectionTests(unittest.IsolatedAsyncioTestCase):

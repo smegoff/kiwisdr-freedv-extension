@@ -6,8 +6,11 @@ var freedv = {
    test_available: false,
    test_synced: false,
    test_audio: false,
+   test_armed: false,
    test_arm_timer: null,
+   test_progress_timer: null,
    last_test_result: '',
+   reporter_enabled: false,
    rade_enabled: false,
    mode: '700D',
    calling_index: 0,
@@ -161,6 +164,10 @@ function freedv_recv(data)
             if (freedv.rade_enabled) freedv.modes.push('RADEV1');
             if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
             break;
+         case 'reporter_enabled':
+            freedv.reporter_enabled = (+value != 0);
+            freedv_update_reporter_state();
+            break;
          case 'ready':
             freedv_controls_setup();
             break;
@@ -169,6 +176,8 @@ function freedv_recv(data)
             w3_disable('id-freedv-test', !freedv.test_available);
             break;
          case 'state':
+            if (freedv.testing && value == 'test-signal-running')
+               freedv_test_mark_armed();
             w3_innerHTML('id-freedv-state',
                value == 'stopped' && freedv.last_test_result? freedv.last_test_result : value);
             break;
@@ -177,11 +186,11 @@ function freedv_recv(data)
             w3_innerHTML('id-freedv-state', 'decoded audio');
             break;
          case 'test_pct':
-            if (+value > 0) freedv_clear_test_arm_timer();
+            if (+value > 0) freedv_test_mark_progress();
             w3_innerHTML('id-freedv-test-progress', value +'%');
             break;
          case 'test_done':
-            freedv_clear_test_arm_timer();
+            freedv_clear_test_timers();
             var passed = freedv.test_synced && freedv.test_audio;
             freedv.last_test_result = passed? 'test passed':'test failed';
             freedv_stop_ui(true);
@@ -193,6 +202,8 @@ function freedv_recv(data)
             var status = kiwi_JSON_parse('FreeDV status', decodeURIComponent(value));
             if (!status || status.type != 'status') break;
             freedv.generation = status.generation || 0;
+            if (freedv.testing && status.state == 'running')
+               freedv_test_mark_armed();
             w3_innerHTML('id-freedv-state', status.state || 'running');
             w3_innerHTML('id-freedv-backend', status.backend || 'external');
             w3_innerHTML('id-freedv-sync', status.sync? 'yes':'no');
@@ -208,8 +219,7 @@ function freedv_recv(data)
                (+status.frequency_offset).toFixed(1) +' Hz':'-- Hz');
             w3_innerHTML('id-freedv-text', ((status.callsign || '') +' '+ (status.text || '')).trim());
             w3_innerHTML('id-freedv-dropped', status.dropped || 0);
-            w3_innerHTML('id-freedv-reporter',
-               freedv.running? (status.reporter || 'disabled') : 'disabled');
+            freedv_update_reporter_state(status.reporter);
             if (status.error) w3_innerHTML('id-freedv-error', status.error);
             break;
          case 'error':
@@ -225,7 +235,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.21 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.22 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -238,7 +248,7 @@ function freedv_controls_setup()
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.21 receive decoder</b>'),
+      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.22 receive decoder</b>'),
       w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
       w3_div('w3-small w3-text-light-grey', 'Built with ',
          w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -260,7 +270,8 @@ function freedv_controls_setup()
       w3_div('', 'SNR: ', w3_div('id-freedv-snr w3-show-inline', '-- dB')),
       w3_div('', 'Offset: ', w3_div('id-freedv-foff w3-show-inline', '-- Hz')),
       w3_div('', 'Callsign/text: ', w3_div('id-freedv-text w3-show-inline', '')),
-      w3_div('', 'Reporter: ', w3_div('id-freedv-reporter w3-show-inline', 'disabled')),
+      w3_div('', 'Reporter: ', w3_div('id-freedv-reporter w3-show-inline',
+         freedv.reporter_enabled? 'enabled (idle)':'disabled')),
       w3_div('w3-small', 'Dropped frames: ', w3_div('id-freedv-dropped w3-show-inline', '0')),
       w3_div('id-freedv-error w3-small w3-text-red'),
       w3_link('w3-small', 'https://qso.freedv.org/', 'FreeDV Reporter'));
@@ -316,6 +327,7 @@ function freedv_start_ui(testing)
    freedv.testing = testing;
    freedv.test_synced = false;
    freedv.test_audio = false;
+   freedv.test_armed = false;
    freedv.last_test_result = '';
    w3_button_text('id-freedv-start', 'Stop');
    w3_button_text('id-freedv-test', testing? 'Stop test':'Test',
@@ -324,12 +336,13 @@ function freedv_start_ui(testing)
    w3_disable('id-freedv.calling_index', testing);
    w3_innerHTML('id-freedv-error', '');
    w3_innerHTML('id-freedv-test-progress', testing? '0%':'ready');
+   freedv_update_reporter_state();
    freedv_force_uncompressed_audio();
    freedv_apply_receiver_profile();
    ext_send(testing? 'SET freedv_test=1 mode='+ freedv.mode :
       'SET freedv_start=1 mode='+ freedv.mode);
    if (testing) {
-      freedv_clear_test_arm_timer();
+      freedv_clear_test_timers();
       freedv.test_arm_timer = setTimeout(function() {
          if (!freedv.testing) return;
          freedv.last_test_result = 'test failed';
@@ -341,15 +354,51 @@ function freedv_start_ui(testing)
    }
 }
 
-function freedv_clear_test_arm_timer()
+function freedv_test_mark_armed()
 {
+   if (!freedv.testing || freedv.test_armed) return;
+   freedv.test_armed = true;
    if (freedv.test_arm_timer) clearTimeout(freedv.test_arm_timer);
    freedv.test_arm_timer = null;
+   w3_innerHTML('id-freedv-test-progress', 'armed');
+   freedv.test_progress_timer = setTimeout(function() {
+      if (!freedv.testing) return;
+      freedv.last_test_result = 'test failed';
+      freedv_stop_ui(true);
+      w3_innerHTML('id-freedv-state', freedv.last_test_result);
+      w3_innerHTML('id-freedv-error',
+         'The decoder armed, but Kiwi reference audio did not start within 5 seconds. Please retry; if it repeats, check Kiwi audio health.');
+   }, 5000);
+}
+
+function freedv_test_mark_progress()
+{
+   if (freedv.test_progress_timer) clearTimeout(freedv.test_progress_timer);
+   freedv.test_progress_timer = null;
+}
+
+function freedv_clear_test_timers()
+{
+   if (freedv.test_arm_timer) clearTimeout(freedv.test_arm_timer);
+   if (freedv.test_progress_timer) clearTimeout(freedv.test_progress_timer);
+   freedv.test_arm_timer = null;
+   freedv.test_progress_timer = null;
+}
+
+function freedv_update_reporter_state(status)
+{
+   var value = 'disabled';
+   if (freedv.reporter_enabled) {
+      if (freedv.testing) value = 'enabled (test excluded)';
+      else if (!freedv.running) value = 'enabled (idle)';
+      else value = (!status || status == 'disabled')? 'connecting':status;
+   }
+   if (w3_el('id-freedv-reporter')) w3_innerHTML('id-freedv-reporter', value);
 }
 
 function freedv_stop_ui(send_stop)
 {
-   freedv_clear_test_arm_timer();
+   freedv_clear_test_timers();
    if (send_stop) ext_send('SET freedv_stop');
    freedv.running = false;
    freedv.testing = false;
@@ -357,7 +406,7 @@ function freedv_stop_ui(send_stop)
    w3_button_text('id-freedv-test', 'Test', 'w3-aqua', 'w3-red');
    w3_disable('id-freedv.mode', false);
    w3_disable('id-freedv.calling_index', false);
-   w3_innerHTML('id-freedv-reporter', 'disabled');
+   freedv_update_reporter_state();
    freedv_restore_audio_compression();
 }
 
