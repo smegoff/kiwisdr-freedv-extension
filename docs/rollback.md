@@ -37,8 +37,8 @@ independently.
 For the reference deployment, the Kiwi release is `freedv-v0-1-26`, the
 immediate Kiwi rollback is `freedv-v0-1-25`, the decoder guest runs `0.1.21`,
 and the latest pre-upgrade guest snapshot is
-`pre-dashboard-lan-v0-1-21`, taken immediately before the token-free LAN
-dashboard upgrade. The retained
+`pre-dashboard-openwebrx-palettes`, taken immediately before the OpenWebRX
+palette asset upgrade. The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
 clean operating-system baseline. Superseded per-release snapshots were removed
 after v0.1.21 passed its browser tests and stability soak. If only
