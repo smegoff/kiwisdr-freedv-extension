@@ -3,27 +3,17 @@ set -euo pipefail
 
 samples=${1:-41}
 interval=${2:-15}
-expected_release=${3:-0.1.20}
+expected_release=${3:-0.1.21}
 expected_sessions=${4:-0}
-token_file=${FREEDV_DASHBOARD_TOKEN_FILE:-/etc/freedv-decoder/dashboard.token}
-cookie_jar=/run/freedv-dashboard-soak-cookie.$$
 start_epoch=$(date +%s)
-trap 'rm -f "$cookie_jar"' EXIT
-
-token=$(tr -d '\r\n' < "$token_file")
-login_body=$(printf '{"token":"%s"}' "$token")
-wget -qO /dev/null --save-cookies "$cookie_jar" --keep-session-cookies \
-  --header='Content-Type: application/json' --post-data="$login_body" \
-  http://127.0.0.1:8076/api/v1/login
-unset token login_body
 
 for ((sample = 1; sample <= samples; sample++)); do
   target_epoch=$((start_epoch + (sample - 1) * interval))
   now_epoch=$(date +%s)
   if (( now_epoch < target_epoch )); then sleep $((target_epoch - now_epoch)); fi
   health=$(wget -qO- http://127.0.0.1:8074/healthz)
-  status=$(wget -qO- --load-cookies "$cookie_jar" http://127.0.0.1:8076/api/v1/status)
-  history=$(wget -qO- --load-cookies "$cookie_jar" http://127.0.0.1:8076/api/v1/history)
+  status=$(wget -qO- http://127.0.0.1:8076/api/v1/status)
+  history=$(wget -qO- http://127.0.0.1:8076/api/v1/history)
   history_count=$(printf '%s' "$history" |
     python3 -c 'import json, sys; print(len(json.load(sys.stdin)))')
   unset history

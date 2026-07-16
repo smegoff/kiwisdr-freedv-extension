@@ -3,9 +3,6 @@
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <fftw3.h>
-#include <openssl/crypto.h>
-#include <openssl/rand.h>
-
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -24,7 +21,6 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -47,7 +43,6 @@ namespace {
 constexpr std::size_t kFftSize = 1024;
 constexpr std::size_t kBins = kFftSize / 2;
 constexpr std::size_t kAudioRingSize = 32768;
-constexpr char kCookieName[] = "freedv_dashboard";
 
 std::string env_or(const char* name, const char* fallback) {
   const char* value = std::getenv(name);
@@ -67,29 +62,11 @@ unsigned env_unsigned(const char* name, unsigned fallback, unsigned low, unsigne
   }
 }
 
-std::string trim(std::string value) {
-  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front())))
-    value.erase(value.begin());
-  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back())))
-    value.pop_back();
-  return value;
-}
-
 std::string read_file(const std::string& path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) throw std::runtime_error("unable to read dashboard file: " + path);
   std::ostringstream output;
   output << input.rdbuf();
-  return output.str();
-}
-
-std::string random_hex(std::size_t bytes) {
-  std::vector<unsigned char> raw(bytes);
-  if (RAND_bytes(raw.data(), static_cast<int>(raw.size())) != 1)
-    throw std::runtime_error("unable to generate dashboard session");
-  std::ostringstream output;
-  output << std::hex << std::setfill('0');
-  for (const auto value : raw) output << std::setw(2) << static_cast<unsigned>(value);
   return output.str();
 }
 
@@ -108,28 +85,11 @@ void json_optional(json& output, const char* name, const std::optional<T>& value
   else output[name] = nullptr;
 }
 
-std::string cookie_value(const http::request<http::string_body>& request) {
-  const auto it = request.find(http::field::cookie);
-  if (it == request.end()) return {};
-  std::string cookies = it->value().to_string();
-  std::size_t begin = 0;
-  while (begin < cookies.size()) {
-    const auto end = cookies.find(';', begin);
-    const auto part = trim(cookies.substr(begin, end == std::string::npos ? end : end - begin));
-    const auto equals = part.find('=');
-    if (equals != std::string::npos && part.substr(0, equals) == kCookieName)
-      return part.substr(equals + 1);
-    if (end == std::string::npos) break;
-    begin = end + 1;
-  }
-  return {};
-}
-
 http::response<http::string_body> response(http::status status, unsigned version,
                                            const std::string& content_type,
                                            std::string body) {
   http::response<http::string_body> result{status, version};
-  result.set(http::field::server, "freedv-dashboard/0.1.20");
+  result.set(http::field::server, "freedv-dashboard/0.1.21");
   result.set(http::field::content_type, content_type);
   result.set(http::field::cache_control, "no-store");
   result.set("X-Content-Type-Options", "nosniff");
@@ -210,18 +170,11 @@ DashboardConfig dashboard_config_from_environment() {
   config.bind_address = env_or("FREEDV_DASHBOARD_BIND", "0.0.0.0");
   config.port = static_cast<uint16_t>(
       env_unsigned("FREEDV_DASHBOARD_PORT", 8076, 1024, 65535));
-  config.token_file = env_or("FREEDV_DASHBOARD_TOKEN_FILE",
-                             "/etc/freedv-decoder/dashboard.token");
   config.asset_directory = env_or("FREEDV_DASHBOARD_ASSET_DIR",
                                    "/usr/local/share/freedv-dashboard/current");
   config.history_seconds = env_unsigned("FREEDV_DASHBOARD_HISTORY_SECONDS", 600, 60, 3600);
   config.waterfall_fps = env_unsigned("FREEDV_DASHBOARD_WATERFALL_FPS", 10, 1, 10);
   return config;
-}
-
-bool dashboard_constant_time_equal(const std::string& left, const std::string& right) {
-  return left.size() == right.size() && !left.empty() &&
-         CRYPTO_memcmp(left.data(), right.data(), left.size()) == 0;
 }
 
 std::vector<uint8_t> dashboard_fft_frame(const int16_t* samples, std::size_t count,
@@ -244,7 +197,6 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
   std::atomic<uint64_t> spectrum_drops{0};
   std::atomic<uint64_t> waterfall_frames{0};
   std::atomic<uint64_t> dashboard_clients{0};
-  std::atomic<uint64_t> login_failures{0};
   std::vector<int16_t> audio;
   std::atomic<uint32_t> audio_rate{12000};
   std::thread server_thread;
@@ -258,10 +210,6 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
   std::mutex state_mutex;
   json session = {{"active", false}};
   std::deque<json> history;
-  std::mutex auth_mutex;
-  std::unordered_map<std::string, std::chrono::steady_clock::time_point> sessions;
-  std::unordered_map<std::string, std::deque<std::chrono::steady_clock::time_point>> failures;
-  std::string access_token;
   std::string index_html;
   std::string app_js;
   std::string styles_css;
@@ -274,11 +222,10 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
     }
     const auto queued = audio_write.load(std::memory_order_acquire) -
                         audio_read.load(std::memory_order_acquire);
-    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.20"},
+    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.21"},
                             {"clients", dashboard_clients.load()},
                             {"waterfall_frames", waterfall_frames.load()},
                             {"spectrum_drops", spectrum_drops.load()},
-                            {"login_failures", login_failures.load()},
                             {"audio_queue_ms", audio_rate.load() ?
                                 queued * 1000.0 / audio_rate.load() : 0.0}};
     return output;
@@ -289,83 +236,7 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
     return history;
   }
 
-  bool authenticated(const http::request<http::string_body>& request) {
-    const auto value = cookie_value(request);
-    if (value.empty()) return false;
-    const auto now = std::chrono::steady_clock::now();
-    std::lock_guard<std::mutex> lock(auth_mutex);
-    for (auto it = sessions.begin(); it != sessions.end();) {
-      if (it->second <= now) it = sessions.erase(it); else ++it;
-    }
-    const auto it = sessions.find(value);
-    return it != sessions.end() && it->second > now;
-  }
-
-  bool rate_limited(const std::string& address) {
-    const auto now = std::chrono::steady_clock::now();
-    std::lock_guard<std::mutex> lock(auth_mutex);
-    auto& values = failures[address];
-    while (!values.empty() && now - values.front() > std::chrono::minutes(1)) values.pop_front();
-    return values.size() >= 5;
-  }
-
-  void record_failure(const std::string& address) {
-    std::lock_guard<std::mutex> lock(auth_mutex);
-    failures[address].push_back(std::chrono::steady_clock::now());
-    login_failures++;
-  }
-
-  void login(tcp::socket& socket, const http::request<http::string_body>& request) {
-    const auto address = socket.remote_endpoint().address().to_string();
-    if (rate_limited(address)) {
-      auto result = response(http::status::too_many_requests, request.version(),
-                             "application/json", "{\"error\":\"rate-limited\"}\n");
-      result.set(http::field::retry_after, "60");
-      http::write(socket, result);
-      return;
-    }
-    std::string supplied;
-    try { supplied = json::parse(request.body()).value("token", ""); } catch (...) {}
-    if (!dashboard_constant_time_equal(supplied, access_token)) {
-      record_failure(address);
-      write_response(socket, response(http::status::unauthorized, request.version(),
-                                      "application/json", "{\"error\":\"invalid-login\"}\n"));
-      return;
-    }
-    const auto id = random_hex(32);
-    {
-      std::lock_guard<std::mutex> lock(auth_mutex);
-      sessions[id] = std::chrono::steady_clock::now() +
-                     std::chrono::seconds(config.session_lifetime_seconds);
-      failures.erase(address);
-    }
-    auto result = response(http::status::ok, request.version(), "application/json",
-                           "{\"status\":\"ok\"}\n");
-    result.set(http::field::set_cookie, std::string(kCookieName) + "=" + id +
-               "; HttpOnly; SameSite=Strict; Path=/; Max-Age=" +
-               std::to_string(config.session_lifetime_seconds));
-    http::write(socket, result);
-  }
-
-  void logout(tcp::socket& socket, const http::request<http::string_body>& request) {
-    const auto value = cookie_value(request);
-    {
-      std::lock_guard<std::mutex> lock(auth_mutex);
-      sessions.erase(value);
-    }
-    auto result = response(http::status::ok, request.version(), "application/json",
-                           "{\"status\":\"ok\"}\n");
-    result.set(http::field::set_cookie, std::string(kCookieName) +
-               "=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
-    http::write(socket, result);
-  }
-
   void websocket_stream(tcp::socket socket, http::request<http::string_body> request) {
-    if (!authenticated(request)) {
-      write_response(socket, response(http::status::unauthorized, request.version(),
-                                      "application/json", "{\"error\":\"unauthorized\"}\n"));
-      return;
-    }
     beast::tcp_stream stream(std::move(socket));
     websocket::stream<beast::tcp_stream> ws(std::move(stream));
     ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
@@ -416,21 +287,12 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
         websocket_stream(std::move(socket), std::move(request));
         return;
       }
-      if (target == "/api/v1/login" && request.method() == http::verb::post) {
-        login(socket, request);
-      } else if (target == "/api/v1/logout" && request.method() == http::verb::post) {
-        if (authenticated(request)) logout(socket, request);
-        else write_response(socket, response(http::status::unauthorized, request.version(),
-                                             "application/json", "{\"error\":\"unauthorized\"}\n"));
-      } else if (target == "/" || target == "/index.html") {
+      if (target == "/" || target == "/index.html") {
         write_response(socket, response(http::status::ok, request.version(), "text/html; charset=utf-8", index_html));
       } else if (target == "/app.js") {
         write_response(socket, response(http::status::ok, request.version(), "text/javascript; charset=utf-8", app_js));
       } else if (target == "/styles.css") {
         write_response(socket, response(http::status::ok, request.version(), "text/css; charset=utf-8", styles_css));
-      } else if (!authenticated(request)) {
-        write_response(socket, response(http::status::unauthorized, request.version(),
-                                        "application/json", "{\"error\":\"unauthorized\"}\n"));
       } else if (target == "/api/v1/status" && request.method() == http::verb::get) {
         write_response(socket, response(http::status::ok, request.version(), "application/json",
                                         status_json().dump() + "\n"));
@@ -518,10 +380,6 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
 
   void start() {
     if (!config.enabled || started.exchange(true)) return;
-    access_token = trim(read_file(config.token_file));
-    if (access_token.size() != 64 || !std::all_of(access_token.begin(), access_token.end(),
-        [](unsigned char c) { return std::isxdigit(c); }))
-      throw std::runtime_error("dashboard token must contain 64 hexadecimal characters");
     index_html = read_file(config.asset_directory + "/index.html");
     app_js = read_file(config.asset_directory + "/app.js");
     styles_css = read_file(config.asset_directory + "/styles.css");

@@ -66,8 +66,8 @@ browser                 KiwiSDR                       decoder guest
 ```
 
 The Kiwi remains the only public receiver endpoint. The decoder's health
-endpoint binds to `127.0.0.1:8074`. The authenticated read-only diagnostics
-dashboard binds to management port 8076 and must be limited to the
+endpoint binds to `127.0.0.1:8074`. The read-only diagnostics dashboard binds
+to management port 8076, has no application login, and must be limited to the
 administration LAN. Reporter, when the owner explicitly enables it, makes a
 separate outbound HTTPS/Socket.IO connection to `qso.freedv.org`.
 

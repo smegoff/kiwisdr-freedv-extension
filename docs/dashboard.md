@@ -1,6 +1,6 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.20 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.21 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
@@ -33,7 +33,7 @@ values. The terminology follows the
 [FreeDV GUI statistics window](https://github.com/drowe67/freedv-gui/blob/master/USER_MANUAL.md#stats-window),
 and the overlay follows the [FreeDV signal specifications](https://freedv.org/freedv-specification/).
 
-## Access and authentication
+## Access and network boundary
 
 Open:
 
@@ -42,24 +42,17 @@ http://freedv-decoder.local:8076/
 ```
 
 Use the decoder guest's private address if local name resolution is not
-configured. Retrieve the generated key interactively as root:
-
-```bash
-sudo sh -c 'read -r key </etc/freedv-decoder/dashboard.token; printf "Dashboard access key: "; printf "%s\n" "$key"'
-```
-
-The installer never prints the key. It creates the file once as
-`root:freedv 0640`, and upgrades preserve it. The key is independent of the
-Kiwi decoder-control secret. A successful login creates an eight-hour
-HttpOnly, SameSite-Strict cookie. Five failed attempts from one source within a
-minute are rate-limited.
+configured. There is no dashboard login or access key. Any host that can reach
+TCP 8076 can view the read-only diagnostics, so the network firewall is the
+access-control boundary.
 
 Port 8076 must be permitted only from the administration CIDR. Do not add a
 public port-forward. Port 8074 remains loopback-only for `/healthz` and
 `/metrics`. The dashboard deliberately sends no CORS header and loads no CDN,
 external font, analytics or other third-party resource.
 
-> Plain HTTP is acceptable only on a trusted, private management LAN. Use a
+> No application authentication is provided. Plain HTTP is acceptable only on
+> a trusted, private management LAN. Use a
 > private reverse proxy with TLS if the management network is not trusted; do
 > not expose the daemon directly to the internet.
 
@@ -99,15 +92,14 @@ followed by 512 unsigned bins mapping -120 to 0 dBFS:
 
 The management listener provides:
 
-- `POST /api/v1/login`
-- `POST /api/v1/logout`
 - `GET /api/v1/status`
 - `GET /api/v1/history`
 - WebSocket `/api/v1/stream`
 
-Status, history and WebSocket requests require the session cookie. Unknown
-paths, including traversal attempts, are rejected. APIs never return the
-dashboard key, decoder-control secret, Reporter credentials or Kiwi password.
+Status, history and WebSocket requests are available to any source admitted by
+the management firewall. Unknown paths, including traversal attempts, are
+rejected. APIs never return the decoder-control secret, Reporter credentials or
+Kiwi password.
 
 ## Troubleshooting
 
@@ -131,5 +123,5 @@ decoder guest. Pass `1` as the final argument for an active session or `0` for
 idle cleanup:
 
 ```bash
-sudo ./tools/soak-dashboard.sh 41 15 0.1.20 1
+sudo ./tools/soak-dashboard.sh 41 15 0.1.21 1
 ```

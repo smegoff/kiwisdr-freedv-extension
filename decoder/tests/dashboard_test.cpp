@@ -88,10 +88,6 @@ int main() {
   assert(multi_frame[16 + 64] > 205);
   assert(multi_frame[16 + 192] > 205);
 
-  assert(kfd::dashboard_constant_time_equal(std::string(64, 'a'), std::string(64, 'a')));
-  assert(!kfd::dashboard_constant_time_equal(std::string(64, 'a'), std::string(64, 'b')));
-  assert(!kfd::dashboard_constant_time_equal("", ""));
-
   bool rejected = false;
   try { (void)kfd::dashboard_fft_frame(tone.data(), 100, sample_rate, 1, 0); }
   catch (const std::invalid_argument&) { rejected = true; }
@@ -100,8 +96,6 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("freedv-dashboard-test-" + std::to_string(getpid()));
   std::filesystem::create_directories(root);
-  const std::string token(64, 'a');
-  std::ofstream(root / "token") << token << '\n';
   std::ofstream(root / "index.html") << "<!doctype html><title>FreeDV Decoder Diagnostics</title>";
   std::ofstream(root / "app.js") << "'use strict';";
   std::ofstream(root / "styles.css") << "body{color:white}";
@@ -109,11 +103,9 @@ int main() {
   kfd::DashboardConfig config;
   config.bind_address = "127.0.0.1";
   config.port = static_cast<uint16_t>(19000 + getpid() % 1000);
-  config.token_file = (root / "token").string();
   config.asset_directory = root.string();
   config.history_seconds = 60;
   config.waterfall_fps = 10;
-  config.session_lifetime_seconds = 2;
   config.websocket_heartbeat_seconds = 1;
   kfd::Dashboard dashboard(config, [] {
     return nlohmann::json{{"release", "test"}, {"kiwi_connected", true},
@@ -132,19 +124,7 @@ int main() {
   dashboard.push_audio(tone.data(), tone.size(), sample_rate);
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
-  auto denied = request(config.port, http::verb::get, "/api/v1/status");
-  assert(denied.result() == http::status::unauthorized);
-  auto login = request(config.port, http::verb::post, "/api/v1/login",
-                       std::string("{\"token\":\"") + token + "\"}");
-  assert(login.result() == http::status::ok);
-  const std::string set_cookie = login[http::field::set_cookie].to_string();
-  assert(set_cookie.find("HttpOnly") != std::string::npos);
-  assert(set_cookie.find("SameSite=Strict") != std::string::npos);
-  assert(set_cookie.find("Max-Age=2") != std::string::npos);
-  const auto semicolon = set_cookie.find(';');
-  const std::string cookie = set_cookie.substr(0, semicolon);
-
-  auto current = request(config.port, http::verb::get, "/api/v1/status", {}, cookie);
+  auto current = request(config.port, http::verb::get, "/api/v1/status");
   assert(current.result() == http::status::ok);
   const auto current_json = nlohmann::json::parse(current.body());
   assert(current_json["session"]["mode"] == "700D");
@@ -152,18 +132,18 @@ int main() {
   assert(current_json["dashboard"]["waterfall_frames"].get<uint64_t>() > 0);
   std::vector<int16_t> overflow(40000, 0);
   dashboard.push_audio(overflow.data(), overflow.size(), sample_rate);
-  auto overflow_status = request(config.port, http::verb::get, "/api/v1/status", {}, cookie);
+  auto overflow_status = request(config.port, http::verb::get, "/api/v1/status");
   assert(nlohmann::json::parse(overflow_status.body())["dashboard"]["spectrum_drops"]
              .get<uint64_t>() >= overflow.size());
-  auto traversal = request(config.port, http::verb::get, "/../../etc/passwd", {}, cookie);
+  auto traversal = request(config.port, http::verb::get, "/../../etc/passwd");
   assert(traversal.result() == http::status::not_found);
+  auto removed_login = request(config.port, http::verb::post, "/api/v1/login",
+                               "{\"token\":\"unused\"}");
+  assert(removed_login.result() == http::status::not_found);
 
   asio::io_context ws_ioc;
   websocket::stream<tcp::socket> ws(ws_ioc);
   ws.next_layer().connect({asio::ip::make_address("127.0.0.1"), config.port});
-  ws.set_option(websocket::stream_base::decorator([&cookie](websocket::request_type& req) {
-    req.set(http::field::cookie, cookie);
-  }));
   ws.handshake("127.0.0.1", "/api/v1/stream");
   beast::flat_buffer ws_buffer;
   ws.read(ws_buffer);
@@ -173,33 +153,8 @@ int main() {
   ws.write(asio::buffer(std::string("ack")));
   beast::get_lowest_layer(ws).close();
   std::this_thread::sleep_for(std::chrono::milliseconds(1200));
-  auto after_disconnect = request(config.port, http::verb::get,
-                                  "/api/v1/status", {}, cookie);
+  auto after_disconnect = request(config.port, http::verb::get, "/api/v1/status");
   assert(nlohmann::json::parse(after_disconnect.body())["dashboard"]["clients"] == 0);
-
-  auto logged_out = request(config.port, http::verb::post, "/api/v1/logout", {}, cookie);
-  assert(logged_out.result() == http::status::ok);
-  auto after_logout = request(config.port, http::verb::get, "/api/v1/status", {}, cookie);
-  assert(after_logout.result() == http::status::unauthorized);
-
-  auto expiring_login = request(config.port, http::verb::post, "/api/v1/login",
-                                std::string("{\"token\":\"") + token + "\"}");
-  const std::string expiring_set_cookie =
-      expiring_login[http::field::set_cookie].to_string();
-  const std::string expiring_cookie =
-      expiring_set_cookie.substr(0, expiring_set_cookie.find(';'));
-  std::this_thread::sleep_for(std::chrono::milliseconds(2100));
-  auto expired = request(config.port, http::verb::get, "/api/v1/status", {}, expiring_cookie);
-  assert(expired.result() == http::status::unauthorized);
-
-  for (int i = 0; i < 5; i++) {
-    auto bad = request(config.port, http::verb::post, "/api/v1/login",
-                       "{\"token\":\"wrong\"}");
-    assert(bad.result() == http::status::unauthorized);
-  }
-  auto limited = request(config.port, http::verb::post, "/api/v1/login",
-                         "{\"token\":\"wrong\"}");
-  assert(limited.result() == http::status::too_many_requests);
   dashboard.stop();
   std::filesystem::remove_all(root);
   return 0;

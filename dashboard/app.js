@@ -29,27 +29,9 @@ function applySettings() {
 
 async function api(path, options={}) {
   const response = await fetch(path, Object.assign({cache:"no-store"}, options));
-  if (response.status === 401) { showLogin(); throw new Error("unauthorized"); }
   if (!response.ok) throw new Error(`request failed: ${response.status}`);
   return response.json();
 }
-
-function showLogin(message="") {
-  $("dashboard").hidden = true; $("login").hidden = false; $("login-error").textContent = message;
-  if (socket) { socket.close(); socket = null; }
-}
-function showDashboard() { $("login").hidden = true; $("dashboard").hidden = false; applySettings(); connectStream(); }
-
-async function login(event) {
-  event.preventDefault();
-  try {
-    const response = await fetch("/api/v1/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({token:$("access-key").value})});
-    if (!response.ok) { showLogin(response.status === 429 ? "Too many attempts. Wait one minute." : "Invalid access key."); return; }
-    $("access-key").value = ""; showDashboard(); await refresh();
-  } catch (error) { showLogin("Dashboard is unavailable."); }
-}
-
-async function logout() { try { await fetch("/api/v1/logout", {method:"POST"}); } finally { showLogin(); } }
 
 function badge(id, text, tone) { const el=$(id); el.textContent=text; el.className=`badge ${tone}`; }
 
@@ -82,18 +64,17 @@ function renderStats(id, source, fields) { const target=$(id); target.textConten
 function addStat(id,label,value) { const item=document.createElement("div"); item.className="stat"; const name=document.createElement("span"); name.textContent=label; const val=document.createElement("strong"); val.textContent=value == null ? "Not available" : typeof value === "number" && !Number.isInteger(value) ? value.toFixed(2) : value; item.append(name,val); $(id).append(item); }
 
 async function refresh() {
-  if ($("dashboard").hidden) return;
   try { const [status,history] = await Promise.all([api("/api/v1/status"),api("/api/v1/history")]); updateStatus(status); historyData=history; drawHistory(); }
-  catch (error) { if (error.message !== "unauthorized") badge("health-badge","Dashboard unavailable","bad"); }
+  catch (error) { badge("health-badge","Dashboard unavailable","bad"); }
 }
 
 function connectStream() {
-  if (socket || $("dashboard").hidden) return;
+  if (socket) return;
   const scheme=location.protocol === "https:" ? "wss" : "ws";
   socket=new WebSocket(`${scheme}://${location.host}/api/v1/stream`); socket.binaryType="arraybuffer";
   socket.onopen=()=>{reconnectDelay=1000;};
   socket.onmessage=event=>{if(socket?.readyState===WebSocket.OPEN)socket.send("ack");if(event.data instanceof ArrayBuffer&&!paused&&!document.hidden)consumeFrame(event.data);};
-  socket.onclose=()=>{socket=null; if(!$("dashboard").hidden) setTimeout(connectStream,reconnectDelay); reconnectDelay=Math.min(reconnectDelay*2,10000);};
+  socket.onclose=()=>{socket=null; setTimeout(connectStream,reconnectDelay); reconnectDelay=Math.min(reconnectDelay*2,10000);};
 }
 
 function consumeFrame(buffer) {
@@ -125,12 +106,13 @@ function drawHistory() { if(!historyData.length)return; const cutoff=Date.now()-
 function drawLine(canvas,values,stroke) { const {w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#151a21";ctx.fillRect(0,0,w,h);if(values.length<2)return;let min=Math.min(...values),max=Math.max(...values);if(min===max){min-=1;max+=1;}ctx.strokeStyle="#35404d";ctx.lineWidth=dpr;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.strokeStyle=stroke;ctx.beginPath();values.forEach((v,i)=>{const x=i*w/(values.length-1),y=h-(v-min)/(max-min)*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); }
 function clearPlots() { for(const id of ["waterfall","spectrum","snr-chart","offset-chart"]){const c=$(id),ctx=c.getContext("2d");ctx.fillStyle="#0c0f13";ctx.fillRect(0,0,c.width,c.height);} averageBins=null; }
 
-$("login-form").addEventListener("submit",login); $("logout").addEventListener("click",logout);
 for(const key of ["view","palette","floor","ceiling","averaging","fps"]){$(key).value=settings[key];$(key).addEventListener("change",e=>{settings[key]=key==="floor"||key==="ceiling"||key==="averaging"||key==="fps"?+e.target.value:e.target.value;saveSettings();});}
 $("overlay").checked=settings.overlay;$("overlay").addEventListener("change",e=>{settings.overlay=e.target.checked;saveSettings();});
 $("history-window").value=settings.history;$("history-window").addEventListener("change",e=>{settings.history=+e.target.value;saveSettings();});
 $("pause").addEventListener("click",()=>{paused=!paused;$("pause").textContent=paused?"Resume":"Pause";}); $("clear").addEventListener("click",clearPlots);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)drawHistory();}); window.addEventListener("resize",()=>{drawHistory();});
 
-api("/api/v1/status").then(data=>{showDashboard();updateStatus(data);refresh();}).catch(()=>showLogin());
+applySettings();
+connectStream();
+refresh();
 setInterval(refresh,1000);
