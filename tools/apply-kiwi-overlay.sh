@@ -67,6 +67,15 @@ fi
   echo "unexpected FreeDV monitor command integration" >&2; exit 3
 }
 
+status_relay_marker='if (freedv_receive_cmds(CMD_NO_KEY, cmd, camped_rx)) continue;'
+if ! grep -Fq "$status_relay_marker" "$kiwi/rx/rx_monitor.cpp"; then
+  patch -d "$kiwi" -p1 --batch --forward < \
+    "$src/kiwi-overlay/patches/0004-freedv-direct-status-relay.patch"
+fi
+[[ $(grep -Fc "$status_relay_marker" "$kiwi/rx/rx_monitor.cpp") == 1 ]] || {
+  echo "unexpected FreeDV direct status relay integration" >&2; exit 3
+}
+
 sound_gate_marker='bool c2s_sound_mon(int rx_chan, int bytes)'
 if ! grep -Fq "$sound_gate_marker" "$kiwi/rx/rx_sound.cpp"; then
   patch -d "$kiwi" -p1 --batch --forward < \

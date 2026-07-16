@@ -1,0 +1,14 @@
+diff --git a/rx/rx_monitor.cpp b/rx/rx_monitor.cpp
+index 4a81d42..922d49b 100644
+--- a/rx/rx_monitor.cpp
++++ b/rx/rx_monitor.cpp
+@@ -239,3 +239,9 @@ void c2s_mon(void *param)
++                // FreeDV owns rev_txt on this authenticated camper transport.
++                // Route it directly so the relay remains stable even if a
++                // receiver connection callback changes during camping.
++                if (freedv_receive_cmds(CMD_NO_KEY, cmd, camped_rx)) continue;
++
++                // Fallback for any future non-FreeDV reverse-text consumer.
+                 // NB: conn of the camped channel
+                 conn_t *conn = rx_channels[camped_rx].conn;
+                 if (conn && conn->ext_cmd != NULL) {

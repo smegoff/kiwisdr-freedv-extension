@@ -95,6 +95,14 @@ class ReporterTests(unittest.TestCase):
         self.assertEqual(state.config["callsign"], "ZL2ABC")
         self.assertEqual(state.selected()["frequency"], 7177000)
 
+    def test_stale_session_expires_when_stop_datagram_is_lost(self):
+        state = ReporterState()
+        state.update({"type": "status", "session_id": 1, "sync": False,
+                      "frequency": 7177000, "mode": "700D"}, now=10.0)
+        self.assertFalse(state.expire_stale(now=12.9))
+        self.assertTrue(state.expire_stale(now=13.1))
+        self.assertIsNone(state.selected())
+
     def test_reporter_auth_is_strictly_receive_only(self):
         auth = build_auth({"callsign": "ZL2ABC", "grid_square": "RF80AA"})
         self.assertEqual(auth["role"], "report_wo")
@@ -103,7 +111,7 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
         self.assertEqual(auth["version"], CLIENT_VERSION)
-        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.22")
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.24")
 
 
 class ReporterConnectionTests(unittest.IsolatedAsyncioTestCase):
