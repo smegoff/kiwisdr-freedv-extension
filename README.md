@@ -35,7 +35,7 @@ standard audio path. Browsers never connect directly to the decoder guest.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.22 | Deployed and browser-tested on KiwiSDR 1.901 |
+| Kiwi extension | 0.1.23 | Deployed and browser-tested on KiwiSDR 1.901 |
 | Decoder service | 0.1.19 | Deployed on Debian 12 and stability-soak tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only | Opt-in; presence, restart recovery and removal tested |

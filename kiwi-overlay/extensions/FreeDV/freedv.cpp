@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.22"
+#define FREEDV_RELEASE "0.1.23"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 

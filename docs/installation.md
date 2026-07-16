@@ -2,8 +2,8 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.22`, decoder service `0.1.19`, and KiwiSDR upstream commit
-`417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
+written for Kiwi extension `0.1.23`, decoder service `0.1.19`, and KiwiSDR
+upstream commit `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
 template, MAC address and SSH host key as explicit parameters. The Proxmox
@@ -227,7 +227,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-22-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-23-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -243,9 +243,9 @@ candidate check automatically restores the previous release.
    700E, 2400A, 2400B, 800XA, RADEV1, normal listening and Test mode.
 3. Press **Test**. It forces 700D and feeds John's bundled reference recording
    through the normal Kiwi sound channel, the external decoder and `rev_bin`
-   return path. The v0.1.22 readiness acknowledgement prevents a slow camper
-   start from being reported as an unarmed decoder and separately detects a
-   stalled Kiwi reference-audio path.
+   return path. The readiness acknowledgement included in v0.1.23 prevents a
+   slow camper start from being reported as an unarmed decoder and separately
+   detects a stalled Kiwi reference-audio path.
    Require `Test: 100%`, `State: test passed`, backend `codec2`, zero dropped
    frames and Reporter `enabled (test excluded)` when Reporter is opted in.
 4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
