@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 01:21 UTC (2026-07-16 13:21 NZST)
+Last verified: 2026-07-16 02:09 UTC (2026-07-16 14:09 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -50,6 +50,27 @@ decoder service was unchanged for this Help-only release, so its retained
 snapshot set was left unchanged. The post-deployment idle soak passed 41/41
 Kiwi samples and 41/41 decoder-guest samples with no service failures, critical
 log matches, sessions, campers or orphan deployment wrappers.
+
+## Kiwi storage cleanup
+
+The Kiwi eMMC cleanup on 2026-07-16 reduced filesystem use from 94% to 80%,
+increasing available space from 226 MiB to 683 MiB. Before deletion, the active
+v0.1.23 binary, immediate v0.1.22 rollback and stock 1.901 baseline were checked
+against their recorded SHA-256 values. The same checks passed after cleanup.
+
+The cleanup removed superseded v0.1.20 and v0.1.21 release binaries, obsolete
+FreeDV staging and transfer directories, two sparse core files and a temporary
+configuration archive whose SHA-256 exactly matched the verified local backup.
+It retained the current release, immediate rollback, stock baseline, Kiwi
+source tree, build tree, configuration, rollback archive and deployment
+evidence.
+
+Persistent system journal use was reduced from 352 MiB to 64 MiB and capped at
+64 MiB with 256 MiB reserved free. `/tmp` fell from 113 MiB to 112 KiB. Five
+post-cleanup receiver samples verified the service, root page, Admin page,
+`/status`, firmware version and zero-listener state. Decoder health remained
+OK with zero sessions and no camper. The ignored operational manifest is stored
+under `backups/kiwi-storage-cleanup-20260716T020214Z/`.
 
 ## v0.1.22 Test and Reporter state reliability
 
