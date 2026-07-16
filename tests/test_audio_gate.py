@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.22", source)
+        self.assertIn(b"FreeDV v0.1.23", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
 
@@ -64,6 +64,15 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("return true;", help_callback.group(1))
         for mode in ("1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1"):
             self.assertIn(mode, help_callback.group(1))
+        self.assertIn("calling_frequencies.slice(1)", help_callback.group(1))
+        self.assertIn("join('<br>')", help_callback.group(1))
+        self.assertIn("FARGAN", help_callback.group(1))
+        self.assertIn("8 kHz modem audio", help_callback.group(1))
+        self.assertIn("16 kHz decoded speech", help_callback.group(1))
+        self.assertIn(
+            "https://github.com/smegoff/kiwisdr-freedv-extension",
+            help_callback.group(1),
+        )
 
     def test_receiver_sideband_and_mode_filter_profiles(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")

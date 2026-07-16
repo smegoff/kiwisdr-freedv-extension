@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 00:29 UTC (2026-07-16 12:29 NZST)
+Last verified: 2026-07-16 01:21 UTC (2026-07-16 13:21 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,11 +10,11 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-22`
+- active Kiwi release: `freedv-v0-1-23`
 - active Kiwi SHA-256:
-  `879263a184e7fa03362160d43bce91379eadc8eed19f8e64e895687d504f1ab4`
-- Kiwi BuildID: `b638acbd9b7c7fb899075f6942201e263a5dfd59`
-- immediate Kiwi rollback: `freedv-v0-1-21`
+  `03ebcc5e92e7dc0240e5234217a820f4c643fad7583f1eec3cf2e250686c72a8`
+- Kiwi BuildID: `04aa402c88cc7d98c49009590881fb02db5b4938`
+- immediate Kiwi rollback: `freedv-v0-1-22`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
 - decoder-guest release: `0.1.19`
@@ -25,13 +25,31 @@ guest**.
 - decoder-guest snapshot: `pre-reporter-v0-1-22`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
-  reports Reporter disabled while the opted-in extension panel shows
-  `enabled (idle)`
+  reports the Reporter sidecar online while the opted-in extension panel shows
+  `enabled (idle)` and no station presence is published
 
 FreeDV remains visible to ordinary users without developer mode. Only FreeDV
 was removed from `extint.excl_devl`; the other developer extensions remain
 hidden. RADEV1 is separately hidden from the mode selector whenever its Kiwi
 administrator flag is off.
+
+## v0.1.23 Help guide
+
+The built-in Help modal now explains the experimental RADEV1 receive path,
+including the external decoder guest, portable RADE implementation, FARGAN
+speech synthesis, 8 kHz modem input, 16 kHz decoded speech and the separate
+decoder/Kiwi feature gates. The Calling frequencies section is generated from
+the same data as the extension selector and lists all 18 common entries from
+160 metres through QO-100. The modal also links directly to the public GitHub
+repository for installation, architecture, mode and rollback documentation.
+
+A real browser loaded FreeDV from the normal extension menu, confirmed version
+0.1.23, opened the scrolling Help modal and observed the complete RADEV1 text,
+all calling-frequency entries and the correct public repository URL. The
+decoder service was unchanged for this Help-only release, so its retained
+snapshot set was left unchanged. The post-deployment idle soak passed 41/41
+Kiwi samples and 41/41 decoder-guest samples with no service failures, critical
+log matches, sessions, campers or orphan deployment wrappers.
 
 ## v0.1.22 Test and Reporter state reliability
 
@@ -81,10 +99,10 @@ the panel and health endpoint to `disabled` and removed the public row.
 
 ## Backup and rollback gate
 
-The pre-deployment streamed archive is
-`backups/kiwi-config-20260715T102557Z/kiwi.config.tgz`. It contains 39 entries
+The current pre-deployment streamed archive is
+`backups/kiwi-config-20260716T005715Z/kiwi.config.tgz`. It contains 39 entries
 and has SHA-256
-`310218b686b6afc15abe51fcc1ab96d27128243584e09bcbf5b0004c41f8c175`.
+`3011117b81693c752c813bfaf55dec361ebdaceff17b21d86e8c0f701841c499`.
 The stock baseline checksum, root page, `/status`, two zero-listener readings,
 decoder snapshot and shared-secret hash match all passed before activation. The
 secret itself was never displayed or copied into the repository.

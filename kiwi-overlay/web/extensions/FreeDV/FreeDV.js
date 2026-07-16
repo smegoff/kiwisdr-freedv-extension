@@ -235,7 +235,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.22 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.23 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -248,7 +248,7 @@ function freedv_controls_setup()
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.22 receive decoder</b>'),
+      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.23 receive decoder</b>'),
       w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
       w3_div('w3-small w3-text-light-grey', 'Built with ',
          w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -450,6 +450,9 @@ function FreeDV_blur()
 function FreeDV_help(show)
 {
    if (show) {
+      var calling_help = freedv.calling_frequencies.slice(1).map(function(entry) {
+         return entry.label;
+      }).join('<br>');
       var s =
          '<b>Choose the same mode as the transmitting station.</b> The modes are not ' +
          'automatically interchangeable. If the mode is unknown, 700D is the usual ' +
@@ -488,12 +491,15 @@ function FreeDV_help(show)
          'Use it only for a matching 800XA transmission. This mode has no text side ' +
          'channel, so callsign text may remain blank.<br><br>' +
 
-         '<b>RADEV1 - neural HF voice</b><br>' +
-         'About 1.5 kHz wide, with 8 kHz modem audio and 16 kHz decoded speech. It is ' +
-         'designed for intelligible speech around -2 dB SNR and has no conventional ' +
-         'SNR squelch, so this extension passes audio only while the RADE modem reports ' +
-         'synchronization. RADEV1 appears in the selector only after the administrator ' +
-         'enables the reviewed external decoder build.<br><br>' +
+         '<b>RADEV1 - neural HF voice codec (experimental)</b><br>' +
+         'RADE v1 is a receive-only neural speech waveform decoded on the external ' +
+         'decoder guest using the portable RADE implementation and FARGAN speech ' +
+         'synthesis. It is about 1.5 kHz wide, accepts 8 kHz modem audio and produces ' +
+         '16 kHz decoded speech. It targets intelligible speech around -2 dB SNR and ' +
+         'has no conventional SNR squelch, so audio is passed only while the RADE modem ' +
+         'reports synchronization. RADEV1 appears in the selector only when both the ' +
+         'decoder service and the Kiwi administrator have enabled it. Treat it as ' +
+         'experimental until live-RF interoperability testing is complete.<br><br>' +
 
          '<b>Listening</b><br>' +
          'The extension follows the usual amateur voice convention: 160, 80 and 40 ' +
@@ -508,6 +514,7 @@ function FreeDV_help(show)
          'decoding. Press Stop or close the extension to restore normal Kiwi audio.<br><br>' +
 
          '<b>Calling frequencies</b><br>' +
+         calling_help + '<br><br>' +
          'The Calling frequency list tunes common FreeDV activity frequencies and sets ' +
          'the listed sideband. The 14.236 MHz 20 metre entry is marked as the most common. ' +
          'Selecting a frequency does not start decoding; choose the transmitted FreeDV ' +
@@ -520,7 +527,12 @@ function FreeDV_help(show)
          'return-audio path. A pass requires both modem synchronization and returned ' +
          'decoded PCM. Test sessions are never sent to FreeDV Reporter.<br><br>' +
 
-         'Mode specifications and operating information: ' +
+         '<b>More information</b><br>' +
+         'Installation, architecture, mode notes, rollback guidance and current test ' +
+         'status are in the ' +
+         '<a href="https://github.com/smegoff/kiwisdr-freedv-extension" target="_blank">' +
+         'KiwiSDR FreeDV Extension GitHub repository</a>.<br>' +
+         'FreeDV mode specifications and operating information: ' +
          '<a href="https://freedv.org/" target="_blank">freedv.org</a>';
       confirmation_show_scrolling_content('FreeDV mode guide', s, 720, 500);
    }
