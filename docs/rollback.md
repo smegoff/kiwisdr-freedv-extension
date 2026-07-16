@@ -37,7 +37,7 @@ independently.
 For the reference deployment, the Kiwi release is `freedv-v0-1-24`, the
 immediate Kiwi rollback is `freedv-v0-1-23`, the decoder guest runs `0.1.19`,
 and the latest pre-upgrade guest snapshot is
-`pre-reporter-v0-1-24`, taken immediately before the v0.1.24 Reporter-sidecar
+`pre-reporter-v0-1-28`, taken immediately before the v0.1.28 Reporter-sidecar
 upgrade. The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
 clean operating-system baseline. Superseded per-release snapshots were removed

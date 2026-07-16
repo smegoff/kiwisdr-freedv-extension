@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 06:29 UTC (2026-07-16 18:29 NZST)
+Last verified: 2026-07-16 08:22 UTC (2026-07-16 20:22 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -21,12 +21,45 @@ guest**.
 - decoder binary SHA-256:
   `4d72eb78c55feb07d255d1eb9d5c18bcb9c126b13d6a58935aeb310b893d14da`
 - Reporter sidecar SHA-256:
-  `b6d8aaf555668068eafe0043d7f5fddd341131bd07430712e5802a21e7039c69`
-- decoder-guest snapshot: `pre-reporter-v0-1-24`
+  `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
+- Reporter client: `KiwiSDR-FreeDV/0.1.28`
+- decoder-guest snapshot: `pre-reporter-v0-1-28`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Reporter v0.1.28 RX codec publication
+
+The RX-only Reporter sidecar now publishes the selected FreeDV codec as an
+empty-callsign `rx_report`. Frequency changes use a Socket.IO acknowledgement
+before the codec report, preventing the Reporter server's frequency-change RX
+reset from racing and clearing the mode. A ten-second activity refresh handles
+the server's current behavior of not replaying the last RX report to web
+viewers who open the page after the decoder session starts. No `tx_report` is
+sent.
+
+The stale-session safety timeout is 15 seconds. Decoder status is normally
+delivered every 250 ms with incoming Kiwi audio; the longer grace period avoids
+dropping Reporter presence during a brief sound-stream gap while still cleaning
+up a lost local Stop event promptly.
+
+A real browser started a normal 700D session and verified the public ZL1SXG row
+as `Receive Only`, client `KiwiSDR-FreeDV/0.1.28`, RX Mode `700D`, RX callsign
+`--` and TX Mode `N/A`. The same RX Mode appeared after reloading the Reporter
+page mid-session and waiting for the refresh. Stop removed the public presence.
+Fifteen Reporter unit tests cover identity, RX-only authentication, session
+precedence, restart recovery, stale-state expiry, codec payload and publication
+ordering; all 13 Kiwi-overlay regression tests also pass.
+
+The final 41-sample, ten-minute decoder-guest soak passed while a real listener
+used FreeDV for most of the window. Active samples consistently showed one
+session, camper connected and Reporter online; the listener's Stop transitioned
+cleanly to zero sessions, no camper and Reporter disabled. Both services stayed
+active, health remained `ok`, the health listener remained loopback-only and no
+critical decoder or Reporter log matches occurred. A final v0.1.28 browser test
+reconfirmed immediate and late-viewer RX Mode `700D`, then removed the public
+presence on Stop.
 
 ## v0.1.24 returned-status relay and Reporter cleanup
 
@@ -243,7 +276,7 @@ decoder-guest snapshots were removed. The guest now retains only:
 
 - `clean-debian12` - clean operating-system baseline;
 - `pre-radev1-v0-1-15` - architectural checkpoint before RADEV1; and
-- `pre-reporter-v0-1-24` - immediate rollback for the active Reporter sidecar
+- `pre-reporter-v0-1-28` - immediate rollback for the active Reporter sidecar
   and decoder services.
 
 The cleanup did not stop or modify the active guest. Post-cleanup checks showed
@@ -251,6 +284,8 @@ both services active, decoder v0.1.19 healthy and connected to the Kiwi, zero
 sessions and Reporter disabled. After v0.1.22 acceptance, the superseded
 `pre-test-race-v0-1-19` snapshot was also removed. After v0.1.24 acceptance,
 `pre-reporter-v0-1-22` was superseded by `pre-reporter-v0-1-24` and removed.
+After Reporter v0.1.28 acceptance, the v0.1.24-v0.1.27 Reporter snapshots were
+superseded by `pre-reporter-v0-1-28` and removed.
 Future decoder deployments use the dry-run-first
 `tools/prune-decoder-snapshots.ps1` helper after acceptance and soak testing.
 

@@ -4,9 +4,14 @@ from reporter.reporter import (
     CALLSIGN,
     CLIENT_VERSION,
     GRID,
+    MODE_ACTIVITY_INTERVAL_SECONDS,
+    SESSION_TIMEOUT_SECONDS,
     ReporterState,
     build_auth,
     connect_and_wait_for_acceptance,
+    mode_activity_due,
+    publish_rx_selection,
+    rx_mode_activity,
 )
 
 
@@ -99,8 +104,8 @@ class ReporterTests(unittest.TestCase):
         state = ReporterState()
         state.update({"type": "status", "session_id": 1, "sync": False,
                       "frequency": 7177000, "mode": "700D"}, now=10.0)
-        self.assertFalse(state.expire_stale(now=12.9))
-        self.assertTrue(state.expire_stale(now=13.1))
+        self.assertFalse(state.expire_stale(now=10.0 + SESSION_TIMEOUT_SECONDS - 0.1))
+        self.assertTrue(state.expire_stale(now=10.0 + SESSION_TIMEOUT_SECONDS + 0.1))
         self.assertIsNone(state.selected())
 
     def test_reporter_auth_is_strictly_receive_only(self):
@@ -111,10 +116,35 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
         self.assertEqual(auth["version"], CLIENT_VERSION)
-        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.24")
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.28")
+
+    def test_selected_codec_activity_has_no_transmitter_identity(self):
+        payload = rx_mode_activity("700D")
+        self.assertEqual(payload, {"callsign": "", "snr": 0.0, "mode": "700D"})
+
+    def test_codec_activity_refreshes_for_late_reporter_viewers(self):
+        self.assertTrue(mode_activity_due(None, 100.0))
+        self.assertFalse(mode_activity_due(100.0, 100.0 + MODE_ACTIVITY_INTERVAL_SECONDS - 0.1))
+        self.assertTrue(mode_activity_due(100.0, 100.0 + MODE_ACTIVITY_INTERVAL_SECONDS))
 
 
 class ReporterConnectionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_frequency_reset_completes_before_codec_activity(self):
+        events = []
+
+        class RecordingSocketIO:
+            async def call(self, name, data, timeout):
+                events.append(("call", name, data, timeout))
+
+            async def emit(self, name, data):
+                events.append(("emit", name, data))
+
+        await publish_rx_selection(RecordingSocketIO(), 7177000, "700D", True, True)
+        self.assertEqual(events, [
+            ("call", "freq_change", {"freq": 7177000}, 5),
+            ("emit", "rx_report", {"callsign": "", "snr": 0.0, "mode": "700D"}),
+        ])
+
     async def test_online_requires_application_acceptance(self):
         sio = FakeSocketIO("accepted")
         auth = build_auth({"callsign": "ZL2ABC", "grid_square": "RF80AA"})

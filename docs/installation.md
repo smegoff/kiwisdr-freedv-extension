@@ -311,8 +311,10 @@ to `disabled` and remove the presence.
 Open [FreeDV Reporter](https://qso.freedv.org/) and find the exact station
 callsign entered in Admin. The row should say **Receive Only**, show the
 configured locator/message and display the Kiwi's current tuned frequency even
-before a modem synchronizes. The client version belongs to the decoder service,
-so it can be newer than the version shown in the Kiwi extension heading.
+before a modem synchronizes. **RX Mode** should show the selected codec within
+ten seconds; **TX Mode** remains `N/A` because the integration never publishes
+transmit events. The client version belongs to the Reporter sidecar, so it can
+be newer than the version shown in the Kiwi extension heading.
 
 Start a FreeDV session and check the panel plus:
 
