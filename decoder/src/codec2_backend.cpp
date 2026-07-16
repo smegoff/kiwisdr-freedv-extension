@@ -43,6 +43,10 @@ class Codec2Backend final : public DecoderBackend {
     MODEM_STATS stats{};
     freedv_get_modem_extended_stats(ctx_, &stats);
     result.status.synced = freedv_get_sync(ctx_) != 0;
+    if (result.status.synced && !was_synced_) {
+      if (had_sync_) resyncs_++;
+      had_sync_ = true;
+    }
     if (!result.status.synced && was_synced_) {
       reliable_text_reset(reliable_text_);
       callsign_.clear();
@@ -51,10 +55,20 @@ class Codec2Backend final : public DecoderBackend {
     result.status.snr_db = stats.snr_est;
     result.status.frequency_offset_hz = stats.foff;
     result.status.callsign = callsign_;
+    result.status.bits = static_cast<uint64_t>(std::max(0, freedv_get_total_bits(ctx_)));
+    result.status.bit_errors = static_cast<uint64_t>(
+        std::max(0, freedv_get_total_bit_errors(ctx_)));
+    result.status.packets = static_cast<uint64_t>(std::max(0, freedv_get_total_packets(ctx_)));
+    result.status.packet_errors = static_cast<uint64_t>(
+        std::max(0, freedv_get_total_packet_errors(ctx_)));
+    result.status.resyncs = resyncs_;
+    result.status.clock_offset_ppm = stats.clock_offset;
+    result.status.timing_offset = stats.rx_timing;
+    result.status.sync_metric = stats.sync_metric;
     return result;
   }
   void reset() override {
-    input_.clear(); callsign_.clear(); was_synced_ = false;
+    input_.clear(); callsign_.clear(); was_synced_ = false; had_sync_ = false; resyncs_ = 0;
     reliable_text_reset(reliable_text_);
   }
 
@@ -68,6 +82,8 @@ class Codec2Backend final : public DecoderBackend {
   struct freedv* ctx_;
   reliable_text_t reliable_text_{};
   bool was_synced_ = false;
+  bool had_sync_ = false;
+  uint64_t resyncs_ = 0;
   std::string callsign_;
   std::vector<int16_t> input_;
 };

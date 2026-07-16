@@ -27,6 +27,8 @@ standard audio path. Browsers never connect directly to the decoder guest.
 - Built-in deterministic 700D test using the bundled Kiwi reference recording.
 - Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
 - Optional, independently gated RADEV1 decoder.
+- Authenticated, read-only decoder diagnostics dashboard with an audio-band
+  waterfall, spectrum, ten-minute history and modem statistics.
 - Help panel covering the available modes and controls.
 - Authenticated Kiwi-to-decoder control, bounded audio queues, health metrics,
   watchdog recovery, atomic Kiwi releases, and rollback tooling.
@@ -36,7 +38,7 @@ standard audio path. Browsers never connect directly to the decoder guest.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.26 | Deployed and browser-tested on KiwiSDR 1.901 |
-| Decoder service | 0.1.19 | Deployed on Debian 12 and stability-soak tested |
+| Decoder service | 0.1.20 | Dashboard deployed, browser-tested and accepted after a 41-sample soak |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
@@ -61,8 +63,9 @@ Browser                   KiwiSDR                    Decoder guest
 ```
 
 The Kiwi remains the only receiver endpoint. The decoder service does not
-publish a browser-facing WebSocket or require public port forwarding. Its
-health and metrics endpoint is intended to remain local to the decoder guest.
+require public port forwarding. Its decoder control and health surfaces remain
+private; the separately authenticated diagnostics dashboard is available only
+to the configured management LAN.
 
 External decoding is intentional: the Kiwi's single-core processor already
 handles RF processing, receiver channels, waterfalls, audio and networking.
@@ -144,6 +147,17 @@ decoder and returned-audio path used for live reception. A passing test proves
 the transport and Codec2 pipeline are working; it does not test the antenna,
 RF signal level or every FreeDV mode.
 
+## Decoder diagnostics
+
+Decoder service 0.1.20 installs a lightweight read-only dashboard at
+`http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
+post-detector audio, not the Kiwi wideband RF waterfall. Access requires a
+separate generated key and the port should be allowed only from the management
+LAN. See [Decoder diagnostics dashboard](docs/dashboard.md) for installation,
+security, display options, API framing and troubleshooting.
+
+![FreeDV decoder diagnostics dashboard](docs/images/dashboard-live.png)
+
 ## FreeDV Reporter
 
 Reporter is disabled by default and operates strictly as the Kiwi owner's
@@ -223,6 +237,7 @@ and are never published.
 | Path | Purpose |
 | --- | --- |
 | `decoder/` | C++17 Kiwi camper client, resampler and Codec2/RADE backends |
+| `dashboard/` | Dependency-free HTML, CSS and JavaScript diagnostics UI |
 | `reporter/` | Isolated RX-only FreeDV Reporter sidecar |
 | `kiwi-overlay/` | Kiwi server/client overlay and reproducible patches |
 | `deploy/` | Decoder environment examples, firewall and systemd definitions |

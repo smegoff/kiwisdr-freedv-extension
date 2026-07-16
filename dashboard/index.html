@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>FreeDV Decoder Diagnostics</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="login" class="login-panel" aria-labelledby="login-title">
+      <p class="eyebrow">KiwiSDR FreeDV</p>
+      <h1 id="login-title">Decoder diagnostics</h1>
+      <p class="muted">Enter the dashboard access key generated during the decoder guest installation.</p>
+      <form id="login-form">
+        <label for="access-key">Access key</label>
+        <input id="access-key" name="access-key" type="password" autocomplete="current-password" required>
+        <button type="submit">Sign in</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="dashboard" class="dashboard" hidden>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">KiwiSDR FreeDV</p>
+          <h1>Decoder diagnostics</h1>
+        </div>
+        <div class="topbar-status">
+          <span id="health-badge" class="badge neutral">Connecting</span>
+          <span id="release" class="muted mono">v—</span>
+          <span id="last-update" class="muted">Waiting for data</span>
+          <button id="logout" class="quiet" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="Display options">
+        <label>View<select id="view"><option value="split">Split</option><option value="waterfall">Waterfall</option><option value="spectrum">Spectrum</option></select></label>
+        <label>Palette<select id="palette"><option value="cividis">Cividis</option><option value="viridis">Viridis</option><option value="grey">Greyscale</option></select></label>
+        <label>Floor<input id="floor" type="number" min="-120" max="-20" step="5"><span>dBFS</span></label>
+        <label>Ceiling<input id="ceiling" type="number" min="-100" max="0" step="5"><span>dBFS</span></label>
+        <label>Averaging<select id="averaging"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
+        <label>Rate<select id="fps"><option value="10">10 fps</option><option value="5">5 fps</option></select></label>
+        <label class="check"><input id="overlay" type="checkbox"> Modem overlay</label>
+        <button id="pause" class="quiet" type="button">Pause</button>
+        <button id="clear" class="quiet" type="button">Clear</button>
+      </section>
+
+      <div class="primary-grid">
+        <section class="panel signal-panel" aria-labelledby="signal-title">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Selected channel audio</p><h2 id="signal-title">Signal</h2></div>
+            <span id="axis" class="muted mono">0–6 kHz</span>
+          </div>
+          <div id="waterfall-wrap" class="plot-wrap"><canvas id="waterfall" aria-label="Audio-band waterfall"></canvas></div>
+          <div id="spectrum-wrap" class="plot-wrap spectrum-wrap"><canvas id="spectrum" aria-label="Audio spectrum"></canvas></div>
+          <p class="caption">Post-detector audio received by the external decoder. This is not the Kiwi wideband RF waterfall.</p>
+        </section>
+
+        <aside class="panel session-panel" aria-labelledby="session-title">
+          <div class="panel-heading"><div><p class="eyebrow">Current decoder job</p><h2 id="session-title">Session</h2></div><span id="sync-badge" class="badge neutral">Idle</span></div>
+          <dl class="facts">
+            <div><dt>Mode</dt><dd id="mode">—</dd></div>
+            <div><dt>Backend</dt><dd id="backend">—</dd></div>
+            <div><dt>Frequency</dt><dd id="frequency">—</dd></div>
+            <div><dt>Input rate</dt><dd id="input-rate">—</dd></div>
+            <div><dt>SNR</dt><dd id="snr">—</dd></div>
+            <div><dt>Frequency offset</dt><dd id="offset">—</dd></div>
+            <div><dt>Reporter</dt><dd id="reporter">—</dd></div>
+            <div><dt>Callsign / text</dt><dd id="decoded-text">—</dd></div>
+          </dl>
+        </aside>
+      </div>
+
+      <div class="history-grid">
+        <section class="panel"><div class="panel-heading"><h2>SNR history</h2><label>Window<select id="history-window"><option value="60">1 min</option><option value="300">5 min</option><option value="600">10 min</option></select></label></div><canvas id="snr-chart" class="history" aria-label="SNR history"></canvas></section>
+        <section class="panel"><div class="panel-heading"><h2>Frequency offset</h2><span class="muted">Hz</span></div><canvas id="offset-chart" class="history" aria-label="Frequency offset history"></canvas></section>
+      </div>
+
+      <details class="panel details-panel" open>
+        <summary>Modem statistics</summary>
+        <div id="modem-stats" class="stats-grid"></div>
+      </details>
+      <details class="panel details-panel">
+        <summary>Service counters</summary>
+        <div id="service-stats" class="stats-grid"></div>
+      </details>
+    </section>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

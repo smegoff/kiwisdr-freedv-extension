@@ -1,4 +1,5 @@
 #include "freedv/backend.hpp"
+#include "freedv/dashboard.hpp"
 #include "freedv/kiwi_protocol.hpp"
 #include "freedv/resampler.hpp"
 
@@ -37,7 +38,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.19";
+constexpr char kRelease[] = "0.1.20";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 
 struct Metrics {
@@ -215,9 +216,10 @@ std::string trim(std::string value) {
 class KiwiCamper {
  public:
   KiwiCamper(std::string host, std::string port, std::string password, std::string secret,
-             bool rade_enabled)
+             bool rade_enabled, kfd::Dashboard& dashboard)
       : host_(std::move(host)), port_(std::move(port)), password_(std::move(password)),
-        secret_(std::move(secret)), rade_enabled_(rade_enabled), resolver_(ioc_), ws_(ioc_) {}
+        secret_(std::move(secret)), rade_enabled_(rade_enabled), dashboard_(dashboard),
+        resolver_(ioc_), ws_(ioc_) {}
 
   void run() {
     mark_main_loop_progress();
@@ -251,6 +253,7 @@ class KiwiCamper {
     metrics.camper_connected = 0;
     metrics.sessions = 0;
     metrics.synced = 0;
+    dashboard_.session_stopped();
   }
 
  private:
@@ -378,6 +381,7 @@ class KiwiCamper {
       reset_decoder();
       job_ = incoming;
       metrics.generation = job_.generation;
+      dashboard_.session_stopped();
       return;
     }
 
@@ -393,6 +397,9 @@ class KiwiCamper {
     return_adpcm_valid_ = false;
     first_audio_packet_ = true;
     job_decoded_frames_ = 0;
+    dashboard_.session_started(job_.generation, job_.rx_channel, job_.mode,
+                               job_.frequency_hz, job_.input_rate, job_.test,
+                               backend_->name());
     std::cerr << "job start: generation=" << job_.generation
               << " mode=" << job_.mode << " input_rate=" << job_.input_rate
               << " test=" << (job_.test ? 1 : 0) << '\n';
@@ -419,6 +426,7 @@ class KiwiCamper {
     job_decoded_frames_ = 0;
     metrics.sessions = 0;
     metrics.synced = 0;
+    dashboard_.session_stopped();
   }
 
   void process_audio(const std::string& frame) {
@@ -452,6 +460,7 @@ class KiwiCamper {
     const auto input = kfd::decode_kiwi_audio(packet, input_adpcm_,
                                                !compressed || input_adpcm_valid_);
     if (compressed) input_adpcm_valid_ = true;
+    dashboard_.push_audio(input.data(), input.size(), input_rate_);
     if (first_audio_packet_) {
       std::cerr << "audio format: flags=" << static_cast<unsigned>(packet.flags)
                 << " payload_bytes=" << packet.payload.size()
@@ -513,6 +522,8 @@ class KiwiCamper {
   }
 
   void send_status(const kfd::DecodeStatus& status) {
+    dashboard_.update_status(status, backend_ ? backend_->name() : "none",
+                             job_decoded_frames_);
     const json value{{"type", "status"},
                      {"release", kRelease},
                      {"generation", job_.generation},
@@ -538,6 +549,7 @@ class KiwiCamper {
   std::string password_;
   std::string secret_;
   bool rade_enabled_ = false;
+  kfd::Dashboard& dashboard_;
   asio::io_context ioc_;
   tcp::resolver resolver_;
   websocket::stream<tcp::socket> ws_;
@@ -571,6 +583,25 @@ int main() {
     return 2;
   }
   mark_main_loop_progress();
+  kfd::Dashboard dashboard(kfd::dashboard_config_from_environment(), [] {
+    return json{{"release", kRelease},
+                {"kiwi_connected", metrics.kiwi_connected.load() != 0},
+                {"camper_connected", metrics.camper_connected.load() != 0},
+                {"sessions", metrics.sessions.load()},
+                {"snd_frames_total", metrics.snd_frames.load()},
+                {"decoded_frames_total", metrics.decoded_frames.load()},
+                {"dropped_frames_total", metrics.dropped_frames.load()},
+                {"reconnects_total", metrics.reconnects.load()},
+                {"auth_successes_total", metrics.auth_successes.load()},
+                {"auth_failures_total", metrics.auth_failures.load()},
+                {"malformed_jobs_total", metrics.malformed_jobs.load()},
+                {"stale_jobs_total", metrics.stale_jobs.load()},
+                {"status_updates_total", metrics.status_updates.load()},
+                {"decode_seconds_total", metrics.decode_nanoseconds.load() / 1.0e9},
+                {"main_loop_age_seconds", main_loop_age_seconds()},
+                {"reporter", reporter_state()}};
+  });
+  dashboard.start();
   const auto health_port = static_cast<unsigned short>(
       std::stoul(env_or("FREEDV_HEALTH_PORT", "8074")));
   std::thread(health_server, health_port).detach();
@@ -585,7 +616,7 @@ int main() {
       KiwiCamper camper(env_or("FREEDV_KIWI_HOST", "192.168.10.238"),
                         env_or("FREEDV_KIWI_PORT", "8073"),
                         env_or("FREEDV_KIWI_PASSWORD", ""), secret,
-                        env_or("FREEDV_ENABLE_RADE", "0") == "1");
+                        env_or("FREEDV_ENABLE_RADE", "0") == "1", dashboard);
       std::cout << "connecting to Kiwi camper transport\n";
       camper.run();
       camper.shutdown();
@@ -597,6 +628,7 @@ int main() {
       metrics.sessions = 0;
       metrics.synced = 0;
       metrics.reconnects++;
+      dashboard.session_stopped();
       std::cerr << "camper transport: " << error.what() << '\n';
       const unsigned delay_ms = backoff * 1000 + (jitter() % 500);
       unsigned remaining_ms = delay_ms;
