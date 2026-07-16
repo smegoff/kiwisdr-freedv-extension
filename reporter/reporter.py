@@ -16,7 +16,7 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.18"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.22"
 
 
 def build_auth(config):

@@ -35,7 +35,7 @@ standard audio path. Browsers never connect directly to the decoder guest.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.21 | Deployed and browser-tested on KiwiSDR 1.901 |
+| Kiwi extension | 0.1.22 | Deployed and browser-tested on KiwiSDR 1.901 |
 | Decoder service | 0.1.19 | Deployed on Debian 12 and stability-soak tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only | Opt-in; presence, restart recovery and removal tested |
@@ -151,7 +151,10 @@ RX-only station identity. It never publishes a public listener's browser name,
 IP address or identity.
 
 To enable it, configure a valid station callsign and Maidenhead locator in
-Kiwi Admin, enable Reporter, and restart or start a FreeDV session. The decoder
+Kiwi Admin, enable Reporter, and start a normal FreeDV session. The panel shows
+`enabled (idle)` while no session is active, `enabled (test excluded)` during
+the local reference Test, and `connecting` then `online` during a normal Start.
+The decoder
 guest's Reporter sidecar connects outbound to `qso.freedv.org`; no inbound
 firewall rule is required. Full setup and troubleshooting are in
 [Optional FreeDV Reporter](docs/installation.md#8-optional-freedv-reporter).

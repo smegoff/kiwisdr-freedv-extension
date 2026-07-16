@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.21"
+#define FREEDV_RELEASE "0.1.22"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -403,8 +403,9 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
-            "EXT rade_enabled=%d ready protocol=%d backend=external release=%s test_available=%d",
-            cfg_true("freedv.rade_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
+            "EXT rade_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s test_available=%d",
+            cfg_true("freedv.rade_enabled")? 1:0,
+            cfg_true("freedv.reporter_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
             test_signal.sample_count? 1:0);
         return true;
     }

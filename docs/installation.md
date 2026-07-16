@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.21`, decoder service `0.1.19`, and KiwiSDR upstream commit
+written for Kiwi extension `0.1.22`, decoder service `0.1.19`, and KiwiSDR upstream commit
 `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
@@ -113,6 +113,12 @@ Release mode, installs the Reporter Python environment, creates the unprivileged
 `freedv` service account and installs both systemd units. It enables the units
 but deliberately does not start them until configuration and tests pass.
 
+For an in-place upgrade, `tools/deploy-decoder-release.sh` records the previous
+decoder, Reporter client, units, configuration and Python package set, then
+restores them automatically if health checks fail. A Reporter-only release can
+retain the existing decoder health version using the optional third argument,
+for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-22 v0.1.22 0.1.19`.
+
 Generate one 256-bit shared secret. Store the same 64 hexadecimal characters on
 the guest and Kiwi, but never commit, paste into an issue, or print the value in
 logs:
@@ -221,7 +227,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-21-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-22-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -237,10 +243,11 @@ candidate check automatically restores the previous release.
    700E, 2400A, 2400B, 800XA, RADEV1, normal listening and Test mode.
 3. Press **Test**. It forces 700D and feeds John's bundled reference recording
    through the normal Kiwi sound channel, the external decoder and `rev_bin`
-   return path. The v0.1.16 readiness handshake prevents the decoder from
-   consuming live receiver noise before the reference recording is armed.
+   return path. The v0.1.22 readiness acknowledgement prevents a slow camper
+   start from being reported as an unarmed decoder and separately detects a
+   stalled Kiwi reference-audio path.
    Require `Test: 100%`, `State: test passed`, backend `codec2`, zero dropped
-   frames and Reporter `disabled`.
+   frames and Reporter `enabled (test excluded)` when Reporter is opted in.
 4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
    state must reach `running`, backend must read `codec2`, and ordinary
    analogue/static audio must be silent. Decoded PCM is audible only while the
@@ -248,7 +255,8 @@ candidate check automatically restores the previous release.
 5. On the decoder guest, require `freedv_sessions 1`, an active camper and
    increasing SND counters in `http://127.0.0.1:8074/metrics`.
 6. Stop and close the extension. Require sessions and camper state to return to
-   zero, Reporter to read `disabled`, and normal receiver audio to return.
+   zero, Reporter to read `enabled (idle)` when opted in, and normal receiver
+   audio to return.
 7. Confirm the Kiwi root receiver and Admin pages still load.
 
 After the legacy test passes, enable RADEV1 in this order:
@@ -264,7 +272,8 @@ extension and require RADEV1 to appear in the selector; it must remain absent
 when the Admin flag is off. Start a no-signal RADEV1 session and require
 `State: running`, backend `rade-v1`, one decoder session/camper and zero drops. With
 no modem sync the Kiwi audio gate must remain silent. Stop and require the decoder
-session/camper and Reporter presence to return to zero/disabled. A live RF
+session/camper and Reporter presence to return to zero; the panel returns to
+`enabled (idle)` when opted in. A live RF
 speech check follows when a suitable RADE transmission is available.
 
 Inspect both journals for authentication, watchdog, sequence or crash errors:
@@ -290,10 +299,11 @@ and save/restart if the Admin page requests it. The Kiwi job overrides the
 disabled sidecar defaults for that receiving session. It never uses a public
 listener's identity.
 
-`Reporter: disabled` is the correct idle display even when the Admin switch is
-enabled. The sidecar creates an RX-only presence only while a normal FreeDV
-session is running. Test mode deliberately never reports. Press **Start** (not
-**Test**) and expect `connecting`, then `online`. `online` means the Reporter
+`Reporter: enabled (idle)` confirms that the Admin opt-in is saved while no
+decoder session is active. The sidecar creates an RX-only presence only while a
+normal FreeDV session is running. Test mode shows `enabled (test excluded)` and
+deliberately never reports. Press **Start** (not **Test**) and expect
+`connecting`, then `online`. `online` means the Reporter
 server has sent its application-level acceptance event, not merely that a
 Socket.IO transport opened. Stop or Close must return the panel and `/healthz`
 to `disabled` and remove the presence.
