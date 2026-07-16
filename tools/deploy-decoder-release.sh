@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-20}
-release=${2:-v0.1.20}
+candidate=${1:-/opt/kiwi-freedv-v0-1-21}
+release=${2:-v0.1.21}
 health_release=${release#v}
 decoder_health_release=${3:-$health_release}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -46,18 +46,12 @@ mv -T "$dashboard_release.new" "$dashboard_release"
 ln -sfn "$decoder_health_release" "$dashboard_root/.current-new"
 mv -Tf "$dashboard_root/.current-new" "$dashboard_root/current"
 
-if [[ ! -f /etc/freedv-decoder/dashboard.token ]]; then
-  umask 0077
-  openssl rand -hex 32 > /etc/freedv-decoder/dashboard.token
-  chown root:freedv /etc/freedv-decoder/dashboard.token
-  chmod 0640 /etc/freedv-decoder/dashboard.token
-fi
 decoder_env=/etc/freedv-decoder/decoder.env
 ensure_env() { grep -q "^$1=" "$decoder_env" || printf '%s=%s\n' "$1" "$2" >> "$decoder_env"; }
+sed -i '/^FREEDV_DASHBOARD_TOKEN_FILE=/d' "$decoder_env"
 ensure_env FREEDV_DASHBOARD_ENABLED 1
 ensure_env FREEDV_DASHBOARD_BIND 0.0.0.0
 ensure_env FREEDV_DASHBOARD_PORT 8076
-ensure_env FREEDV_DASHBOARD_TOKEN_FILE /etc/freedv-decoder/dashboard.token
 ensure_env FREEDV_DASHBOARD_ASSET_DIR /usr/local/share/freedv-dashboard/current
 ensure_env FREEDV_DASHBOARD_HISTORY_SECONDS 600
 ensure_env FREEDV_DASHBOARD_WATERFALL_FPS 10

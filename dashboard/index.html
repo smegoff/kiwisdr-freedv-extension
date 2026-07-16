@@ -9,19 +9,7 @@
 </head>
 <body>
   <main class="shell">
-    <section id="login" class="login-panel" aria-labelledby="login-title">
-      <p class="eyebrow">KiwiSDR FreeDV</p>
-      <h1 id="login-title">Decoder diagnostics</h1>
-      <p class="muted">Enter the dashboard access key generated during the decoder guest installation.</p>
-      <form id="login-form">
-        <label for="access-key">Access key</label>
-        <input id="access-key" name="access-key" type="password" autocomplete="current-password" required>
-        <button type="submit">Sign in</button>
-        <p id="login-error" class="error" role="alert"></p>
-      </form>
-    </section>
-
-    <section id="dashboard" class="dashboard" hidden>
+    <section id="dashboard" class="dashboard">
       <header class="topbar">
         <div>
           <p class="eyebrow">KiwiSDR FreeDV</p>
@@ -31,7 +19,6 @@
           <span id="health-badge" class="badge neutral">Connecting</span>
           <span id="release" class="muted mono">v—</span>
           <span id="last-update" class="muted">Waiting for data</span>
-          <button id="logout" class="quiet" type="button">Sign out</button>
         </div>
       </header>
 

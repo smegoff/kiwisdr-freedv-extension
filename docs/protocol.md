@@ -106,11 +106,11 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.20 adds a separate authenticated management surface on
+Decoder service 0.1.21 adds a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
-accept decoder jobs. Login produces an eight-hour HttpOnly, SameSite-Strict
-cookie; `/api/v1/status`, `/api/v1/history` and WebSocket
-`/api/v1/stream` reject unauthenticated requests.
+accept decoder jobs. `/api/v1/status`, `/api/v1/history` and WebSocket
+`/api/v1/stream` are intentionally open to sources admitted by the management
+firewall; the daemon has no dashboard login or control endpoints.
 
 The WebSocket carries version 1 `FDWF` binary frames: a 16-byte header with
 flags, input sample rate, 512-bin count and sequence, followed by unsigned

@@ -17,11 +17,9 @@ struct DashboardConfig {
   bool enabled = true;
   std::string bind_address = "0.0.0.0";
   uint16_t port = 8076;
-  std::string token_file = "/etc/freedv-decoder/dashboard.token";
   std::string asset_directory = "/usr/local/share/freedv-dashboard/current";
   unsigned history_seconds = 600;
   unsigned waterfall_fps = 10;
-  unsigned session_lifetime_seconds = 8 * 60 * 60;
   unsigned websocket_heartbeat_seconds = 1;
 };
 
@@ -32,8 +30,6 @@ DashboardConfig dashboard_config_from_environment();
 std::vector<uint8_t> dashboard_fft_frame(const int16_t* samples, std::size_t count,
                                          uint32_t sample_rate, uint32_t sequence,
                                          uint8_t flags);
-
-bool dashboard_constant_time_equal(const std::string& left, const std::string& right);
 
 class Dashboard {
  public:

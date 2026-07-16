@@ -15,16 +15,10 @@ cmake --build "$src/build" --parallel
 cmake --install "$src/build" --prefix /usr/local
 
 install -d -m 0750 -o root -g freedv /etc/freedv-decoder
-install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.20
+install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.21
 install -m 0644 "$src/dashboard/index.html" "$src/dashboard/app.js" \
-  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.20/
-ln -sfn 0.1.20 /usr/local/share/freedv-dashboard/current
-if [[ ! -f /etc/freedv-decoder/dashboard.token ]]; then
-  umask 0077
-  openssl rand -hex 32 > /etc/freedv-decoder/dashboard.token
-  chown root:freedv /etc/freedv-decoder/dashboard.token
-  chmod 0640 /etc/freedv-decoder/dashboard.token
-fi
+  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.21/
+ln -sfn 0.1.21 /usr/local/share/freedv-dashboard/current
 install -d -m 0755 /opt/freedv-reporter
 install -m 0755 "$src/reporter/reporter.py" /opt/freedv-reporter/reporter.py
 python3 -m venv /opt/freedv-reporter/venv
@@ -39,4 +33,4 @@ systemctl daemon-reload
 systemctl enable avahi-daemon.service freedv-decoder.service freedv-reporter.service
 
 echo "Edit /etc/freedv-decoder/*.env, run ctest, then start the services."
-echo "Dashboard access key: /etc/freedv-decoder/dashboard.token (retrieve as root)."
+echo "Dashboard is available to the management LAN on TCP 8076; enforce the example firewall policy."

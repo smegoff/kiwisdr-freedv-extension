@@ -7,7 +7,8 @@ The project follows the KiwiSDR TDoA/camper design. In this documentation,
 **decoder guest** means the private Debian VM or unprivileged LXC that performs
 FreeDV decoding. It connects outbound to the Kiwi, camps on the selected
 receiver's sound stream, decodes FreeDV, and returns speech through Kiwi's
-standard audio path. Browsers never connect directly to the decoder guest.
+standard audio path. Kiwi receiver browsers never contact the decoder guest;
+the optional diagnostics page connects to its management-only web port.
 
 > [!IMPORTANT]
 > This project is beta software built against KiwiSDR firmware 1.901 and
@@ -27,7 +28,7 @@ standard audio path. Browsers never connect directly to the decoder guest.
 - Built-in deterministic 700D test using the bundled Kiwi reference recording.
 - Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
 - Optional, independently gated RADEV1 decoder.
-- Authenticated, read-only decoder diagnostics dashboard with an audio-band
+- Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
 - Help panel covering the available modes and controls.
 - Authenticated Kiwi-to-decoder control, bounded audio queues, health metrics,
@@ -38,7 +39,7 @@ standard audio path. Browsers never connect directly to the decoder guest.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.26 | Deployed and browser-tested on KiwiSDR 1.901 |
-| Decoder service | 0.1.20 | Dashboard deployed, browser-tested and accepted after a 41-sample soak |
+| Decoder service | 0.1.21 | Token-free LAN dashboard deployed and browser-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
@@ -64,8 +65,8 @@ Browser                   KiwiSDR                    Decoder guest
 
 The Kiwi remains the only receiver endpoint. The decoder service does not
 require public port forwarding. Its decoder control and health surfaces remain
-private; the separately authenticated diagnostics dashboard is available only
-to the configured management LAN.
+private; the read-only diagnostics dashboard is available only to the
+configured management LAN and relies on that firewall boundary.
 
 External decoding is intentional: the Kiwi's single-core processor already
 handles RF processing, receiver channels, waterfalls, audio and networking.
@@ -149,12 +150,12 @@ RF signal level or every FreeDV mode.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.20 installs a lightweight read-only dashboard at
+Decoder service 0.1.21 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
-post-detector audio, not the Kiwi wideband RF waterfall. Access requires a
-separate generated key and the port should be allowed only from the management
-LAN. See [Decoder diagnostics dashboard](docs/dashboard.md) for installation,
-security, display options, API framing and troubleshooting.
+post-detector audio, not the Kiwi wideband RF waterfall. No application login
+is required: every host allowed through the management firewall can view it.
+See [Decoder diagnostics dashboard](docs/dashboard.md) for installation,
+network security, display options, API framing and troubleshooting.
 
 ![FreeDV decoder diagnostics dashboard](docs/images/dashboard-live.png)
 

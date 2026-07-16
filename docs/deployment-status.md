@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 13:02 UTC (2026-07-17 01:02 NZST)
+Last verified: 2026-07-16 21:00 UTC (2026-07-17 09:00 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -17,40 +17,43 @@ guest**.
 - immediate Kiwi rollback: `freedv-v0-1-25`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
-- decoder-guest release: `0.1.20`
+- decoder-guest release: `0.1.21`
 - decoder binary SHA-256:
-  `c1710faf4b37db21ce733dce90215cdb26fc9b368a441a487471e37d784c4864`
+  `7875127ae3fdf5a4a2c19bcbf90d44808c09c49780f6121f22e428042efee639`
 - Reporter sidecar SHA-256:
   `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
 - Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder-guest snapshot: `pre-dashboard-v0-1-20`
+- decoder-guest snapshot: `pre-dashboard-lan-v0-1-21`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
 
-## Decoder dashboard v0.1.20
+## Decoder dashboard v0.1.21
 
-Decoder v0.1.20 adds a separately authenticated, read-only management dashboard
-on TCP 8076. The reference firewall permits that port only from the management
-LAN; decoder health and metrics on 8074 remain loopback-only. The installed
-HTML, CSS and JavaScript are versioned and selected by an atomic `current`
-symlink. The generated dashboard key is distinct from the Kiwi control secret,
-is stored as `root:freedv 0640`, and was preserved across the upgrade.
+Decoder v0.1.21 removes the dashboard token, login form, session cookies and
+authentication endpoints. Any host that can reach TCP 8076 can open the
+read-only dashboard and its status, history and waterfall APIs directly. The
+security boundary is therefore the Proxmox firewall: the reference policy
+permits TCP 8076 only from `192.168.10.0/24`. Health and metrics on TCP 8074
+remain bound to loopback, and no public forwarding is configured.
 
-Browser acceptance covered login/logout, late connection, Split, Waterfall and
-Spectrum views, Cividis rendering, the 1500 Hz/passband overlay, 700D and
-RADEV1 status, Codec2 modem counters, RADEV1 null capability fields, and clean
-Stop behavior. The published dashboard screenshot has SHA-256
-`c71405dde73a8283dd6a2b7cca8488ce19bf0b58ac4d80c9acd68191c7fb46dd`.
+The upgrade retained the existing atomic binary and asset rollback behavior.
+The live decoder environment no longer contains the legacy dashboard-token
+setting, and `POST /api/v1/login` returns HTTP 404. A real browser loaded the
+dashboard without a login or sign-out control and established the waterfall
+WebSocket immediately. The published token-free dashboard screenshot has
+SHA-256
+`08d8945dc35cbf47d2bc4440e604a04da49a155747074a235174a0327ce29ffc`.
 
-The formal live 700D soak passed 41/41 samples at 15-second intervals. Every
-sample reported one decoder session and one authenticated dashboard client;
-the waterfall sequence advanced from 770 to 6490, both decoder and
-visualization drops remained zero, history stayed bounded at 600 samples, and
-there were no critical journal matches. Daemon RSS ranged from 11,184 to
-12,428 KiB. A following 3/3 idle check held at zero sessions with the waterfall
-sequence stationary. The original production dashboard key was then restored.
+A real Kiwi browser session started 700D and reached `running`, backend
+`codec2` and Reporter `online`. The dashboard simultaneously showed one
+session and one client. A three-sample active soak advanced the waterfall from
+567 to 855 frames with zero visualization drops and daemon RSS from 10,484 to
+10,548 KiB. Stop returned the extension to `stopped`, Reporter to
+`enabled (idle)`, and the decoder to zero sessions. A following three-sample
+idle check held at zero sessions, one dashboard client and a stationary
+waterfall sequence. All C++ tests and all 17 Python tests passed.
 
 Extended RADEV1 no-signal testing separately exposed an existing decoder
 main-loop watchdog after roughly nine minutes. The isolated dashboard worker,
@@ -336,8 +339,8 @@ decoder-guest snapshots were removed. The guest now retains only:
 
 - `clean-debian12` - clean operating-system baseline;
 - `pre-radev1-v0-1-15` - architectural checkpoint before RADEV1; and
-- `pre-reporter-v0-1-28` - immediate rollback for the active Reporter sidecar
-  and decoder services.
+- `pre-dashboard-lan-v0-1-21` - immediate rollback for the active token-free
+  dashboard and decoder service.
 
 The cleanup did not stop or modify the active guest. Post-cleanup checks showed
 both services active, decoder v0.1.19 healthy and connected to the Kiwi, zero
@@ -346,6 +349,9 @@ sessions and Reporter disabled. After v0.1.22 acceptance, the superseded
 `pre-reporter-v0-1-22` was superseded by `pre-reporter-v0-1-24` and removed.
 After Reporter v0.1.28 acceptance, the v0.1.24-v0.1.27 Reporter snapshots were
 superseded by `pre-reporter-v0-1-28` and removed.
+After decoder v0.1.21 acceptance, `pre-dashboard-v0-1-20` was superseded by
+`pre-dashboard-lan-v0-1-21` and removed. The Reporter sidecar itself was
+unchanged and remains covered by the new immediate rollback snapshot.
 Future decoder deployments use the dry-run-first
 `tools/prune-decoder-snapshots.ps1` helper after acceptance and soak testing.
 

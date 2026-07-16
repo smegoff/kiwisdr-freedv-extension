@@ -21,25 +21,26 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn('document.addEventListener("visibilitychange"', js)
         self.assertIn("Math.min(devicePixelRatio||1,2)", js)
 
-    def test_installer_and_upgrade_include_dashboard_security(self):
+    def test_installer_and_upgrade_rely_on_management_firewall(self):
         installer = (ROOT / "deploy" / "install-decoder.sh").read_text(encoding="utf-8")
         environment = (ROOT / "deploy" / "decoder.env.example").read_text(encoding="utf-8")
         upgrade = (ROOT / "tools" / "deploy-decoder-release.sh").read_text(encoding="utf-8")
         firewall = (ROOT / "deploy" / "freedv-decoder.fw.example").read_text(encoding="utf-8")
         self.assertIn("libfftw3-dev", installer)
-        self.assertIn("openssl rand -hex 32", installer)
-        self.assertIn("chmod 0640", installer)
+        self.assertNotIn("dashboard.token", installer)
+        self.assertNotIn("FREEDV_DASHBOARD_TOKEN_FILE", environment)
         self.assertIn("FREEDV_DASHBOARD_PORT=8076", environment)
         self.assertIn("dashboard-assets", upgrade)
         self.assertIn("-dport 8076", firewall)
 
-    def test_dashboard_api_is_cookie_authenticated(self):
+    def test_dashboard_api_is_lan_open_and_hardened(self):
         source = (ROOT / "decoder" / "src" / "dashboard.cpp").read_text(encoding="utf-8")
-        self.assertIn("HttpOnly; SameSite=Strict", source)
         self.assertIn("/api/v1/status", source)
         self.assertIn("/api/v1/history", source)
         self.assertIn("/api/v1/stream", source)
-        self.assertIn("http::status::unauthorized", source)
+        self.assertNotIn("/api/v1/login", source)
+        self.assertNotIn("/api/v1/logout", source)
+        self.assertNotIn("http::status::unauthorized", source)
         self.assertIn('"Content-Security-Policy"', source)
         self.assertNotIn("Access-Control-Allow-Origin", source)
 

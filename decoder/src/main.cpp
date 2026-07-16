@@ -38,7 +38,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.20";
+constexpr char kRelease[] = "0.1.21";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 
 struct Metrics {
