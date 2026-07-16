@@ -12,7 +12,7 @@ var freedv = {
    last_test_result: '',
    reporter_enabled: false,
    rade_enabled: false,
-   mode: '700D',
+   mode: 'RADEV1',
    calling_index: 0,
    calling_frequencies: [
       { label: 'Select a calling frequency', kHz: 0, sideband: '' },
@@ -235,7 +235,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.24 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.26 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -248,33 +248,37 @@ function freedv_controls_setup()
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
-      w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.24 receive decoder</b>'),
-      w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
-      w3_div('w3-small w3-text-light-grey', 'Built with ',
-         w3_link('', 'https://freedv.org/', 'FreeDV'),
-         ' open-source digital voice, Codec2 and RADE.'),
-      w3_inline('w3-margin-T-8/w3-margin-right',
+      w3_div('id-freedv-intro',
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.26 receive decoder</b>'),
+         w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
+         w3_div('w3-small w3-text-light-grey', 'Built with ',
+            w3_link('', 'https://freedv.org/', 'FreeDV'),
+            ' open-source digital voice, Codec2 and RADE.')),
+      w3_inline('id-freedv-actions/w3-margin-right',
          w3_select('w3-text-red', 'Mode', '', 'freedv.mode', freedv.modes.indexOf(freedv.mode),
             freedv.modes, 'freedv_mode_cb'),
          w3_button('id-freedv-start w3-green w3-margin-T-8', 'Start', 'freedv_start_cb'),
          w3_button('id-freedv-test w3-aqua w3-margin-T-8', 'Test', 'freedv_test_cb')),
-      w3_select('w3-text-red w3-margin-T-8', 'Calling frequency', '',
+      w3_select('id-freedv-calling w3-text-red', 'Calling frequency', '',
          'freedv.calling_index', freedv.calling_index, calling_labels,
          'freedv_calling_frequency_cb'),
-      w3_div('w3-small', 'Test: ', w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
-      w3_div('w3-small', 'Receiver: ',
-         w3_div('id-freedv-radio w3-show-inline', freedv_receiver_profile_text(initial_profile))),
-      w3_div('w3-margin-T-8', 'State: ', w3_div('id-freedv-state w3-show-inline', 'stopped')),
-      w3_div('', 'Backend: ', w3_div('id-freedv-backend w3-show-inline', 'external')),
-      w3_div('', 'Sync: ', w3_div('id-freedv-sync w3-show-inline', 'no')),
-      w3_div('', 'SNR: ', w3_div('id-freedv-snr w3-show-inline', '-- dB')),
-      w3_div('', 'Offset: ', w3_div('id-freedv-foff w3-show-inline', '-- Hz')),
-      w3_div('', 'Callsign/text: ', w3_div('id-freedv-text w3-show-inline', '')),
-      w3_div('', 'Reporter: ', w3_div('id-freedv-reporter w3-show-inline',
-         freedv.reporter_enabled? 'enabled (idle)':'disabled')),
-      w3_div('w3-small', 'Dropped frames: ', w3_div('id-freedv-dropped w3-show-inline', '0')),
-      w3_div('id-freedv-error w3-small w3-text-red'),
-      w3_link('w3-small', 'https://qso.freedv.org/', 'FreeDV Reporter'));
+      w3_div('id-freedv-radio-info',
+         w3_div('w3-small', 'Test: ', w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
+         w3_div('w3-small', 'Receiver: ',
+            w3_div('id-freedv-radio w3-show-inline', freedv_receiver_profile_text(initial_profile)))),
+      w3_div('id-freedv-status',
+         w3_div('', 'State: ', w3_div('id-freedv-state w3-show-inline', 'stopped')),
+         w3_div('', 'Backend: ', w3_div('id-freedv-backend w3-show-inline', 'external')),
+         w3_div('', 'Sync: ', w3_div('id-freedv-sync w3-show-inline', 'no')),
+         w3_div('', 'SNR: ', w3_div('id-freedv-snr w3-show-inline', '-- dB')),
+         w3_div('', 'Offset: ', w3_div('id-freedv-foff w3-show-inline', '-- Hz')),
+         w3_div('', 'Callsign/text: ', w3_div('id-freedv-text w3-show-inline', '')),
+         w3_div('', 'Reporter: ', w3_div('id-freedv-reporter w3-show-inline',
+            freedv.reporter_enabled? 'enabled (idle)':'disabled'))),
+      w3_div('id-freedv-footer',
+         w3_div('w3-small', 'Dropped frames: ', w3_div('id-freedv-dropped w3-show-inline', '0')),
+         w3_div('id-freedv-error w3-small w3-text-red'),
+         w3_link('w3-small', 'https://qso.freedv.org/', 'FreeDV Reporter')));
    ext_panel_show(controls, null, null);
    ext_set_controls_width_height(470, 450);
    w3_disable('id-freedv-test', !freedv.test_available);

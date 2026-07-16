@@ -1,7 +1,15 @@
 /* External FreeDV camper decoder UI */
-#id-freedv-controls { padding:10px; }
-#id-freedv-state,
-#id-freedv-sync,
-#id-freedv-reporter,
-#id-freedv-backend { color:aqua; }
-#id-freedv-text { color:white; overflow-wrap:anywhere; }
+.id-freedv-controls { padding:12px 14px; line-height:1.25; }
+.id-freedv-intro { margin-bottom:12px; }
+.id-freedv-intro > div { margin-bottom:2px; }
+.id-freedv-actions { margin-bottom:10px; }
+.id-freedv-calling { margin-bottom:8px; }
+.id-freedv-radio-info { line-height:1.35; }
+.id-freedv-status { margin-top:12px; padding-top:8px; border-top:1px solid #777; }
+.id-freedv-status > div { margin-bottom:3px; }
+.id-freedv-footer { margin-top:8px; line-height:1.35; }
+.id-freedv-state,
+.id-freedv-sync,
+.id-freedv-reporter,
+.id-freedv-backend { color:aqua; }
+.id-freedv-text { color:white; overflow-wrap:anywhere; }

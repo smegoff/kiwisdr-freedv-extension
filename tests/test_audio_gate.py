@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.24", source)
+        self.assertIn(b"FreeDV v0.1.26", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
 
@@ -139,7 +139,26 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn('"EXT rade_enabled=%d reporter_enabled=%d ready', server)
         self.assertIn("legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA']", browser)
         self.assertIn("if (freedv.rade_enabled) freedv.modes.push('RADEV1')", browser)
+        self.assertIn("mode: 'RADEV1'", browser)
+        self.assertIn("if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D'", browser)
         self.assertIn("'freedv.rade_enabled'", browser)
+
+    def test_panel_uses_native_kiwi_type_and_spaced_sections(self) -> None:
+        browser = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        css = (WEB / "FreeDV.css").read_text(encoding="utf-8")
+        for section in (
+            "id-freedv-intro",
+            "id-freedv-actions",
+            "id-freedv-calling",
+            "id-freedv-radio-info",
+            "id-freedv-status",
+            "id-freedv-footer",
+        ):
+            self.assertIn(section, browser)
+            self.assertIn(f".{section}", css)
+        self.assertNotIn("font-family", css)
+        self.assertIn("line-height:1.25", css)
+        self.assertIn("border-top:1px solid #777", css)
 
     def test_reference_mode_exercises_external_decoder_and_never_reports(self) -> None:
         server = SERVER.read_text(encoding="utf-8")
