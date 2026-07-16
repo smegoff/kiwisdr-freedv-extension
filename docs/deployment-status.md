@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 02:09 UTC (2026-07-16 14:09 NZST)
+Last verified: 2026-07-16 06:29 UTC (2026-07-16 18:29 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,23 +10,64 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-23`
+- active Kiwi release: `freedv-v0-1-24`
 - active Kiwi SHA-256:
-  `03ebcc5e92e7dc0240e5234217a820f4c643fad7583f1eec3cf2e250686c72a8`
-- Kiwi BuildID: `04aa402c88cc7d98c49009590881fb02db5b4938`
-- immediate Kiwi rollback: `freedv-v0-1-22`
+  `4eb96482f50f7b681eb33b77737ea5675061e24ad6585b010083352396b48de6`
+- Kiwi BuildID: `5fb773c54cf14bbbde9c8ca2d55d51fdaee3d300`
+- immediate Kiwi rollback: `freedv-v0-1-23`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
 - decoder-guest release: `0.1.19`
 - decoder binary SHA-256:
   `4d72eb78c55feb07d255d1eb9d5c18bcb9c126b13d6a58935aeb310b893d14da`
 - Reporter sidecar SHA-256:
-  `77339bf6b1da7a494d552e1676d810a4706c9ee7ec92659989678b9b5956ad7e`
-- decoder-guest snapshot: `pre-reporter-v0-1-22`
+  `b6d8aaf555668068eafe0043d7f5fddd341131bd07430712e5802a21e7039c69`
+- decoder-guest snapshot: `pre-reporter-v0-1-24`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
-  reports the Reporter sidecar online while the opted-in extension panel shows
+  reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.24 returned-status relay and Reporter cleanup
+
+The decoder was healthy, camped and processing audio while the browser remained
+at `waiting-for-decoder`. The failure was isolated to the Kiwi's `rev_txt`
+handoff: the generic receiver callback could be replaced during the
+monitor-to-camper transition, so valid decoder status was silently lost.
+v0.1.24 routes the authenticated camper's FreeDV `rev_txt` directly to the
+FreeDV handler, retains generation and payload validation, and records one
+bounded diagnostic per outcome and generation without logging status payloads
+or secrets.
+
+A real browser reproduced the old failure on v0.1.23, then verified v0.1.24.
+RADEV1 reached `running`, backend `rade-v1` and Reporter `online` in under three
+seconds with one decoder session and zero dropped frames. Stop returned the
+decoder to zero sessions and no camper. The bundled 700D Test progressed from
+6% to 81% and completed at `100% / test passed`; Reporter correctly showed
+`enabled (test excluded)` during the test. A normal 700D session reached
+backend `codec2` and Reporter `online`.
+
+The public Reporter page listed ZL1SXG at 7.0200 MHz as `Receive Only` with
+client `KiwiSDR-FreeDV/0.1.24`, then removed the row after Stop. The Reporter
+sidecar now expires session state after three seconds without decoder events,
+so a lost local UDP stop datagram cannot leave a stale public presence. The
+stale-session behavior and the existing identity, RX-only, precedence,
+reconnect and duplicate-suppression behavior are covered by 12 Reporter unit
+tests; 13 Kiwi-overlay regression checks also pass.
+
+The pre-change streamed archive is
+`backups/kiwi-config-20260716T054648Z/kiwi.config.tgz`. It contains 39 entries
+and has SHA-256
+`01123957d3d9e2c5d561ea44db914f7f36d22da9d059e2f617e1416e62236e9d`.
+The source rollback copy is `/root/freedv-rollbacks/20260716T055500Z`.
+
+The post-deployment idle soak passed 41/41 Kiwi samples and 41/41
+decoder-guest samples. Every Kiwi sample reported active v0.1.24, firmware
+1.901, healthy service/status/root HTML, zero listeners, zero deployment
+wrappers and zero critical log matches. Every decoder sample reported both
+services active, private loopback health only, Kiwi connected, no camper, zero
+sessions, Reporter disabled and zero critical matches. The ignored evidence is
+stored under `backups/freedv-v0-1-24-deployment-20260716T062850Z/`.
 
 FreeDV remains visible to ordinary users without developer mode. Only FreeDV
 was removed from `extint.excl_devl`; the other developer extensions remain
@@ -202,15 +243,16 @@ decoder-guest snapshots were removed. The guest now retains only:
 
 - `clean-debian12` - clean operating-system baseline;
 - `pre-radev1-v0-1-15` - architectural checkpoint before RADEV1; and
-- `pre-reporter-v0-1-22` - immediate rollback for the active Reporter sidecar
+- `pre-reporter-v0-1-24` - immediate rollback for the active Reporter sidecar
   and decoder services.
 
 The cleanup did not stop or modify the active guest. Post-cleanup checks showed
 both services active, decoder v0.1.19 healthy and connected to the Kiwi, zero
 sessions and Reporter disabled. After v0.1.22 acceptance, the superseded
-`pre-test-race-v0-1-19` snapshot was also removed. Future decoder deployments use the
-dry-run-first `tools/prune-decoder-snapshots.ps1` helper after acceptance and
-soak testing.
+`pre-test-race-v0-1-19` snapshot was also removed. After v0.1.24 acceptance,
+`pre-reporter-v0-1-22` was superseded by `pre-reporter-v0-1-24` and removed.
+Future decoder deployments use the dry-run-first
+`tools/prune-decoder-snapshots.ps1` helper after acceptance and soak testing.
 
 ## v0.1.20 common calling frequencies
 

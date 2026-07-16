@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.23"
+#define FREEDV_RELEASE "0.1.24"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -41,6 +41,8 @@ typedef struct {
     u64_t frequency_hz;
     u4_t generation;
     u4_t last_status;
+    u4_t status_diag_generation;
+    u1_t status_diag_code;
     s2_t *test_sample;
     u4_t test_samples_sent;
     int test_last_percent;
@@ -67,8 +69,6 @@ static int nonce_position;
 static char shared_secret[192];
 static bool secret_loaded;
 static freedv_test_t test_signal;
-
-bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan);
 
 static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     TYPEMONO16 *samples, int freq_hz)
@@ -345,15 +345,41 @@ void freedv_close(int rx_chan)
 }
 
 // Called in the sound/waterfall/monitor task context.
+static void freedv_status_diag(freedv_t *e, int rx_chan, unsigned long generation,
+    u1_t code, const char *reason)
+{
+    if (e->status_diag_generation == e->generation && e->status_diag_code == code) return;
+    e->status_diag_generation = e->generation;
+    e->status_diag_code = code;
+    printf("FreeDV: rev_txt rx=%d received_generation=%lu expected_generation=%u %s\n",
+        rx_chan, generation, e->generation, reason);
+}
+
 bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan)
 {
     (void) key;
     if (strncmp(cmd, "SET rev_txt=", 12) != 0) return false;
+    if (rx_chan < 0 || rx_chan >= rx_chans) {
+        printf("FreeDV: rev_txt invalid rx=%d\n", rx_chan);
+        return true;
+    }
     freedv_t *e = &freedv[rx_chan];
     char *end;
     unsigned long generation = strtoul(&cmd[12], &end, 10);
-    if (*end != ',' || !e->running || generation != e->generation) return true;
+    if (*end != ',') {
+        freedv_status_diag(e, rx_chan, generation, 1, "invalid-generation-field");
+        return true;
+    }
+    if (!e->running) {
+        freedv_status_diag(e, rx_chan, generation, 2, "receiver-not-running");
+        return true;
+    }
+    if (generation != e->generation) {
+        freedv_status_diag(e, rx_chan, generation, 3, "stale-generation");
+        return true;
+    }
     if (!freedv_encoded_status_valid(end + 1)) {
+        freedv_status_diag(e, rx_chan, generation, 4, "invalid-encoded-status");
         ext_send_msg_encoded(rx_chan, false, "EXT", "error", "invalid decoder status");
         return true;
     }
@@ -362,9 +388,11 @@ bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan)
     kiwi_str_decode_inplace(status);
     size_t status_length = strlen(status);
     if (status_length < 2 || status[0] != '{' || status[status_length-1] != '}') {
+        freedv_status_diag(e, rx_chan, generation, 5, "invalid-decoded-status");
         ext_send_msg_encoded(rx_chan, false, "EXT", "error", "invalid decoded status");
         return true;
     }
+    freedv_status_diag(e, rx_chan, generation, 6, "accepted");
     e->last_status = timer_sec();
     e->decoder_online = true;
     freedv_set_return_audio(rx_chan, true);

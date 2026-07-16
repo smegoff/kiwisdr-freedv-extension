@@ -16,7 +16,8 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.22"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.24"
+SESSION_TIMEOUT_SECONDS = 3.0
 
 
 def build_auth(config):
@@ -37,9 +38,11 @@ class ReporterState:
         self.sessions = {}
         self.last_reports = {}
         self.revision = 0
+        self.last_event_at = None
         self.config = config or {"enabled": False, "callsign": "", "grid_square": "", "message": ""}
 
-    def update(self, event):
+    def update(self, event, now=None):
+        self.last_event_at = time.monotonic() if now is None else now
         sid = int(event["session_id"])
         if "enabled" in event:
             self.config = {
@@ -56,6 +59,15 @@ class ReporterState:
             self.revision += 1
             event["updated"] = self.revision
             self.sessions[sid] = event
+
+    def expire_stale(self, now=None, timeout=SESSION_TIMEOUT_SECONDS):
+        """Clear presence if decoder events stop before a stop datagram arrives."""
+        current = time.monotonic() if now is None else now
+        if (self.sessions and self.last_event_at is not None and
+                current - self.last_event_at > timeout):
+            self.sessions.clear()
+            return True
+        return False
 
     def selected(self):
         synced = [s for s in self.sessions.values() if s.get("sync")]
@@ -165,6 +177,9 @@ async def main():
             state.update(event)
         except asyncio.TimeoutError:
             event = None
+
+        if state.expire_stale():
+            logging.info("expired stale Reporter session state")
 
         cfg = state.config
         if not state.sessions:

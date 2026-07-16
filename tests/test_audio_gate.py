@@ -50,7 +50,7 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.23", source)
+        self.assertIn(b"FreeDV v0.1.24", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
 
@@ -203,6 +203,20 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("http::status::service_unavailable", decoder)
         self.assertIn("freedv_status_updates_total", decoder)
 
+    def test_authenticated_camper_routes_freedv_status_directly(self) -> None:
+        patch = PATCH.with_name("0004-freedv-direct-status-relay.patch").read_text(
+            encoding="utf-8"
+        )
+        server = SERVER.read_text(encoding="utf-8")
+        self.assertIn(
+            "if (freedv_receive_cmds(CMD_NO_KEY, cmd, camped_rx)) continue;",
+            patch,
+        )
+        self.assertIn("FreeDV owns rev_txt", patch)
+        self.assertIn("freedv_status_diag", server)
+        self.assertIn('"stale-generation"', server)
+        self.assertIn('"accepted"', server)
+
     def test_public_docs_use_portable_decoder_guest_terminology(self) -> None:
         public_paths = [ROOT / "README.md", *(ROOT / "docs").glob("*.md")]
         public_text = "\n".join(path.read_text(encoding="utf-8") for path in public_paths)
@@ -218,10 +232,15 @@ class AudioGateTest(unittest.TestCase):
         upstream = ROOT / "upstream-kiwisdr"
         if not (upstream / ".git").exists():
             self.skipTest("ignored upstream KiwiSDR checkout is not present")
-        subprocess.run(
-            ["git", "-C", str(upstream), "apply", "--check", str(PATCH)],
-            check=True,
-        )
+        for patch in (
+            ROOT / "kiwi-overlay" / "patches" / "0002-freedv-monitor-control.patch",
+            ROOT / "kiwi-overlay" / "patches" / "0004-freedv-direct-status-relay.patch",
+            PATCH,
+        ):
+            subprocess.run(
+                ["git", "-C", str(upstream), "apply", "--check", str(patch)],
+                check=True,
+            )
 
 
 if __name__ == "__main__":
