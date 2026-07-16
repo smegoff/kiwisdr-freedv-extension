@@ -61,13 +61,15 @@ browser                 KiwiSDR                       decoder guest
    |<-- normal Kiwi audio--|<---- rev_txt status -----------|
    |                       |                                |-- Codec2
    |                       |                                |-- health/metrics
+   |                       |                                |-- diagnostics :8076
    |                       |                                `-- RX-only Reporter
 ```
 
-The Kiwi remains the only public endpoint. The guest does not expose a decoder
-WebSocket, and its health endpoint binds to `127.0.0.1:8074`. Reporter, when the
-owner explicitly enables it, makes a separate outbound HTTPS/Socket.IO
-connection to `qso.freedv.org`.
+The Kiwi remains the only public receiver endpoint. The decoder's health
+endpoint binds to `127.0.0.1:8074`. The authenticated read-only diagnostics
+dashboard binds to management port 8076 and must be limited to the
+administration LAN. Reporter, when the owner explicitly enables it, makes a
+separate outbound HTTPS/Socket.IO connection to `qso.freedv.org`.
 
 ## Full VM or LXC?
 
@@ -197,9 +199,11 @@ Keep the VM on the private LAN and do not create a public port-forward. Permit:
 - VM outbound TCP 80/443 for Debian updates, and TCP 443 for FreeDV Reporter
   when it is enabled.
 - Management SSH to the VM only from the administration LAN.
+- Management TCP 8076 to the VM only from the administration LAN.
 
 No LAN client needs access to decoder port 8074; health and metrics are
-loopback-only. The installed `freedv-decoder.service` also contains systemd
+loopback-only. No public client needs access to port 8076. The installed
+`freedv-decoder.service` also contains systemd
 `IPAddressAllow` rules. If the Kiwi does not use the repository's development
 address, add its actual address with a systemd drop-in before starting the
 daemon:
@@ -243,6 +247,7 @@ After installing the decoder, verify its local health and service sandbox:
 systemctl --no-pager --full status freedv-decoder.service freedv-reporter.service
 curl --fail http://127.0.0.1:8074/healthz
 curl --fail http://127.0.0.1:8074/metrics
+wget -qO- http://127.0.0.1:8076/ | grep -F 'FreeDV Decoder Diagnostics'
 journalctl -u freedv-decoder.service --since '-15 min' --no-pager
 ```
 

@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 09:13 UTC (2026-07-16 21:13 NZST)
+Last verified: 2026-07-16 13:02 UTC (2026-07-17 01:02 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -17,17 +17,46 @@ guest**.
 - immediate Kiwi rollback: `freedv-v0-1-25`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
-- decoder-guest release: `0.1.19`
+- decoder-guest release: `0.1.20`
 - decoder binary SHA-256:
-  `4d72eb78c55feb07d255d1eb9d5c18bcb9c126b13d6a58935aeb310b893d14da`
+  `c1710faf4b37db21ce733dce90215cdb26fc9b368a441a487471e37d784c4864`
 - Reporter sidecar SHA-256:
   `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
 - Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder-guest snapshot: `pre-reporter-v0-1-28`
+- decoder-guest snapshot: `pre-dashboard-v0-1-20`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Decoder dashboard v0.1.20
+
+Decoder v0.1.20 adds a separately authenticated, read-only management dashboard
+on TCP 8076. The reference firewall permits that port only from the management
+LAN; decoder health and metrics on 8074 remain loopback-only. The installed
+HTML, CSS and JavaScript are versioned and selected by an atomic `current`
+symlink. The generated dashboard key is distinct from the Kiwi control secret,
+is stored as `root:freedv 0640`, and was preserved across the upgrade.
+
+Browser acceptance covered login/logout, late connection, Split, Waterfall and
+Spectrum views, Cividis rendering, the 1500 Hz/passband overlay, 700D and
+RADEV1 status, Codec2 modem counters, RADEV1 null capability fields, and clean
+Stop behavior. The published dashboard screenshot has SHA-256
+`c71405dde73a8283dd6a2b7cca8488ce19bf0b58ac4d80c9acd68191c7fb46dd`.
+
+The formal live 700D soak passed 41/41 samples at 15-second intervals. Every
+sample reported one decoder session and one authenticated dashboard client;
+the waterfall sequence advanced from 770 to 6490, both decoder and
+visualization drops remained zero, history stayed bounded at 600 samples, and
+there were no critical journal matches. Daemon RSS ranged from 11,184 to
+12,428 KiB. A following 3/3 idle check held at zero sessions with the waterfall
+sequence stationary. The original production dashboard key was then restored.
+
+Extended RADEV1 no-signal testing separately exposed an existing decoder
+main-loop watchdog after roughly nine minutes. The isolated dashboard worker,
+ring buffer and WebSocket path remained responsive and drop-free before the
+watchdog recovery. RADEV1 remains experimental; this is recorded as a backend
+follow-up and is not presented as a dashboard failure.
 
 ## v0.1.26 panel spacing and RADEV1 default
 

@@ -103,3 +103,18 @@ restart. The sidecar reports `online` only after FreeDV Reporter sends
 acceptance signal. An active unsynchronized session publishes its tuned
 frequency immediately, while a synchronized session takes precedence if more
 than one session is supported in the future.
+
+## Read-only diagnostics surface
+
+Decoder service 0.1.20 adds a separate authenticated management surface on
+TCP 8076. It does not change protocol v2, create a second Kiwi connection or
+accept decoder jobs. Login produces an eight-hour HttpOnly, SameSite-Strict
+cookie; `/api/v1/status`, `/api/v1/history` and WebSocket
+`/api/v1/stream` reject unauthenticated requests.
+
+The WebSocket carries version 1 `FDWF` binary frames: a 16-byte header with
+flags, input sample rate, 512-bin count and sequence, followed by unsigned
+-120..0 dBFS bins. Visualization samples come from a bounded non-blocking tap
+after Kiwi sound decoding. An overloaded dashboard drops its own samples and
+cannot back-pressure the modem. See [dashboard.md](dashboard.md) for the exact
+frame layout and security boundary.

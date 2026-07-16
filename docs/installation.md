@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.26`, decoder service `0.1.19`, and KiwiSDR
+written for Kiwi extension `0.1.26`, decoder service `0.1.20`, and KiwiSDR
 upstream commit `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
@@ -108,16 +108,20 @@ its FARGAN/Opus dependency. It does not enable RADEV1. Skip that command only
 for a legacy-Codec2-only installation; CMake will then build the daemon without
 the optional adapter and the Kiwi RADEV1 switch must remain off.
 
-The installer adds the remaining Debian build dependencies, builds the C++17 daemon in
-Release mode, installs the Reporter Python environment, creates the unprivileged
-`freedv` service account and installs both systemd units. It enables the units
-but deliberately does not start them until configuration and tests pass.
+The installer adds the remaining Debian build dependencies, including FFTW3,
+builds the C++17 daemon in Release mode, installs the versioned dashboard
+assets and Reporter Python environment, creates the unprivileged `freedv`
+service account and installs both systemd units. It enables the units but
+deliberately does not start them until configuration and tests pass.
+
+The installer creates `/etc/freedv-decoder/dashboard.token` once as
+`root:freedv 0640`. It does not print the token, and upgrades preserve it.
 
 For an in-place upgrade, `tools/deploy-decoder-release.sh` records the previous
 decoder, Reporter client, units, configuration and Python package set, then
 restores them automatically if health checks fail. A Reporter-only release can
 retain the existing decoder health version using the optional third argument,
-for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-22 v0.1.22 0.1.19`.
+for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-20 v0.1.20 0.1.20`.
 
 Generate one 256-bit shared secret. Store the same 64 hexadecimal characters on
 the guest and Kiwi, but never commit, paste into an issue, or print the value in
@@ -136,6 +140,13 @@ FREEDV_KIWI_HOST=<kiwi-private-address>
 FREEDV_KIWI_PORT=8073
 FREEDV_KIWI_PASSWORD=<optional-Kiwi-receiver-password>
 FREEDV_HEALTH_PORT=8074
+FREEDV_DASHBOARD_ENABLED=1
+FREEDV_DASHBOARD_BIND=0.0.0.0
+FREEDV_DASHBOARD_PORT=8076
+FREEDV_DASHBOARD_TOKEN_FILE=/etc/freedv-decoder/dashboard.token
+FREEDV_DASHBOARD_ASSET_DIR=/usr/local/share/freedv-dashboard/current
+FREEDV_DASHBOARD_HISTORY_SECONDS=600
+FREEDV_DASHBOARD_WATERFALL_FPS=10
 FREEDV_ENABLE_RADE=0
 ```
 
@@ -172,6 +183,17 @@ curl --fail http://127.0.0.1:8074/metrics
 
 The health endpoint intentionally binds to loopback. The decoder should show a
 Kiwi monitor connection but zero sessions until a browser starts FreeDV.
+
+Allow TCP 8076 only from the configured management CIDR. Do not expose it to
+the public internet and do not open port 8074. Retrieve the separate dashboard
+access key only when an administrator needs to log in:
+
+```bash
+sudo sh -c 'read -r key </etc/freedv-decoder/dashboard.token; printf "Dashboard access key: "; printf "%s\n" "$key"'
+```
+
+Then open `http://freedv-decoder.local:8076/` or use the guest's private
+address. Full operation and security notes are in [dashboard.md](dashboard.md).
 
 ## 5. Prepare and build the Kiwi overlay
 
@@ -258,6 +280,10 @@ candidate check automatically restores the previous release.
    zero, Reporter to read `enabled (idle)` when opted in, and normal receiver
    audio to return.
 7. Confirm the Kiwi root receiver and Admin pages still load.
+8. Open the decoder dashboard from the management LAN and verify login, a late
+   connection to the running session, waterfall sequence growth, current
+   backend and Reporter state. Stop FreeDV and require the session to clear
+   without stale modem statistics.
 
 After the legacy test passes, enable RADEV1 in this order:
 

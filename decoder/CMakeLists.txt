@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kiwi_freedv_decoder VERSION 0.1.19 LANGUAGES C CXX)
+project(kiwi_freedv_decoder VERSION 0.1.20 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,6 +12,7 @@ find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CODEC2 codec2)
 pkg_check_modules(SAMPLERATE REQUIRED samplerate)
+pkg_check_modules(FFTW3F REQUIRED fftw3f)
 
 find_path(RADE_INCLUDE_DIR rade_api.h PATH_SUFFIXES freedv-rade/rade)
 find_path(FARGAN_INCLUDE_DIR fargan.h PATH_SUFFIXES freedv-rade/opus/dnn)
@@ -50,10 +51,11 @@ add_executable(freedv-decoder
   src/resampler.cpp
   src/codec2_backend.cpp
   src/rade_backend.cpp
+  src/dashboard.cpp
 )
-target_include_directories(freedv-decoder PRIVATE include ${CODEC2_INCLUDE_DIRS} ${SAMPLERATE_INCLUDE_DIRS})
-target_link_libraries(freedv-decoder PRIVATE Boost::system Threads::Threads OpenSSL::Crypto nlohmann_json::nlohmann_json ${CODEC2_LIBRARIES} ${SAMPLERATE_LIBRARIES})
-target_compile_options(freedv-decoder PRIVATE -Wall -Wextra -Wpedantic ${CODEC2_CFLAGS_OTHER} ${SAMPLERATE_CFLAGS_OTHER})
+target_include_directories(freedv-decoder PRIVATE include ${CODEC2_INCLUDE_DIRS} ${SAMPLERATE_INCLUDE_DIRS} ${FFTW3F_INCLUDE_DIRS})
+target_link_libraries(freedv-decoder PRIVATE Boost::system Threads::Threads OpenSSL::Crypto nlohmann_json::nlohmann_json ${CODEC2_LIBRARIES} ${SAMPLERATE_LIBRARIES} ${FFTW3F_LIBRARIES})
+target_compile_options(freedv-decoder PRIVATE -Wall -Wextra -Wpedantic ${CODEC2_CFLAGS_OTHER} ${SAMPLERATE_CFLAGS_OTHER} ${FFTW3F_CFLAGS_OTHER})
 if(CODEC2_FOUND)
   target_compile_definitions(freedv-decoder PRIVATE HAVE_CODEC2=1)
 endif()
@@ -70,6 +72,15 @@ if(BUILD_TESTING)
   # Release builds define NDEBUG globally. Unit-test assertions must remain live.
   target_compile_options(freedv-protocol-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
   add_test(NAME freedv-protocol-test COMMAND freedv-protocol-test)
+
+  add_executable(freedv-dashboard-test
+    tests/dashboard_test.cpp
+    src/dashboard.cpp
+  )
+  target_include_directories(freedv-dashboard-test PRIVATE include ${FFTW3F_INCLUDE_DIRS})
+  target_link_libraries(freedv-dashboard-test PRIVATE Boost::system Threads::Threads OpenSSL::Crypto nlohmann_json::nlohmann_json ${FFTW3F_LIBRARIES})
+  target_compile_options(freedv-dashboard-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG ${FFTW3F_CFLAGS_OTHER})
+  add_test(NAME freedv-dashboard-test COMMAND freedv-dashboard-test)
 
   add_executable(freedv-backend-test
     tests/backend_test.cpp
