@@ -59,6 +59,14 @@ The obsolete `pre-tdoa-v0-1-3` snapshot was removed during retention cleanup.
 The old port-8074 ingress design remains unsupported and must not be restored
 into the live environment.
 
+For an experimental BeagleBone AI-64 local decoder, use the dedicated
+`tools/rollback-ai64-local.sh` command and the exact `activate-*` backup created
+by `tools/activate-ai64-local.sh`. It stops the local services, restores both
+Kiwi and decoder configuration, restarts Kiwi and verifies root HTML plus
+`/status`. Retain the external decoder guest until the AI-64 has passed the
+offline benchmark, 30-minute shared-host soak and synchronized live-speech
+test. See [ai64-local-decoder.md](ai64-local-decoder.md) for the complete gate.
+
 ## Full recovery
 
 Power off the Kiwi, insert the labelled backup card, power on, and allow the

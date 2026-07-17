@@ -48,6 +48,7 @@ the optional diagnostics page connects to its management-only web port.
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
+| AI-64 local decoder | Experimental | ARM64 install/activation/rollback gates implemented; physical validation pending |
 
 The bundled 700D test has passed end to end with returned audio and zero
 dropped frames. Live-RF speech acceptance is still pending mode by mode. See
@@ -77,6 +78,11 @@ External decoding is intentional: the Kiwi's single-core processor already
 handles RF processing, receiver channels, waterfalls, audio and networking.
 See [Why run an external decoder guest?](docs/external-decoder-vm.md) for the
 resource, isolation and VM-versus-LXC trade-offs.
+
+An optional [BeagleBone AI-64 local-decoder path](docs/ai64-local-decoder.md)
+runs the same resource-bounded service over loopback on John's supported AI-64
+Kiwi platform. Its installer, offline benchmark, activation and rollback gates
+are implemented, but remain explicitly unverified on physical AI-64 hardware.
 
 ## Supported modes
 
@@ -241,6 +247,7 @@ and are never published.
 - [Installation](docs/installation.md)
 - [FreeDV mode support](docs/modes.md)
 - [External decoder VM/LXC](docs/external-decoder-vm.md)
+- [BeagleBone AI-64 local decoder](docs/ai64-local-decoder.md)
 - [Camper/control protocol](docs/protocol.md)
 - [Backup and rollback](docs/rollback.md)
 - [Feasibility and headroom](docs/feasibility.md)
