@@ -37,8 +37,10 @@ While the extension is open it follows the usual amateur voice convention:
   bands.
 
 The extension reapplies the correct sideband after a retune or manual mode
-change. On close it restores both the receiver mode and the passband that were
-active before FreeDV opened.
+change. On close it restores the receiver mode, passband and noise-filter
+selection that were active before FreeDV opened. The noise blanker is not
+changed. Disabling the noise filter prevents speech-oriented noise reduction
+from reshaping the modem waveform before the external decoder receives it.
 
 ## Common calling frequencies
 
@@ -71,10 +73,17 @@ out-of-range tune.
 | 10 metres | 28.720 MHz | USB | |
 | 10 GHz (QO-100) | 10489.640 MHz | USB | Requires a suitable frequency offset |
 
-The HF modem is centred at 1,500 Hz. Each filter starts with the upstream
-occupied RF bandwidth, adds 200 Hz of tuning/acquisition headroom at each edge,
-and rounds outward to the next 25 Hz. For LSB, Kiwi mirrors the positive audio
-limits shown below into negative-frequency passband limits automatically.
+The HF modem is centred at 1,500 Hz. The default **Auto (lock on sync)** profile
+starts with the upstream occupied RF bandwidth plus 200 Hz of acquisition
+headroom at each edge. On the first successful modem synchronization it
+tightens to 50 Hz per edge and remains locked for that transmission. Retuning,
+changing FreeDV mode or restarting the session returns it to acquisition.
+
+Three fixed manual profiles are also available: **Tight** adds 50 Hz per edge,
+**Normal** adds 200 Hz and **Wide** adds 350 Hz. All limits round outward to the
+next 25 Hz. For LSB, Kiwi mirrors the positive audio limits shown below into
+negative-frequency passband limits automatically. The table shows the Normal
+and Auto-acquisition values.
 
 | FreeDV mode | Documented occupied width | USB filter | LSB filter |
 | --- | ---: | ---: | ---: |

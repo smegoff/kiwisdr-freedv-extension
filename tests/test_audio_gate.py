@@ -50,9 +50,10 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.26", source)
+        self.assertIn(b"FreeDV v0.1.28", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
+        self.assertIn('#define FREEDV_RELEASE "0.1.28"', SERVER.read_text(encoding="utf-8"))
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -97,6 +98,52 @@ class AudioGateTest(unittest.TestCase):
             "ext_set_passband(freedv.saved_passband.low, freedv.saved_passband.high)",
             source,
         )
+
+    def test_noise_filter_is_temporarily_disabled_and_restored(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        force = re.search(
+            r"function freedv_force_noise_filter_off\(\)(.*?)\n\}", source, re.DOTALL
+        )
+        restore = re.search(
+            r"function freedv_restore_noise_filter\(\)(.*?)\n\}", source, re.DOTALL
+        )
+        blur = re.search(r"function FreeDV_blur\(\)(.*?)\n\}", source, re.DOTALL)
+        self.assertIsNotNone(force)
+        self.assertIsNotNone(restore)
+        self.assertIsNotNone(blur)
+        for value in ("noise_filter.algo", "noise_filter.denoise", "noise_filter.autonotch"):
+            self.assertIn(value, force.group(1))
+            self.assertIn(value, restore.group(1))
+        self.assertIn("stored_algo: kiwi_storeRead('last_nr_algo')", force.group(1))
+        self.assertIn("snd_send('SET nr algo='+ noise_filter.NR_OFF)", force.group(1))
+        self.assertIn("w3_select_value('nr_algo', noise_filter.NR_OFF, { all:1 })", force.group(1))
+        self.assertIn("snd_send('SET nr algo='+ noise_filter.algo)", restore.group(1))
+        self.assertIn("w3_select_value('nr_algo', noise_filter.algo, { all:1 })", restore.group(1))
+        self.assertIn("noise_filter_send(noise_filter.NR_DENOISE)", restore.group(1))
+        self.assertIn("noise_filter_send(noise_filter.NR_AUTONOTCH)", restore.group(1))
+        self.assertIn("freedv_restore_noise_filter()", blur.group(1))
+        self.assertNotIn("noise_blank", force.group(1) + restore.group(1))
+
+    def test_automatic_filter_tightens_once_and_has_manual_overrides(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        self.assertIn("filter_modes: ['Auto (lock on sync)', 'Tight', 'Normal', 'Wide']", source)
+        self.assertIn("filter_keys: ['auto', 'tight', 'normal', 'wide']", source)
+        self.assertIn("if (key == 'tight') return 50", source)
+        self.assertIn("if (key == 'wide') return 350", source)
+        self.assertIn("if (key == 'auto' && freedv.filter_locked) return 50", source)
+        self.assertIn("return 200", source)
+        lock = re.search(
+            r"function freedv_filter_sync\(synced\)(.*?)\n\}", source, re.DOTALL
+        )
+        self.assertIsNotNone(lock)
+        self.assertIn("freedv_filter_key() != 'auto'", lock.group(1))
+        self.assertIn("freedv.filter_locked", lock.group(1))
+        self.assertIn("freedv.filter_locked = true", lock.group(1))
+        self.assertIn("freedv_filter_sync(status.sync)", source)
+        self.assertIn("function freedv_filter_cb(path, index, first)", source)
+        self.assertIn("freedv.filter_locked = false", source)
+        self.assertIn("Automatic filter mode", source)
+        self.assertIn("The noise blanker is not changed", source)
 
     def test_common_calling_frequency_selector(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")

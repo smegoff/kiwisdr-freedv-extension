@@ -2,7 +2,7 @@
 
 This guide installs the receive-only FreeDV framework as two components: a
 private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.26`, decoder service `0.1.21`, and KiwiSDR
+written for Kiwi extension `0.1.28`, decoder service `0.1.21`, and KiwiSDR
 upstream commit `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
 
 The supplied automation requires site-specific addresses, VMID, storage,
@@ -243,7 +243,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-26-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-28-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -256,7 +256,8 @@ candidate check automatically restores the previous release.
 1. Load the receiver in a current Chrome, Firefox or Edge browser and verify
    that **FreeDV** appears in the normal extension menu.
 2. Open it and press **help**. Require the modal to describe 1600, 700C, 700D,
-   700E, 2400A, 2400B, 800XA, RADEV1, normal listening and Test mode.
+   700E, 2400A, 2400B, 800XA, RADEV1, normal listening, Test mode, temporary
+   noise-filter control and automatic/manual receiver filtering.
 3. Press **Test**. It forces 700D and feeds John's bundled reference recording
    through the normal Kiwi sound channel, the external decoder and `rev_bin`
    return path. The readiness acknowledgement included in v0.1.23 prevents a
@@ -270,11 +271,17 @@ candidate check automatically restores the previous release.
    modem is synchronized.
 5. On the decoder guest, require `freedv_sessions 1`, an active camper and
    increasing SND counters in `http://127.0.0.1:8074/metrics`.
-6. Stop and close the extension. Require sessions and camper state to return to
-   zero, Reporter to read `enabled (idle)` when opted in, and normal receiver
-   audio to return.
-7. Confirm the Kiwi root receiver and Admin pages still load.
-8. Open the decoder dashboard from the management LAN and verify direct access, a late
+6. Before opening FreeDV, select a non-Off Kiwi noise-filter algorithm. Require
+   both mirrored Kiwi controls to show Off while FreeDV is open. Stop and close
+   the extension; require the previous noise-filter algorithm to return, along
+   with normal receiver audio. The noise-blanker setting must remain unchanged.
+7. Verify **Auto (lock on sync)** begins in acquisition, and that Tight, Normal
+   and Wide immediately apply their documented fixed passbands. A suitable live
+   FreeDV signal should make Auto report locked after the first synchronization.
+8. Require sessions and camper state to return to zero and Reporter to read
+   `enabled (idle)` when opted in.
+9. Confirm the Kiwi root receiver and Admin pages still load.
+10. Open the decoder dashboard from the management LAN and verify direct access, a late
    connection to the running session, waterfall sequence growth, current
    backend and Reporter state. Stop FreeDV and require the session to clear
    without stale modem statistics.

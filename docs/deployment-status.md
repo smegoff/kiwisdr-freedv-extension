@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-16 21:35 UTC (2026-07-17 09:35 NZST)
+Last verified: 2026-07-17 07:52 UTC (2026-07-17 19:52 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,11 +10,11 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-26`
+- active Kiwi release: `freedv-v0-1-28`
 - active Kiwi SHA-256:
-  `e8b5cf7eaf5000d8fe1c20100ec9acb5f17341943d34599358197eb23f8536bc`
-- Kiwi BuildID: `e9df12a4cb46bf672a0ae6d00b33afcad35bfaed`
-- immediate Kiwi rollback: `freedv-v0-1-25`
+  `2125ffb661b539406189ad8a22d71bdedc0040ff37ebebff925569d6ffd9a639`
+- Kiwi BuildID: `4c026193cdfd1d9f1097b03aaa26932ae711ca23`
+- immediate Kiwi rollback: `freedv-v0-1-27`
 - retained stock baseline SHA-256:
   `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
 - decoder-guest release: `0.1.21`
@@ -29,6 +29,52 @@ guest**.
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.28 reversible DSP and synchronized filtering
+
+Opening the FreeDV panel now saves the current Kiwi spectral-noise-filter
+algorithm, denoise/autonotch state and stored preference, then selects Off for
+the active receiver. Closing the extension restores those exact values. The
+noise blanker is deliberately not changed. The UI shows this temporary state
+so listeners are not left guessing which DSP is feeding the modem.
+
+The new receiver-filter selector defaults to **Auto (lock on sync)**. It begins
+with 200 Hz of acquisition allowance on each side of the documented modem
+bandwidth, tightens to 50 Hz on the first sync, and stays locked until a retune,
+mode change or session restart. Tight, Normal and Wide provide fixed 50, 200
+and 350 Hz manual allowances. The existing amateur LSB/USB selection and
+1,500 Hz modem centre remain unchanged.
+
+The first v0.1.27 browser candidate correctly controlled the receiver but left
+one of Kiwi's mirrored noise-filter selectors visually stale. It was not
+accepted. v0.1.28 updates every mirrored selector and is the deployed release.
+A real browser verified both selectors changing from the test setting to Off
+on open and restoring on close, all four receiver-filter profiles, the updated
+help panel and the ordinary extension menu. The bundled 700D test completed at
+100 percent with backend `codec2`, zero dropped frames and Reporter correctly
+excluded from the local test.
+
+The production binary SHA-256 and BuildID are recorded above. The streamed
+pre-deployment configuration archive contains 39 entries and has SHA-256
+`f634034b049588ec0a06091964922942caf88a494757755470676050be50ebaf`.
+The first-sync lock transition has regression-test coverage; a synchronized
+live-RF transmission is still required to record an on-air visual observation.
+
+The post-deployment soak passed 41/41 samples. Every sample reported active
+v0.1.28, firmware 1.901, healthy service/status/root HTML, zero users, zero
+deployment wrappers and zero critical Kiwi log matches. The decoder finished
+connected to the Kiwi, idle and uncamped with zero sessions, drops, reconnects
+or malformed jobs; both decoder services were active and their soak-period
+journal contained no warnings. Its earlier watchdog recoveries occurred only
+while the deliberate Kiwi candidate restart made the receiver endpoint
+unavailable, and systemd restored the outbound camper automatically. Ignored
+evidence is stored under
+`backups/freedv-v0-1-28-deployment-20260717T075200Z/`; the soak log SHA-256 is
+`6b75fcab7efdc59109fa0d40f1ebeb43f5d478999ada280313e54aafb2242a45`.
+After acceptance, superseded Kiwi candidates v0.1.22 through v0.1.26 were
+removed. The stock baseline, active v0.1.28 and immediate v0.1.27 rollback are
+retained; free eMMC space increased from 514 MB to 651 MB. No decoder upgrade
+or new decoder snapshot was involved in this release.
 
 ## Decoder dashboard v0.1.21
 
