@@ -15,6 +15,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("decoder_ip", help="private IPv4 address of the decoder guest")
     parser.add_argument("--config", default="/root/kiwi.config/kiwi.json")
+    parser.add_argument(
+        "--enable-rade",
+        action="store_true",
+        help="enable the separately gated RADEV1 selector after offline validation",
+    )
     args = parser.parse_args()
     config_path = args.config
     decoder_ip = str(ipaddress.IPv4Address(args.decoder_ip))
@@ -28,6 +33,8 @@ def main():
         "decoder_ip": decoder_ip,
         "reporter_enabled": False,
     })
+    if args.enable_rade:
+        freedv["rade_enabled"] = True
     freedv.setdefault("reporter_callsign", "")
     freedv.setdefault("reporter_grid", "")
     freedv.setdefault("reporter_message", "")
@@ -44,7 +51,8 @@ def main():
             output.flush()
             os.fsync(output.fileno())
         os.chmod(temporary, stat.S_IMODE(info.st_mode) & 0o600)
-        os.chown(temporary, info.st_uid, info.st_gid)
+        if hasattr(os, "chown"):
+            os.chown(temporary, info.st_uid, info.st_gid)
         os.replace(temporary, config_path)
     finally:
         if os.path.exists(temporary):

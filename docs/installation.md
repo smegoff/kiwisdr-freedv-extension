@@ -89,6 +89,12 @@ in [external-decoder-vm.md](external-decoder-vm.md), then continue with the
 same decoder installation below. The application, secret, camper protocol and
 acceptance tests are identical for a VM and an LXC.
 
+The separately documented
+[BeagleBone AI-64 local option](ai64-local-decoder.md) uses the same service
+over loopback when the Kiwi cape is already running on John's supported AI-64
+platform. Do not substitute those instructions for this production VM/LXC
+path until physical AI-64 CPU, thermal, RF and live-speech acceptance passes.
+
 ## 4. Install the decoder service
 
 Clone the repository using a deploy key or copy a verified checkout to the

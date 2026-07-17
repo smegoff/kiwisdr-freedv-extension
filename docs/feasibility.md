@@ -9,6 +9,13 @@ currently provides 4 vCPU and 2 GB
 RAM, and libcodec2 opened every required legacy mode there. Native decoding
 remains an adapter boundary only.
 
+John's current KiwiSDR source also supports the BeagleBone AI-64. Its two
+2 GHz Cortex-A72 cores and 4 GB RAM make a local companion decoder plausible,
+so this repository now includes an ARM64 build, loopback activation, resource
+limits, live soak and rollback path. No physical AI-64 has been available for
+execution, so this is an implemented experimental target rather than a tested
+replacement for the decoder guest. See [ai64-local-decoder.md](ai64-local-decoder.md).
+
 The current guest is an unprivileged Proxmox LXC. A full VM uses the same
 architecture and service package when stronger kernel isolation is preferred.
 See [external-decoder-vm.md](external-decoder-vm.md) for the engineering reasons,
@@ -76,3 +83,10 @@ greater than 0.50, sustained Kiwi CPU remains below 80%, p95 decoder block
 time is below half the represented audio duration, memory is bounded, and a
 30-minute full receiver/waterfall load produces no underrun, sequence,
 watchdog or thermal fault. The current hardware has not passed that gate.
+
+The AI-64 option does not weaken this gate and does not link RADEV1 into
+`kiwid`. The separate local daemon must first pass its offline RTF gate and
+then a 30-minute shared-host test with average system CPU no greater than 80%,
+peak CPU no greater than 95%, temperature no greater than 85 C, and no Kiwi
+audio, decoder-drop, restart or watchdog event. External decoding remains the
+reference production design until those results exist.
