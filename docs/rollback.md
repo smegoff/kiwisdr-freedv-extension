@@ -2,6 +2,11 @@
 
 ## Preferred full-recovery gate
 
+The guided installer repeats this risk notice and refuses to continue until
+the operator records either the preferred physical-recovery gate or an
+explicit reduced-recovery acknowledgement. See
+[Guided one-shot installer](one-shot-installer.md).
+
 1. Insert a spare microSD into the powered Kiwi.
 2. Open Admin > Backup and select **Click to write backup SD card**.
 3. Wait for successful finalization, shut down, and remove the card before the

@@ -97,7 +97,7 @@ The production starting point for either guest type is:
 
 | Resource | Allocation | Reason |
 | --- | ---: | --- |
-| OS | Debian 12, 64-bit, minimal | Matches the tested packages and systemd units |
+| OS | Debian 12 preferred; Debian 11 supported, 64-bit minimal | Debian 11 automatically uses the pinned Codec2 fallback when its package API is incomplete |
 | CPU | 2 vCPU | Leaves one decoder session ample margin without pinning host cores |
 | Memory | 2 GB fixed | Covers the C++ daemon, Reporter sidecar, build tools and package updates |
 | Disk | 16 GB | Allows source, Release builds, journals and one previous package copy |
@@ -224,7 +224,8 @@ Install pending Debian updates, stop the VM, and take a snapshot named along
 the lines of `clean-debian12-before-freedv`. A stopped snapshot provides the
 clearest filesystem-consistent rollback point.
 
-Continue with **Install the decoder service** in
+Continue with the [guided one-shot installer](one-shot-installer.md) or
+**Install the decoder service** in
 [installation.md](installation.md#4-install-the-decoder-service). The same
 commands, environment files and shared secret apply to a VM and an LXC.
 

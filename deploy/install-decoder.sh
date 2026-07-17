@@ -7,7 +7,18 @@ src=${1:-/opt/kiwi-freedv}
 apt-get -o Acquire::ForceIPv4=true update
 DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends \
   build-essential cmake pkg-config libboost-system-dev nlohmann-json3-dev \
-  libcodec2-dev libsamplerate0-dev libfftw3-dev libssl-dev python3-venv ca-certificates avahi-daemon
+  libcodec2-dev libsamplerate0-dev libfftw3-dev libssl-dev python3 python3-venv \
+  ca-certificates avahi-daemon wget
+
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:${PKG_CONFIG_PATH:-}
+if ! pkg-config --atleast-version=1.0.5 codec2 2>/dev/null ||
+   ! grep -q 'FREEDV_MODE_700E' "$(pkg-config --variable=includedir codec2)/codec2/freedv_api.h" 2>/dev/null ||
+   [[ ! -f $(pkg-config --variable=includedir codec2)/codec2/reliable_text.h ]]; then
+  echo "Packaged Codec2 lacks the complete FreeDV API; installing the pinned source build (expected on Debian 11)."
+  "$src/deploy/build-codec2.sh"
+else
+  echo "Using the distribution Codec2 package with the required FreeDV API."
+fi
 
 id freedv >/dev/null 2>&1 || useradd --system --home /nonexistent --shell /usr/sbin/nologin freedv
 cmake -S "$src/decoder" -B "$src/build" -DCMAKE_BUILD_TYPE=Release

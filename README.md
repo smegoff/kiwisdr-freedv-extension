@@ -38,6 +38,8 @@ the optional diagnostics page connects to its management-only web port.
 - Help panel covering the available modes and controls.
 - Authenticated Kiwi-to-decoder control, bounded audio queues, health metrics,
   watchdog recovery, atomic Kiwi releases, and rollback tooling.
+- Guided Kiwi-side installer with OS detection, zero-listener gates, verified
+  backups and coordinated Kiwi/decoder rollback.
 
 ## Project status
 
@@ -106,7 +108,10 @@ and selection advice: [docs/modes.md](docs/modes.md).
 
 - KiwiSDR 2 running firmware 1.901 for the tested reference build.
 - A supported Kiwi backup microSD card for full physical recovery.
-- Private Debian 12 VM or unprivileged LXC reachable from the Kiwi LAN.
+- Debian 11 or Debian 12 on the Kiwi host; the installer detects and validates
+  it before changing the live receiver.
+- Private Debian 11 or Debian 12 VM/unprivileged LXC reachable from the Kiwi
+  LAN, unless using the experimental AI-64 local path.
 - Recommended decoder allocation: 2 vCPU, 2 GB RAM and 16 GB disk.
 - Root or equivalent administrative access to the Kiwi and decoder guest.
 - A unique 256-bit shared secret stored only in root-readable environment
@@ -118,22 +123,41 @@ service and is not tied to a specific hypervisor or guest ID.
 
 ## Installation
 
-Clone the project on the administration workstation:
+> [!CAUTION]
+> Installation builds and replaces the executable used by a live KiwiSDR.
+> Atomic rollback cannot recover damaged eMMC, a bootloader failure or
+> hardware. Use a verified supported backup microSD for full physical
+> recovery, and review scripts before running them as root.
+
+The recommended path is the guided installer run from a reviewed local clone
+on the Kiwi:
 
 ```bash
-git clone https://github.com/smegoff/kiwisdr-freedv-extension.git
-cd kiwisdr-freedv-extension
+git clone https://github.com/smegoff/kiwisdr-freedv-extension.git /root/kiwi-freedv
+cd /root/kiwi-freedv
+sudo ./tools/install-freedv.py --dry-run
+sudo ./tools/install-freedv.py
 ```
 
-Installation has two independently reversible parts:
+It prompts for local AI-64 or external VM/LXC mode, private addresses,
+fresh-install or configuration-only decoder preparation, recovery readiness
+and optional RADEV1. Reporter and RADEV1 remain disabled by default. The
+installer detects Debian 11/12 on each relevant host and uses a pinned Codec2
+source fallback when Debian 11's package lacks required APIs.
+
+The external VM/LXC must already exist, have a stable private address and have
+a verified SSH host key plus a snapshot or independent backup. The installer
+does not create or modify Proxmox resources.
+
+Installation still has two independently reversible parts:
 
 1. Provision the Debian decoder guest and install the C++ decoder service.
 2. Apply the pinned overlay to KiwiSDR source, build the production
    `kiwid.bin`, and activate it as a versioned release.
 
-Do not copy example addresses, VM IDs, storage names or credentials into a
-production installation without review. Follow the complete safety-gated
-procedure in [docs/installation.md](docs/installation.md). It covers:
+Start with the [guided one-shot installer](docs/one-shot-installer.md). The
+[complete manual procedure](docs/installation.md) remains available for
+advanced or site-specific deployments. Both cover:
 
 - Kiwi configuration and physical backup;
 - VM/LXC creation and firewall policy;
@@ -245,6 +269,7 @@ and are never published.
 ## Documentation
 
 - [Installation](docs/installation.md)
+- [Guided one-shot installer](docs/one-shot-installer.md)
 - [FreeDV mode support](docs/modes.md)
 - [External decoder VM/LXC](docs/external-decoder-vm.md)
 - [BeagleBone AI-64 local decoder](docs/ai64-local-decoder.md)

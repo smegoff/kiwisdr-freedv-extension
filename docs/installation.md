@@ -1,9 +1,13 @@
 # Installation
 
-This guide installs the receive-only FreeDV framework as two components: a
-private Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
+This manual guide installs the receive-only FreeDV framework as two components:
+a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
 written for Kiwi extension `0.1.28`, decoder service `0.1.21`, and KiwiSDR
 upstream commit `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
+
+For a guided install with the same backup, zero-listener and automatic rollback
+gates, use [the one-shot installer](one-shot-installer.md). This page remains
+the detailed manual and troubleshooting reference.
 
 The supplied automation requires site-specific addresses, VMID, storage,
 template, MAC address and SSH host key as explicit parameters. The Proxmox
@@ -13,7 +17,9 @@ guest number used by one installation has no protocol significance.
 
 - A KiwiSDR running firmware 1.901 with 12 kHz receiver audio channels.
 - Root SSH and Admin access to the Kiwi.
-- A private Debian 12 LXC or VM with at least 2 vCPU, 2 GB RAM and 16 GB disk.
+- Debian 11 or Debian 12 on the Kiwi host.
+- A private Debian 11 or Debian 12 LXC/VM with at least 2 vCPU, 2 GB RAM and
+  16 GB disk.
 - The decoder guest must be able to connect outbound to the Kiwi TCP port
   (normally 8073). No inbound decoder port or public port-forward is needed.
 - A supported Kiwi backup microSD, a verified streamed configuration archive,
@@ -54,7 +60,8 @@ again before candidate activation.
 
 ## 3. Create the decoder guest
 
-Choose either a full Debian 12 VM or an unprivileged Debian 12 LXC. A VM gives
+Choose either a full Debian 11/12 VM or an unprivileged Debian 11/12 LXC. Debian 12 is the
+preferred new-guest baseline; Debian 11 is supported. A VM gives
 stronger kernel isolation and is a good default when the Proxmox host has ample
 resources. An LXC has less overhead and is the form used by the current tested
 deployment. The reasons, trade-offs, resource sizing, Proxmox VM wizard steps,
@@ -119,6 +126,11 @@ builds the C++17 daemon in Release mode, installs the versioned dashboard
 assets and Reporter Python environment, creates the unprivileged `freedv`
 service account and installs both systemd units. It enables the units but
 deliberately does not start them until configuration and tests pass.
+
+The installer checks Codec2 capabilities rather than relying on the Debian
+release name. Debian 11's packaged Codec2 is normally too old for the complete
+700E and reliable-text API, so the pinned Codec2 1.2.0 source is built and
+installed under `/usr/local`. Debian 12 normally uses its packaged library.
 
 The dashboard has no application login. Restrict its TCP 8076 listener to the
 trusted management CIDR with the Proxmox or host firewall before starting it.

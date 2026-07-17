@@ -9,6 +9,29 @@ die() { echo "AI-64 install: $*" >&2; exit 2; }
 [[ $EUID -eq 0 ]] || die "run as root"
 [[ -f $src/deploy/install-decoder.sh && -f $src/deploy/build-radae.sh ]] ||
   die "repository checkout not found: $src"
+[[ -r /etc/debian_version ]] || die "Debian 11 or Debian 12 is required"
+debian_major=$(cut -d. -f1 /etc/debian_version)
+[[ $debian_major == 11 || $debian_major == 12 ]] ||
+  die "only Debian 11 and Debian 12 are validated"
+if [[ -x /usr/local/bin/freedv-decoder || -f /etc/systemd/system/freedv-decoder.service ]]; then
+  die "fresh local install refuses an existing decoder; use the documented atomic upgrade procedure"
+fi
+
+cleanup_fresh_install() {
+  echo "AI-64 decoder preparation failed; removing fresh application files" >&2
+  [[ -z ${temporary:-} ]] || rm -f "$temporary"
+  [[ -z ${reporter_temporary:-} ]] || rm -f "$reporter_temporary"
+  systemctl stop freedv-decoder.service freedv-reporter.service 2>/dev/null || true
+  systemctl disable freedv-decoder.service freedv-reporter.service 2>/dev/null || true
+  rm -f /usr/local/bin/freedv-decoder \
+    /etc/systemd/system/freedv-decoder.service \
+    /etc/systemd/system/freedv-reporter.service
+  rm -rf /etc/systemd/system/freedv-decoder.service.d \
+    /etc/freedv-decoder /opt/freedv-reporter /usr/local/share/freedv-dashboard \
+    "$validation_root"
+  systemctl daemon-reload 2>/dev/null || true
+}
+trap cleanup_fresh_install ERR
 
 model=$(tr -d '\0' </proc/device-tree/model 2>/dev/null || true)
 [[ $model == *"BeagleBone AI-64"* ]] || die "unsupported board: ${model:-unknown}"
@@ -58,6 +81,17 @@ install -m 0640 -o root -g freedv "$temporary" "$decoder_env"
 rm -f "$temporary"
 trap - EXIT
 
+reporter_env=/etc/freedv-decoder/reporter.env
+reporter_temporary=$(mktemp "${reporter_env}.tmp.XXXXXX")
+awk '
+  BEGIN { found=0 }
+  /^FREEDV_REPORTER_ENABLED=/ { print "FREEDV_REPORTER_ENABLED=0"; found=1; next }
+  { print }
+  END { if (!found) print "FREEDV_REPORTER_ENABLED=0" }
+' "$reporter_env" > "$reporter_temporary"
+install -m 0640 -o root -g freedv "$reporter_temporary" "$reporter_env"
+rm -f "$reporter_temporary"
+
 systemctl daemon-reload
 systemctl stop freedv-decoder.service freedv-reporter.service 2>/dev/null || true
 
@@ -84,6 +118,13 @@ touch "$validation_root/offline-pass"
 chown -R root:freedv "$validation_root"
 chmod 0750 "$validation_root"
 chmod 0640 "$validation_root"/*
+install -d -m 0750 -o root -g freedv /var/lib/freedv-decoder
+{
+  printf 'ready_utc=%s\n' "$stamp"
+  printf 'fresh_install=1\n'
+} > /var/lib/freedv-decoder/one-shot-local-ready
+chmod 0640 /var/lib/freedv-decoder/one-shot-local-ready
+trap - ERR
 
 echo "Offline ARM64 build and one-worker RADEV1 headroom gate passed."
 echo "RADEV1 remains disabled and Kiwi configuration is unchanged."

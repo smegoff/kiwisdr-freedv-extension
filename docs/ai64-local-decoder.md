@@ -36,6 +36,8 @@ the modem without replacing the Kiwi executable.
 
 - BeagleBone AI-64 with the Kiwi cape already working under John's supported
   64-bit ARM image and a compatible Kiwi source build.
+- Debian 11 or Debian 12. The installer detects the release and uses a pinned
+  Codec2 source build when the distribution package lacks the complete API.
 - This repository's FreeDV extension deployed on that Kiwi.
 - At least two online CPU cores, 3 GiB visible RAM and 3 GiB free storage.
 - Root-only `/root/decoder.env` containing the existing 64-hex-character
@@ -51,6 +53,12 @@ checks the device-tree model, `aarch64`, CPU count, memory and free storage and
 refuses other hardware.
 
 ## 1. Install without activation
+
+The recommended coordinated path is the
+[guided one-shot installer](one-shot-installer.md), selecting **local AI-64**.
+It adds Kiwi backup, source-build, deployment and automatic recovery gates
+around the component steps below. The manual component path remains useful for
+offline hardware validation.
 
 Clone the public repository on the AI-64 and run:
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd /root/KiwiSDR
+kiwi=${1:-/root/KiwiSDR}
+cd "$kiwi"
 rm -f /root/freedv-build.log /root/freedv-build.exit
 target=${KIWI_BUILD_TARGET:-../build/kiwid.bin}
 if [[ $target == ../build/kiwid.bin ]]; then
