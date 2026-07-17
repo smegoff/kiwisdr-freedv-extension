@@ -37,17 +37,24 @@ var freedv = {
    ],
    legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
+   filter_index: 0,
+   filter_modes: ['Auto (lock on sync)', 'Tight', 'Normal', 'Wide'],
+   filter_keys: ['auto', 'tight', 'normal', 'wide'],
+   filter_locked: false,
    saved_setup: null,
    saved_passband: null,
    receiver_profile: null,
+   saved_noise_filter: null,
+   noise_filter_forced: false,
    saved_audio_comp: false,
    audio_comp_forced: false,
    generation: 0
 };
 
 // FreeDV HF waveforms are centred at 1500 Hz. These are the documented
-// occupied RF bandwidths; the applied filter adds 200 Hz per edge for modem
-// acquisition and rounds outward to a 25 Hz boundary. John uses the same
+// occupied RF bandwidths. Automatic mode adds 200 Hz per edge for acquisition,
+// tightens to 50 Hz per edge on first sync and rounds outward to a 25 Hz
+// boundary. John uses the same
 // amateur voice convention: below 10 MHz is LSB except for the 60 metre
 // allocation, which uses USB. Frequencies at 10 MHz and above use USB.
 function freedv_sideband_for_frequency(freq_kHz)
@@ -57,14 +64,38 @@ function freedv_sideband_for_frequency(freq_kHz)
    return (freq_kHz < 10000)? 'lsb':'usb';
 }
 
-function freedv_receiver_profile(mode, freq_kHz)
+function freedv_filter_key()
 {
+   return freedv.filter_keys[freedv.filter_index] || 'auto';
+}
+
+function freedv_filter_guard_hz()
+{
+   var key = freedv_filter_key();
+   if (key == 'tight') return 50;
+   if (key == 'wide') return 350;
+   if (key == 'auto' && freedv.filter_locked) return 50;
+   return 200;
+}
+
+function freedv_filter_label()
+{
+   var key = freedv_filter_key();
+   if (key == 'auto') return freedv.filter_locked? 'auto locked':'auto acquiring';
+   return key;
+}
+
+function freedv_receiver_profile(mode, freq_kHz, guard_hz)
+{
+   guard_hz = isFinite(+guard_hz)? +guard_hz:200;
    var p = {
       mode: mode,
       sideband: freedv_sideband_for_frequency(freq_kHz),
       nominal_hz: 0,
       low: 300,
       high: 3000,
+      guard_hz: guard_hz,
+      filter_label: freedv_filter_label(),
       note: ''
    };
 
@@ -80,9 +111,9 @@ function freedv_receiver_profile(mode, freq_kHz)
 
    if (p.nominal_hz) {
       p.low = Math.max(300,
-         Math.floor((1500 - p.nominal_hz/2 - 200) / 25) * 25);
+         Math.floor((1500 - p.nominal_hz/2 - guard_hz) / 25) * 25);
       p.high = Math.min(5700,
-         Math.ceil((1500 + p.nominal_hz/2 + 200) / 25) * 25);
+         Math.ceil((1500 + p.nominal_hz/2 + guard_hz) / 25) * 25);
    } else if (mode == '2400A') {
       // 2400A is a 5 kHz VHF SDR waveform. The Kiwi's 12 kHz SSB path can
       // expose a wide integration filter, but still lacks the required
@@ -109,12 +140,14 @@ function freedv_receiver_profile_text(p)
       (p.nominal_hz / 1000).toFixed(3).replace(/0+$/, '').replace(/\.$/, '') +
       ' kHz signal; ' : '';
    return p.sideband.toUpperCase() +'; '+ occupied +'filter '+ low +' to '+ high +' Hz' +
+      (p.nominal_hz? '; '+ p.filter_label:'') +
       (p.note? '; '+ p.note:'');
 }
 
 function freedv_apply_receiver_profile()
 {
-   var p = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
+   var p = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz(),
+      freedv_filter_guard_hz());
    freedv.receiver_profile = p;
    if (ext_get_mode() != p.sideband) ext_set_mode(p.sideband);
    // ext_set_passband() mirrors positive audio limits into negative
@@ -122,6 +155,62 @@ function freedv_apply_receiver_profile()
    ext_set_passband(p.low, p.high);
    var el = w3_el('id-freedv-radio');
    if (el) w3_innerHTML('id-freedv-radio', freedv_receiver_profile_text(p));
+}
+
+function freedv_filter_reset()
+{
+   freedv.filter_locked = false;
+   freedv_apply_receiver_profile();
+}
+
+function freedv_filter_sync(synced)
+{
+   if (!synced || !freedv.running || freedv.testing ||
+       freedv_filter_key() != 'auto' || freedv.filter_locked) return;
+   freedv.filter_locked = true;
+   freedv_apply_receiver_profile();
+}
+
+function freedv_force_noise_filter_off()
+{
+   if (freedv.noise_filter_forced || typeof noise_filter == 'undefined') return;
+   freedv.saved_noise_filter = {
+      algo: +noise_filter.algo,
+      denoise: +noise_filter.denoise,
+      autonotch: +noise_filter.autonotch,
+      stored_algo: kiwi_storeRead('last_nr_algo')
+   };
+   noise_filter.algo = noise_filter.NR_OFF;
+   snd_send('SET nr algo='+ noise_filter.NR_OFF);
+   w3_select_value('nr_algo', noise_filter.NR_OFF, { all:1 });
+   if (typeof noise_filter_controls_refresh == 'function')
+      noise_filter_controls_refresh();
+   freedv.noise_filter_forced = true;
+   if (w3_el('id-freedv-clean'))
+      w3_innerHTML('id-freedv-clean', 'noise filter off (saved)');
+}
+
+function freedv_restore_noise_filter()
+{
+   if (!freedv.noise_filter_forced || !freedv.saved_noise_filter ||
+       typeof noise_filter == 'undefined') return;
+   var saved = freedv.saved_noise_filter;
+   noise_filter.algo = saved.algo;
+   noise_filter.denoise = saved.denoise;
+   noise_filter.autonotch = saved.autonotch;
+   snd_send('SET nr algo='+ noise_filter.algo);
+   w3_select_value('nr_algo', noise_filter.algo, { all:1 });
+   if (noise_filter.algo != noise_filter.NR_OFF &&
+       typeof noise_filter_send == 'function') {
+      noise_filter_send(noise_filter.NR_DENOISE);
+      noise_filter_send(noise_filter.NR_AUTONOTCH);
+   }
+   if (saved.stored_algo == null) kiwi_storeDelete('last_nr_algo');
+   else kiwi_storeWrite('last_nr_algo', saved.stored_algo);
+   if (typeof noise_filter_controls_refresh == 'function')
+      noise_filter_controls_refresh();
+   freedv.saved_noise_filter = null;
+   freedv.noise_filter_forced = false;
 }
 
 function freedv_force_uncompressed_audio()
@@ -207,6 +296,7 @@ function freedv_recv(data)
             w3_innerHTML('id-freedv-state', status.state || 'running');
             w3_innerHTML('id-freedv-backend', status.backend || 'external');
             w3_innerHTML('id-freedv-sync', status.sync? 'yes':'no');
+            freedv_filter_sync(status.sync);
             if (freedv.testing && +status.decoded_frames > 0) {
                // Returned PCM is emitted only while Codec2 reports sync. Use
                // the per-session counter so a short sync interval cannot fall
@@ -235,7 +325,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.26 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.28 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -245,11 +335,12 @@ function freedv_controls_setup()
       freedv.saved_setup = ext_save_setup();
       freedv.saved_passband = ext_get_passband();
    }
-   var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz());
+   var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz(),
+      freedv_filter_guard_hz());
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.26 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.28 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -262,8 +353,13 @@ function freedv_controls_setup()
       w3_select('id-freedv-calling w3-text-red', 'Calling frequency', '',
          'freedv.calling_index', freedv.calling_index, calling_labels,
          'freedv_calling_frequency_cb'),
+      w3_select('id-freedv-filter w3-text-red', 'Receiver filter', '',
+         'freedv.filter_index', freedv.filter_index, freedv.filter_modes,
+         'freedv_filter_cb'),
       w3_div('id-freedv-radio-info',
          w3_div('w3-small', 'Test: ', w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
+         w3_div('w3-small', 'DSP: ',
+            w3_div('id-freedv-clean w3-show-inline', 'noise filter off (saved)')),
          w3_div('w3-small', 'Receiver: ',
             w3_div('id-freedv-radio w3-show-inline', freedv_receiver_profile_text(initial_profile)))),
       w3_div('id-freedv-status',
@@ -280,8 +376,9 @@ function freedv_controls_setup()
          w3_div('id-freedv-error w3-small w3-text-red'),
          w3_link('w3-small', 'https://qso.freedv.org/', 'FreeDV Reporter')));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(470, 450);
+   ext_set_controls_width_height(470, 480);
    w3_disable('id-freedv-test', !freedv.test_available);
+   freedv_force_noise_filter_off();
    freedv_apply_receiver_profile();
    ext_send('SET freedv_setup');
 }
@@ -304,6 +401,7 @@ function freedv_calling_frequency_cb(path, index, first)
    }
 
    freedv.calling_index = index;
+   freedv.filter_locked = false;
    w3_innerHTML('id-freedv-error', '');
    // Calling frequencies are displayed RF frequencies. Kiwi tuning uses the
    // receiver frequency after subtracting any configured transverter offset.
@@ -315,8 +413,16 @@ function freedv_mode_cb(path, index, first)
 {
    if (first || freedv.testing) return;
    freedv.mode = freedv.modes[+index];
-   freedv_apply_receiver_profile();
+   freedv_filter_reset();
    if (freedv.running) ext_send('SET freedv_start=1 mode='+ freedv.mode);
+}
+
+function freedv_filter_cb(path, index, first)
+{
+   if (first) return;
+   freedv.filter_index = +index;
+   freedv.filter_locked = false;
+   freedv_apply_receiver_profile();
 }
 
 function freedv_start_cb()
@@ -333,11 +439,13 @@ function freedv_start_ui(testing)
    freedv.test_audio = false;
    freedv.test_armed = false;
    freedv.last_test_result = '';
+   freedv.filter_locked = false;
    w3_button_text('id-freedv-start', 'Stop');
    w3_button_text('id-freedv-test', testing? 'Stop test':'Test',
       testing? 'w3-red':'w3-aqua', testing? 'w3-aqua':'w3-red');
    w3_disable('id-freedv.mode', testing);
    w3_disable('id-freedv.calling_index', testing);
+   w3_disable('id-freedv.filter_index', testing);
    w3_innerHTML('id-freedv-error', '');
    w3_innerHTML('id-freedv-test-progress', testing? '0%':'ready');
    freedv_update_reporter_state();
@@ -410,6 +518,9 @@ function freedv_stop_ui(send_stop)
    w3_button_text('id-freedv-test', 'Test', 'w3-aqua', 'w3-red');
    w3_disable('id-freedv.mode', false);
    w3_disable('id-freedv.calling_index', false);
+   w3_disable('id-freedv.filter_index', false);
+   freedv.filter_locked = false;
+   freedv_apply_receiver_profile();
    freedv_update_reporter_state();
    freedv_restore_audio_compression();
 }
@@ -434,7 +545,7 @@ function FreeDV_environment_changed(changed)
 {
    if (!freedv.saved_setup) return;
    if (changed.freq || changed.mode) {
-      freedv_apply_receiver_profile();
+      freedv_filter_reset();
       if (freedv.running) w3_innerHTML('id-freedv-state', 'retuning');
    }
 }
@@ -444,6 +555,7 @@ function FreeDV_blur()
    ext_send('SET freedv_close');
    freedv_stop_ui(false);
    freedv.generation = 0;
+   freedv_restore_noise_filter();
    if (freedv.saved_setup) ext_restore_setup(freedv.saved_setup);
    if (freedv.saved_passband)
       ext_set_passband(freedv.saved_passband.low, freedv.saved_passband.high);
@@ -509,10 +621,16 @@ function FreeDV_help(show)
          'The extension follows the usual amateur voice convention: 160, 80 and 40 ' +
          'metres use LSB, 60 metres is the USB exception, and 10 MHz and above use USB. It changes ' +
          'sideband automatically when you retune. Each HF mode gets a filter based on ' +
-         'its documented occupied bandwidth, centred at 1500 Hz, plus 200 Hz of modem ' +
-         'acquisition room on each edge. The active sideband and filter are shown in ' +
+         'its documented occupied bandwidth, centred at 1500 Hz. Automatic filter mode ' +
+         'starts with 200 Hz of acquisition room on each edge, tightens to 50 Hz on ' +
+         'first sync and stays locked until a retune, mode change or restart. Tight, ' +
+         'Normal and Wide are manual overrides. The active sideband and filter are shown in ' +
          'the main panel. 2400A and 2400B remain integration-only because they require ' +
          'a VHF/FM 48 kHz receive path.<br><br>' +
+         'Opening FreeDV temporarily turns off the Kiwi noise filter, denoiser and ' +
+         'automatic notch path so analogue-speech processing cannot distort the modem ' +
+         'waveform. The previous noise-filter selection is restored when FreeDV closes. ' +
+         'The noise blanker is not changed.<br><br>' +
          'Press Start and wait for <i>Sync: yes</i>. While FreeDV is running, ordinary ' +
          'receiver noise is silenced and audio is heard only from synchronized FreeDV ' +
          'decoding. Press Stop or close the extension to restore normal Kiwi audio.<br><br>' +

@@ -23,7 +23,12 @@ the optional diagnostics page connects to its management-only web port.
 - Analogue noise and static remain silent while FreeDV is running but not
   synchronized; Stop or Close restores normal receiver audio.
 - Automatic amateur sideband selection, including USB on 60 metres.
-- Mode-specific receiver filters derived from documented FreeDV bandwidths.
+- Reversible DSP handling: opening FreeDV disables the Kiwi noise filter and
+  closing it restores the listener's previous selection; the noise blanker is
+  left unchanged.
+- Mode-specific receiver filters derived from documented FreeDV bandwidths,
+  with automatic acquisition-to-sync tightening and Tight, Normal and Wide
+  manual overrides.
 - Selector for 18 common FreeDV calling frequencies from 160 metres to QO-100.
 - Built-in deterministic 700D test using the bundled Kiwi reference recording.
 - Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
@@ -38,7 +43,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.26 | Deployed and browser-tested on KiwiSDR 1.901 |
+| Kiwi extension | 0.1.28 | Deployed and browser-tested on KiwiSDR 1.901 |
 | Decoder service | 0.1.21 | Token-free LAN dashboard deployed and browser-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
@@ -141,7 +146,13 @@ procedure in [docs/installation.md](docs/installation.md). It covers:
 5. Watch the state, backend, synchronization, SNR, frequency offset,
    callsign/text, dropped-frame and Reporter fields.
 6. Press **Stop** or close the panel to restore the previous receiver mode,
-   passband and normal audio.
+   passband, noise-filter selection and normal audio.
+
+The default **Auto (lock on sync)** receiver filter begins with acquisition
+headroom and tightens once the modem first synchronizes. That narrower passband
+remains locked for the transmission. Retuning, changing mode or restarting the
+session resets acquisition. Use **Tight**, **Normal** or **Wide** when local
+conditions need a fixed manual passband.
 
 The **Test** button runs a bundled 700D recording through the same Kiwi camper,
 decoder and returned-audio path used for live reception. A passing test proves

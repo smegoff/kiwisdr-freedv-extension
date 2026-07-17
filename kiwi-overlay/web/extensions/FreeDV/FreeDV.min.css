@@ -4,12 +4,14 @@
 .id-freedv-intro > div { margin-bottom:2px; }
 .id-freedv-actions { margin-bottom:10px; }
 .id-freedv-calling { margin-bottom:8px; }
+.id-freedv-filter { margin-bottom:8px; }
 .id-freedv-radio-info { line-height:1.35; }
 .id-freedv-status { margin-top:12px; padding-top:8px; border-top:1px solid #777; }
 .id-freedv-status > div { margin-bottom:3px; }
 .id-freedv-footer { margin-top:8px; line-height:1.35; }
 .id-freedv-state,
 .id-freedv-sync,
+.id-freedv-clean,
 .id-freedv-reporter,
 .id-freedv-backend { color:aqua; }
 .id-freedv-text { color:white; overflow-wrap:anywhere; }
