@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=/root/freedv-releases
-target=${1:-baseline-1.901}
+target=${1:-baseline-1.902}
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 2; }
 [[ -x $root/$target/kiwid ]] || { echo "unknown release: $target" >&2; exit 2; }
 ln -sfn "$target" "$root/.active-new"

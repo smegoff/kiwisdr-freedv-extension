@@ -43,7 +43,7 @@ on the decoder guest. It does not ask the operator to choose an OS profile.
 
 | Host | Accepted OS | Dependency behavior |
 | --- | --- | --- |
-| KiwiSDR 2 / BeagleBone host | Debian 11 or Debian 12, Kiwi firmware 1.901 | Builds the pinned Kiwi source and deploys only the verified production binary |
+| KiwiSDR 2 / BeagleBone host | Debian 11 or Debian 12, Kiwi firmware 1.902 | Builds the pinned Kiwi source and deploys only the verified production binary |
 | External decoder VM/LXC | Debian 11 or Debian 12, 64-bit | Uses the distribution Codec2 when its API is complete; otherwise builds the pinned Codec2 source |
 | Local AI-64 decoder | Debian 11 or Debian 12, AArch64 | Applies the same Codec2 capability check and ARM64 RADEV1 build |
 
@@ -67,7 +67,7 @@ On the Kiwi, obtain the two pinned source trees:
 ```bash
 git clone https://github.com/smegoff/kiwisdr-freedv-extension.git /root/kiwi-freedv
 git clone https://github.com/jks-prv/KiwiSDR.git /root/KiwiSDR
-git -C /root/KiwiSDR checkout --detach 417e2c8add196e879b8cc4eb4a488b35b4bf0df7
+git -C /root/KiwiSDR checkout --detach c40ecb471dced33689e335689f8ffd35a54f47fa
 ```
 
 For an external decoder:
@@ -114,7 +114,7 @@ execution.
 The guarded sequence is:
 
 1. detect Debian versions, hardware and resources;
-2. require healthy KiwiSDR 1.901 and the pinned Kiwi source commit;
+2. require healthy KiwiSDR 1.902 and the pinned Kiwi source commit;
 3. refuse another deployment wrapper and require two zero-listener readings;
 4. create and structurally verify a root-only Kiwi recovery archive;
 5. copy that archive to independent storage or the snapshotted decoder guest;
@@ -173,7 +173,7 @@ Before changing Kiwi configuration, the installer preserves `kiwi.json`, the
 active release, the live production binary, service definition and root-only
 decoder secret. A failed build is never deployed. A failed activation restores
 the previous atomic Kiwi release. A later failure restores `kiwi.json`,
-restarts Kiwi and waits for firmware 1.901 health.
+restarts Kiwi and waits for firmware 1.902 health.
 
 For an existing external decoder, configuration-only preparation records the
 old package/configuration and previous service state. If the Kiwi phase fails,

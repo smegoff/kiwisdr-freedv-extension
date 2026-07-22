@@ -19,7 +19,7 @@ import urllib.request
 
 
 RISK_PHRASE = "I ACCEPT THE KIWI DEPLOYMENT RISK"
-PINNED_KIWI_COMMIT = "417e2c8add196e879b8cc4eb4a488b35b4bf0df7"
+PINNED_KIWI_COMMIT = "c40ecb471dced33689e335689f8ffd35a54f47fa"
 DISCLAIMER = """
 RISK NOTICE
 This script builds and replaces the executable used by a live KiwiSDR. A power
@@ -249,8 +249,8 @@ def preflight(args: argparse.Namespace) -> tuple[str, Optional[str], Optional[st
     if commit != PINNED_KIWI_COMMIT:
         raise RuntimeError(f"Kiwi source must be pinned to {PINNED_KIWI_COMMIT}")
     current = status()
-    if current.get("status") != "active" or current.get("sw_version") != "KiwiSDR_v1.901":
-        raise RuntimeError("this installer is validated only for a healthy KiwiSDR 1.901")
+    if current.get("status") != "active" or current.get("sw_version") != "KiwiSDR_v1.902":
+        raise RuntimeError("this installer is validated only for a healthy KiwiSDR 1.902")
     if shutil.disk_usage(args.kiwi_source).free < 400 * 1024 * 1024:
         raise RuntimeError("at least 400 MiB free Kiwi storage is required")
     wrappers = subprocess.run(
@@ -381,13 +381,13 @@ def wait_kiwi_health(timeout: int = 120) -> None:
     while time.monotonic() < deadline:
         try:
             current = status()
-            if current.get("status") == "active" and current.get("sw_version") == "KiwiSDR_v1.901":
+            if current.get("status") == "active" and current.get("sw_version") == "KiwiSDR_v1.902":
                 return
         except (OSError, ValueError) as error:
             last_error = error
         time.sleep(2)
     detail = f": {last_error}" if last_error else ""
-    raise RuntimeError(f"Kiwi did not recover to a healthy 1.901 state{detail}")
+    raise RuntimeError(f"Kiwi did not recover to a healthy 1.902 state{detail}")
 
 
 def main() -> int:
@@ -423,7 +423,7 @@ def main() -> int:
     secret_content = ensure_secret(secret_path)
     backup = Path(run([str(repo / "tools/backup-kiwi-on-device.sh"), "/root/freedv-installer-backups", stamp], capture=True).splitlines()[-1])
 
-    previous = "baseline-1.901"
+    previous = "baseline-1.902"
     active_link = Path("/root/freedv-releases/active")
     if active_link.is_symlink():
         previous = os.readlink(active_link)

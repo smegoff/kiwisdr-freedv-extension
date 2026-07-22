@@ -5,7 +5,7 @@ release=${1:-}
 kiwi=${2:-/root/KiwiSDR}
 candidate=${3:-/root/build/kiwid.bin}
 build=$(dirname "$candidate")
-expected_commit=417e2c8add196e879b8cc4eb4a488b35b4bf0df7
+expected_commit=c40ecb471dced33689e335689f8ffd35a54f47fa
 version=$(sed -n 's/^#define FREEDV_RELEASE "\([0-9.]*\)"/\1/p' \
   "$kiwi/extensions/FreeDV/freedv.cpp")
 [[ $version =~ ^[0-9]+([.][0-9]+)+$ ]] || {

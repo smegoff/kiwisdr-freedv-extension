@@ -36,7 +36,7 @@ Running that work in a separate guest provides five practical advantages:
    the Kiwi firmware image or its runtime dependency set.
 4. **Independent rollback.** The guest can be snapshotted, upgraded and rolled
    back without changing the Kiwi. Kiwi releases retain their own atomic
-   `baseline-1.901` rollback path.
+   `baseline-1.902` rollback path.
 5. **Neural-codec capacity.** RADEV1 and later multi-session testing can use
    x86 CPU and memory without changing the Kiwi hardware.
 

@@ -10,7 +10,7 @@ explicit reduced-recovery acknowledgement. See
 1. Insert a spare microSD into the powered Kiwi.
 2. Open Admin > Backup and select **Click to write backup SD card**.
 3. Wait for successful finalization, shut down, and remove the card before the
-   next boot. Label it with firmware `1.901` and the UTC date.
+   next boot. Label it with firmware `1.902` and the UTC date.
 4. Run `tools/backup-kiwi.ps1` with `KIWI_PASSWORD` set in the process
    environment. Verify the archive checksum and copy the result to Proxmox
    independent backup storage.
@@ -21,8 +21,10 @@ explicit reduced-recovery acknowledgement. See
 
 The owner accepted a source/config deployment before a backup microSD was
 available. The verified configuration archive is stored under the ignored
-`backups/` workspace directory and the original 1.901 binaries are retained at
-`/root/freedv-releases/baseline-1.901` on the Kiwi. This protects against a
+`backups/` workspace directory and the original 1.902 binary is retained at
+`/root/freedv-releases/baseline-1.902` on the Kiwi. The earlier 1.901 baseline
+is retained as historical recovery evidence but is not the automatic rollback
+target for a 1.902 candidate. This protects against a
 bad extension binary or configuration change, but it does **not** protect
 against eMMC, bootloader or hardware failure. Create and remove a supported
 backup card at the first opportunity.
@@ -35,7 +37,7 @@ the candidate as a versioned release and changes an atomic `active` link. It
 checks `kiwid.service`, `/status` and embedded root HTML; a failed check
 automatically restores the previous link and restarts the service. The explicit
 rollback applies the same checks. Run
-`tools/rollback-kiwi-release.sh baseline-1.901` for an explicit software
+`tools/rollback-kiwi-release.sh baseline-1.902` for an explicit software
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
@@ -53,11 +55,11 @@ upgrade itself fails, restore the decoder-guest snapshot or retained previous
 binary
 and restart `freedv-decoder.service`. If the Kiwi candidate fails, use the
 immediate `freedv-v0-1-27` Kiwi release or run
-`tools/rollback-kiwi-release.sh baseline-1.901` for the stock firmware behavior.
+`tools/rollback-kiwi-release.sh baseline-1.902` for the stock firmware behavior.
 
 After either rollback, require decoder `/healthz` to show `status=ok`, zero
 sessions
-and Reporter disabled. On the Kiwi require firmware 1.901, stock root HTML and
+and Reporter disabled. On the Kiwi require firmware 1.902, stock root HTML and
 `/status`, then run the stability soak before returning it to service.
 
 The obsolete `pre-tdoa-v0-1-3` snapshot was removed during retention cleanup.
@@ -76,5 +78,5 @@ test. See [ai64-local-decoder.md](ai64-local-decoder.md) for the complete gate.
 
 Power off the Kiwi, insert the labelled backup card, power on, and allow the
 automatic eMMC reflash to finish. Power off, remove the card, and boot normally.
-Confirm firmware 1.901, configuration hashes, receiver operation and admin
+Confirm firmware 1.902, configuration hashes, receiver operation and admin
 access before returning the receiver to service.

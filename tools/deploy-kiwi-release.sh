@@ -4,7 +4,7 @@ set -euo pipefail
 candidate=${1:-/root/build}
 release=${2:-freedv-$(date -u +%Y%m%dT%H%M%SZ)}
 root=/root/freedv-releases
-baseline=$root/baseline-1.901
+baseline=$root/baseline-1.902
 
 health_wait() {
   local page
@@ -35,7 +35,20 @@ fi
 install -m 0755 "$candidate/kiwid.bin" "$root/$release/kiwid"
 sha256sum "$root/$release/kiwid" > "$root/$release/SHA256SUMS"
 
-if [[ -L $root/active ]]; then previous=$(readlink "$root/active"); else previous=baseline-1.901; fi
+# An official Kiwi update replaces /usr/local/bin/kiwid directly but can leave
+# our old active-release link behind. Only trust that link when its binary is
+# byte-for-byte identical to the executable currently serving users.
+previous=baseline-1.902
+if [[ -L $root/active ]]; then
+  claimed=$(readlink "$root/active")
+  if [[ -f $root/$claimed/kiwid &&
+        $(sha256sum "$root/$claimed/kiwid" | awk '{print $1}') ==
+        $(sha256sum /usr/local/bin/kiwid | awk '{print $1}') ]]; then
+    previous=$claimed
+  else
+    echo "official update replaced the prior custom binary; rollback target is baseline-1.902" >&2
+  fi
+fi
 ln -sfn "$previous" "$root/active"
 ln -sfn "$root/active/kiwid" /usr/local/bin/.kiwid-freedv
 mv -Tf /usr/local/bin/.kiwid-freedv /usr/local/bin/kiwid

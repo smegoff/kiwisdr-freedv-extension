@@ -7,6 +7,7 @@ import gzip
 import pathlib
 import re
 import subprocess
+import tempfile
 import unittest
 
 
@@ -50,10 +51,10 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.28", source)
+        self.assertIn(b"FreeDV v0.1.29", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.28"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.29"', SERVER.read_text(encoding="utf-8"))
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -298,15 +299,31 @@ class AudioGateTest(unittest.TestCase):
         upstream = ROOT / "upstream-kiwisdr"
         if not (upstream / ".git").exists():
             self.skipTest("ignored upstream KiwiSDR checkout is not present")
-        for patch in (
-            ROOT / "kiwi-overlay" / "patches" / "0002-freedv-monitor-control.patch",
-            ROOT / "kiwi-overlay" / "patches" / "0004-freedv-direct-status-relay.patch",
-            PATCH,
-        ):
+        commit = "c40ecb471dced33689e335689f8ffd35a54f47fa"
+        with tempfile.TemporaryDirectory() as directory:
+            worktree = pathlib.Path(directory) / "kiwi-v1902"
             subprocess.run(
-                ["git", "-C", str(upstream), "apply", "--check", str(patch)],
+                ["git", "-C", str(upstream), "worktree", "add", "--detach", str(worktree), commit],
                 check=True,
+                capture_output=True,
             )
+            try:
+                for patch in (
+                    ROOT / "kiwi-overlay" / "patches" / "0001-publish-freedv.patch",
+                    ROOT / "kiwi-overlay" / "patches" / "0002-freedv-monitor-control.patch",
+                    ROOT / "kiwi-overlay" / "patches" / "0004-freedv-direct-status-relay.patch",
+                    PATCH,
+                ):
+                    subprocess.run(
+                        ["git", "-C", str(worktree), "apply", "--check", str(patch)],
+                        check=True,
+                    )
+            finally:
+                subprocess.run(
+                    ["git", "-C", str(upstream), "worktree", "remove", "--force", str(worktree)],
+                    check=True,
+                    capture_output=True,
+                )
 
 
 if __name__ == "__main__":

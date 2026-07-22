@@ -11,8 +11,8 @@ standard audio path. Kiwi receiver browsers never contact the decoder guest;
 the optional diagnostics page connects to its management-only web port.
 
 > [!IMPORTANT]
-> This project is beta software built against KiwiSDR firmware 1.901 and
-> upstream commit `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`. Back up the
+> This project is beta software built against KiwiSDR firmware 1.902 and
+> upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`. Back up the
 > Kiwi and create a decoder-guest rollback point before installation.
 
 ## Features
@@ -45,7 +45,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.28 | Deployed and browser-tested on KiwiSDR 1.901 |
+| Kiwi extension | 0.1.29 | KiwiSDR 1.902 compatibility candidate |
 | Decoder service | 0.1.21 | Token-free LAN dashboard deployed and browser-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
@@ -106,7 +106,7 @@ and selection advice: [docs/modes.md](docs/modes.md).
 
 ## Requirements
 
-- KiwiSDR 2 running firmware 1.901 for the tested reference build.
+- KiwiSDR 2 running firmware 1.902 for the current reference build.
 - A supported Kiwi backup microSD card for full physical recovery.
 - Debian 11 or Debian 12 on the Kiwi host; the installer detects and validates
   it before changing the live receiver.
@@ -248,7 +248,7 @@ and independent Kiwi/decoder stability soaks. The reference deployment passed
 
 - Kiwi candidates are versioned and activated atomically.
 - Deployment health gates verify the service, `/status` and receiver HTML.
-- The stock `baseline-1.901` release and the immediately previous candidate are
+- The stock `baseline-1.902` release and the immediately previous candidate are
   retained.
 - Decoder snapshots are short-term rollback points, not backups. Superseded
   release snapshots are pruned after acceptance and soak testing.

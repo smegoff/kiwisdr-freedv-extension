@@ -108,6 +108,13 @@ class OneShotInstallerTest(unittest.TestCase):
         self.assertIn("FREEDV_RELEASE", verifier)
         self.assertNotIn("echo \"$release\" | sed", verifier)
 
+    def test_official_update_cannot_leave_a_stale_rollback_target(self):
+        deployment = (ROOT / "tools" / "deploy-kiwi-release.sh").read_text(encoding="utf-8")
+        self.assertIn("official Kiwi update replaces /usr/local/bin/kiwid", deployment)
+        self.assertIn("byte-for-byte identical", deployment)
+        self.assertIn("previous=baseline-1.902", deployment)
+        self.assertIn("sha256sum /usr/local/bin/kiwid", deployment)
+
     def test_new_shell_scripts_parse(self):
         bash = shutil.which("bash")
         if not bash:

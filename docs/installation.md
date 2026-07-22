@@ -2,8 +2,8 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.28`, decoder service `0.1.21`, and KiwiSDR
-upstream commit `417e2c8add196e879b8cc4eb4a488b35b4bf0df7`.
+written for Kiwi extension `0.1.29`, decoder service `0.1.21`, and KiwiSDR
+upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 For a guided install with the same backup, zero-listener and automatic rollback
 gates, use [the one-shot installer](one-shot-installer.md). This page remains
@@ -15,7 +15,7 @@ guest number used by one installation has no protocol significance.
 
 ## 1. Prerequisites
 
-- A KiwiSDR running firmware 1.901 with 12 kHz receiver audio channels.
+- A KiwiSDR running firmware 1.902 with 12 kHz receiver audio channels.
 - Root SSH and Admin access to the Kiwi.
 - Debian 11 or Debian 12 on the Kiwi host.
 - A private Debian 11 or Debian 12 LXC/VM with at least 2 vCPU, 2 GB RAM and
@@ -214,7 +214,7 @@ this repository at `/root/kiwi-freedv`:
 
 ```bash
 git clone https://github.com/jks-prv/KiwiSDR.git /root/KiwiSDR
-git -C /root/KiwiSDR checkout 417e2c8add196e879b8cc4eb4a488b35b4bf0df7
+git -C /root/KiwiSDR checkout c40ecb471dced33689e335689f8ffd35a54f47fa
 git clone git@github.com:smegoff/kiwisdr-freedv-extension.git /root/kiwi-freedv
 ```
 
@@ -261,11 +261,11 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-28-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-29-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
-`baseline-1.901`, switches an atomic active link, restarts `kiwid.service`, and
+`baseline-1.902`, switches an atomic active link, restarts `kiwid.service`, and
 checks the service, `/status` and root HTML for up to 90 seconds. A failed
 candidate check automatically restores the previous release.
 
@@ -383,7 +383,7 @@ Stop/Start cycle.
 To restore the stock Kiwi release explicitly:
 
 ```bash
-/root/kiwi-freedv/tools/rollback-kiwi-release.sh baseline-1.901
+/root/kiwi-freedv/tools/rollback-kiwi-release.sh baseline-1.902
 ```
 
 To disable only RADEV1 while retaining all legacy FreeDV modes, switch it off
