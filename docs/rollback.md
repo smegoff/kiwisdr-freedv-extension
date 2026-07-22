@@ -41,8 +41,8 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the reference deployment, the Kiwi release is `freedv-v0-1-28`, the
-immediate Kiwi rollback is `freedv-v0-1-27`, the decoder guest runs `0.1.21`,
+For the reference deployment, the Kiwi release is `freedv-v0-1-29`, the
+immediate Kiwi rollback is the stock `baseline-1.902`, the decoder guest runs `0.1.21`,
 and the latest pre-upgrade guest snapshot is
 `pre-dashboard-openwebrx-palettes`, taken immediately before the OpenWebRX
 palette asset upgrade. The retained
@@ -52,9 +52,7 @@ after v0.1.21 passed its browser tests and stability soak. If only
 RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
 Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
 upgrade itself fails, restore the decoder-guest snapshot or retained previous
-binary
-and restart `freedv-decoder.service`. If the Kiwi candidate fails, use the
-immediate `freedv-v0-1-27` Kiwi release or run
+binary and restart `freedv-decoder.service`. If the Kiwi candidate fails, run
 `tools/rollback-kiwi-release.sh baseline-1.902` for the stock firmware behavior.
 
 After either rollback, require decoder `/healthz` to show `status=ok`, zero
