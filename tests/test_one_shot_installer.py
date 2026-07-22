@@ -130,6 +130,7 @@ class OneShotInstallerTest(unittest.TestCase):
             "deploy/install-ai64-local.sh",
             "deploy/rollback-ai64-preparation.sh",
             "tools/backup-kiwi-on-device.sh",
+            "tools/deploy-kiwi-release.sh",
             "tools/run-kiwi-build.sh",
             "tools/verify-kiwi-candidate.sh",
         ):

@@ -41,10 +41,14 @@ sha256sum "$root/$release/kiwid" > "$root/$release/SHA256SUMS"
 previous=baseline-1.902
 if [[ -L $root/active ]]; then
   claimed=$(readlink "$root/active")
-  if [[ -f $root/$claimed/kiwid &&
-        $(sha256sum "$root/$claimed/kiwid" | awk '{print $1}') ==
-        $(sha256sum /usr/local/bin/kiwid | awk '{print $1}') ]]; then
-    previous=$claimed
+  if [[ -f $root/$claimed/kiwid ]]; then
+    claimed_sha=$(sha256sum "$root/$claimed/kiwid" | awk '{print $1}')
+    live_sha=$(sha256sum /usr/local/bin/kiwid | awk '{print $1}')
+    if [[ $claimed_sha == "$live_sha" ]]; then
+      previous=$claimed
+    else
+      echo "official update replaced the prior custom binary; rollback target is baseline-1.902" >&2
+    fi
   else
     echo "official update replaced the prior custom binary; rollback target is baseline-1.902" >&2
   fi
