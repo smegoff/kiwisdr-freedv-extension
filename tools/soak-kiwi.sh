@@ -3,7 +3,7 @@ set -euo pipefail
 
 samples=${1:-41}
 interval=${2:-15}
-expected_release=${3:-baseline-1.901}
+expected_release=${3:-baseline-1.902}
 max_users=${4:-8}
 start_epoch=$(date +%s)
 
@@ -31,6 +31,6 @@ for ((sample = 1; sample <= samples; sample++)); do
 
   [[ $users =~ ^[0-9]+$ ]]
   [[ $active == "$expected_release" && $service == active && $status == active &&
-     $firmware == KiwiSDR_v1.901 && $users -le $max_users && $root_html == 1 &&
+     $firmware == KiwiSDR_v1.902 && $users -le $max_users && $root_html == 1 &&
      $wrappers == 0 && $critical == 0 ]]
 done

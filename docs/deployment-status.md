@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-17 07:52 UTC (2026-07-17 19:52 NZST)
+Last verified: 2026-07-22 20:55 UTC (2026-07-23 08:55 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -9,14 +9,14 @@ guest**.
 
 ## Live state
 
-- KiwiSDR 2 firmware: 1.901
-- active Kiwi release: `freedv-v0-1-28`
+- KiwiSDR 2 firmware: 1.902
+- active Kiwi release: `freedv-v0-1-29`
 - active Kiwi SHA-256:
-  `2125ffb661b539406189ad8a22d71bdedc0040ff37ebebff925569d6ffd9a639`
-- Kiwi BuildID: `4c026193cdfd1d9f1097b03aaa26932ae711ca23`
-- immediate Kiwi rollback: `freedv-v0-1-27`
+  `1a56e24a9aff45f8a3ebc5917dd243f5af5fa6eb6fcf41a282d6ece23b394961`
+- Kiwi BuildID: `31c71012c3d558aa6e8cab2caee94f35261df288`
+- immediate Kiwi rollback: stock `baseline-1.902`
 - retained stock baseline SHA-256:
-  `ceaadaac5edb4165ef7331a1884651919798602bbc5881bc0c736ed0cf4b21b0`
+  `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
 - decoder-guest release: `0.1.21`
 - decoder binary SHA-256:
   `7875127ae3fdf5a4a2c19bcbf90d44808c09c49780f6121f22e428042efee639`
@@ -29,6 +29,65 @@ guest**.
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.29 KiwiSDR 1.902 redeployment
+
+John's v1.902 updater correctly installed its stock server and, as expected,
+replaced the custom FreeDV executable. The old `active` symlink still named
+v0.1.28, so the deployment guard now compares that release's checksum with the
+actual live executable before choosing a rollback target. A stale link after an
+official update selects a freshly captured stock `baseline-1.902`; it cannot
+silently roll back to a v1.901 custom binary.
+
+The overlay is pinned to upstream commit
+`c40ecb471dced33689e335689f8ffd35a54f47fa`. All four publication, monitor
+control, returned-audio silence and direct-status patches applied to that tree.
+The build regenerated optimized web assets, embedded data and the 32-bit ARM
+production server. Candidate verification confirmed FreeDV was removed only
+from the developer exclusion list, `FreeDV_main` was registered and exported,
+and the embedded extension identified itself as v0.1.29. The official v1.902
+change log is preserved upstream in
+[John's KiwiSDR repository](https://github.com/jks-prv/KiwiSDR/blob/master/CHANGE_LOG).
+
+The fresh pre-deployment recovery archive contains 50 entries and has SHA-256
+`7bce0fe2176756feec865a1728362caa4c508a4a1d09e4e19c01d3f29a1e21ea`.
+It records the v1.902 source commit, configuration, service definition, host
+fingerprint and stock executable. The source rollback copy is
+`/root/freedv-rollbacks/20260722T192945Z`. Software/configuration rollback is
+verified; physical eMMC recovery still requires a supported backup microSD.
+
+The first activation invocation stopped before changing the active link or
+restarting the service because Bash rejected a multi-line checksum condition.
+The stock baseline and candidate had already been staged; both hashes matched
+their independently verified sources. The condition was rewritten to calculate
+the hashes before comparison, the deployment script was added to the `bash -n`
+regression set, all 37 tests passed, and the controlled activation then
+completed normally. No rollback was required.
+
+After atomic activation, root, Admin and the FreeDV asset returned HTTP 200;
+the asset contained v0.1.29 and RADEV1. John's current
+[KiwiClient](https://github.com/jks-prv/kiwiclient) independently opened the
+normal SND and EXT WebSockets and received protocol 2, external backend,
+v0.1.29, RADE enabled, Reporter enabled and test available. A 700D reference
+session reached one authenticated camper/session, backend `codec2`, sync true,
+returned audio and ten decoded frames with zero drops. Teardown returned to
+zero sessions and no camper. A normal 700D session then moved Reporter from
+connecting to online and cleanly removed its presence on teardown, with zero
+authentication failures.
+
+The in-app automated browser backend could open the LAN URL but its page-control
+channel timed out before rendering, so this release does not claim a fresh
+visual screenshot. The unchanged UI is covered by the packaged-asset tests and
+the independent SND/EXT protocol acceptance above; a manual visual menu check
+is the only remaining acceptance item.
+
+The post-deployment soak passed 41/41 Kiwi samples and 41/41 decoder samples at
+15-second intervals. Every Kiwi sample reported active v0.1.29, firmware 1.902,
+healthy service/status/root HTML, zero deployment wrappers and zero critical
+log matches. Every decoder sample reported release 0.1.21, Kiwi connected,
+zero sessions, no camper, Reporter disabled, zero authentication failures,
+zero dropped frames and a fresh main-loop heartbeat. No decoder upgrade or new
+decoder snapshot was involved in this redeployment.
 
 ## v0.1.28 reversible DSP and synchronized filtering
 

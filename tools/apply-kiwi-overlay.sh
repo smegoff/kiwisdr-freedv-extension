@@ -3,7 +3,7 @@ set -euo pipefail
 
 src=${1:-$(cd "$(dirname "$0")/.." && pwd)}
 kiwi=${2:-/root/KiwiSDR}
-upstream_commit=417e2c8add196e879b8cc4eb4a488b35b4bf0df7
+upstream_commit=c40ecb471dced33689e335689f8ffd35a54f47fa
 [[ -f "$kiwi/Makefile" ]] || { echo "Kiwi source tree not found: $kiwi" >&2; exit 2; }
 [[ $(git -C "$kiwi" rev-parse HEAD) == "$upstream_commit" ]] || {
   echo "Kiwi source is not pinned to $upstream_commit" >&2; exit 2;

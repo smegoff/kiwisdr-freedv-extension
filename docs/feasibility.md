@@ -3,7 +3,7 @@
 ## Decision
 
 External decoding is the production design. The target KiwiSDR 2 runs firmware
-1.901 on a single-core AM335x with about 483 MB RAM and already carries the RF,
+1.902 on a single-core AM335x with about 483 MB RAM and already carries the RF,
 waterfall, receiver and networking workload. The reference decoder guest
 currently provides 4 vCPU and 2 GB
 RAM, and libcodec2 opened every required legacy mode there. Native decoding
@@ -33,7 +33,7 @@ administrator feature flags.
 public browser
   | standard Kiwi extension control + standard SND audio
   v
-Kiwi receiver channel (firmware 1.901)
+Kiwi receiver channel (firmware 1.902)
   ^  normal camper SND packets       | rev_bin PCM + rev_txt status
   |                                  v
 private decoder guest outbound Kiwi monitor connection
