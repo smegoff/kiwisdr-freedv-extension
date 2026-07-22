@@ -10,11 +10,11 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-29`
+- active Kiwi release: stock `baseline-1.902` after the v0.1.29 UI rollback
 - active Kiwi SHA-256:
-  `1a56e24a9aff45f8a3ebc5917dd243f5af5fa6eb6fcf41a282d6ece23b394961`
-- Kiwi BuildID: `31c71012c3d558aa6e8cab2caee94f35261df288`
-- immediate Kiwi rollback: stock `baseline-1.902`
+  `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
+- Kiwi BuildID: `cd7ad47f5a1d72c704384a6a4dfec00c917c0118`
+- pending candidate: `freedv-v0-1-30`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
 - decoder-guest release: `0.1.21`
@@ -31,6 +31,25 @@ guest**.
   `enabled (idle)` and no station presence is published
 
 ## v0.1.29 KiwiSDR 1.902 redeployment
+
+**Withdrawn after visual failure.** The receiver and Admin root documents,
+service, `/status`, FreeDV asset, decoder transport, Reporter check and idle
+soaks all passed, but the browser application itself rendered blank. The
+previous acceptance incorrectly treated the automated browser's blank page as
+a control-channel limitation. The owner's independent browser report proved it
+was the deployed page. The Kiwi was immediately and successfully rolled back
+to the checksum-verified stock `baseline-1.902`.
+
+Post-rollback inspection found `/root/KiwiSDR/web/kiwisdr.min.js` was zero bytes
+and its gzip package was only 35 bytes. `web/Makefile` evaluates the main bundle
+input list by running `file_optim` while Make parses the file. The build helper
+removed the old bundle and invoked that target before `file_optim` existed, so
+the suppressed lookup failure produced an empty input list and a formally
+successful empty bundle. The binary then embedded that bundle. v0.1.30 builds
+`file_optim` in a separate Make invocation and requires a non-trivial main
+bundle, a valid matching gzip, the expected patched extension list, and a
+served main bundle of at least 100,000 bytes in candidate, activation, rollback
+and soak gates.
 
 John's v1.902 updater correctly installed its stock server and, as expected,
 replaced the custom FreeDV executable. The old `active` symlink still named

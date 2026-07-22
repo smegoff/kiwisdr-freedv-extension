@@ -41,8 +41,8 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the reference deployment, the Kiwi release is `freedv-v0-1-29`, the
-immediate Kiwi rollback is the stock `baseline-1.902`, the decoder guest runs `0.1.21`,
+For the reference deployment, the Kiwi is temporarily running the stock
+`baseline-1.902` after withdrawing v0.1.29. The decoder guest runs `0.1.21`,
 and the latest pre-upgrade guest snapshot is
 `pre-dashboard-openwebrx-palettes`, taken immediately before the OpenWebRX
 palette asset upgrade. The retained

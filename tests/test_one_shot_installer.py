@@ -115,6 +115,19 @@ class OneShotInstallerTest(unittest.TestCase):
         self.assertIn("previous=baseline-1.902", deployment)
         self.assertIn("sha256sum /usr/local/bin/kiwid", deployment)
 
+    def test_main_browser_bundle_is_built_and_health_gated(self):
+        build = (ROOT / "tools" / "run-kiwi-build.sh").read_text(encoding="utf-8")
+        verifier = (ROOT / "tools" / "verify-kiwi-candidate.sh").read_text(encoding="utf-8")
+        deployment = (ROOT / "tools" / "deploy-kiwi-release.sh").read_text(encoding="utf-8")
+        rollback = (ROOT / "tools" / "rollback-kiwi-release.sh").read_text(encoding="utf-8")
+        soak = (ROOT / "tools" / "soak-kiwi.sh").read_text(encoding="utf-8")
+        self.assertLess(build.index("make ../build/tools/file_optim"), build.index("make web/kiwisdr.min.js"))
+        self.assertIn("browser application bundle validation failed", build)
+        self.assertIn("browser application bundle is missing or truncated", verifier)
+        for content in (deployment, rollback, soak):
+            self.assertIn("kiwisdr.min.js", content)
+            self.assertIn("100000", content)
+
     def test_new_shell_scripts_parse(self):
         bash = shutil.which("bash")
         if not bash:
@@ -131,6 +144,7 @@ class OneShotInstallerTest(unittest.TestCase):
             "deploy/rollback-ai64-preparation.sh",
             "tools/backup-kiwi-on-device.sh",
             "tools/deploy-kiwi-release.sh",
+            "tools/rollback-kiwi-release.sh",
             "tools/run-kiwi-build.sh",
             "tools/verify-kiwi-candidate.sh",
         ):
