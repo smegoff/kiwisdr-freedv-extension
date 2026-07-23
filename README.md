@@ -45,7 +45,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.30 | UI-bundle fix candidate; stock KiwiSDR 1.902 baseline currently active |
+| Kiwi extension | 0.1.30 | Deployed on KiwiSDR 1.902; browser-accepted and 41-sample soak passed |
 | Decoder service | 0.1.21 | Token-free LAN dashboard deployed and browser-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
