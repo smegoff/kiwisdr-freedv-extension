@@ -16,6 +16,7 @@ for ((sample = 1; sample <= samples; sample++)); do
   service=$(systemctl is-active kiwid.service)
   status_page=$(wget -q -T 5 -O - http://127.0.0.1:8073/status)
   root_page=$(wget -q -T 5 -O - http://127.0.0.1:8073/)
+  ui_bytes=$(wget -q -T 5 -O - http://127.0.0.1:8073/kiwisdr.min.js | wc -c)
   status=$(sed -n 's/^status=//p' <<< "$status_page")
   firmware=$(sed -n 's/^sw_version=//p' <<< "$status_page")
   users=$(sed -n 's/^users=//p' <<< "$status_page")
@@ -25,12 +26,12 @@ for ((sample = 1; sample <= samples; sample++)); do
   critical=$(journalctl -u kiwid.service --since "@$start_epoch" --no-pager |
     grep -Eci 'watchdog|segfault|audio.*sequence|fatal|assert|authentication.*error' || true)
 
-  printf 'KIWI sample=%d time=%s active=%s service=%s status=%s firmware=%s users=%s root=%d wrappers=%d critical=%d\n' \
+  printf 'KIWI sample=%d time=%s active=%s service=%s status=%s firmware=%s users=%s root=%d ui_bytes=%d wrappers=%d critical=%d\n' \
     "$sample" "$timestamp" "$active" "$service" "$status" "$firmware" "$users" \
-    "$root_html" "$wrappers" "$critical"
+    "$root_html" "$ui_bytes" "$wrappers" "$critical"
 
   [[ $users =~ ^[0-9]+$ ]]
   [[ $active == "$expected_release" && $service == active && $status == active &&
      $firmware == KiwiSDR_v1.902 && $users -le $max_users && $root_html == 1 &&
-     $wrappers == 0 && $critical == 0 ]]
+     $ui_bytes -ge 100000 && $wrappers == 0 && $critical == 0 ]]
 done

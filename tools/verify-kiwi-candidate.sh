@@ -26,11 +26,22 @@ version=$(sed -n 's/^#define FREEDV_RELEASE "\([0-9.]*\)"/\1/p' \
   exit 3
 }
 
+ui_js="$kiwi/web/kiwisdr.min.js"
+ui_gz="$kiwi/web/kiwisdr.min.js.gz"
+ui_bytes=$(stat -c %s "$ui_js" 2>/dev/null || echo 0)
+ui_gz_bytes=$(stat -c %s "$ui_gz" 2>/dev/null || echo 0)
+(( ui_bytes >= 100000 && ui_gz_bytes >= 10000 )) || {
+  echo "browser application bundle is missing or truncated" >&2; exit 3;
+}
+gzip -t "$ui_gz"
+gzip -cd "$ui_gz" | cmp -s "$ui_js" -
+
 grep -Fq "excl_devl: [ 'devl', 'digi_modes', 's4285', 'prefs' ]," \
   "$kiwi/web/extensions/ext.js"
 grep -Fq "excl_devl:['devl','digi_modes','s4285','prefs']" \
   "$kiwi/web/extensions/ext.min.js"
 ! grep -Fq "excl_devl:['devl','FreeDV'" "$kiwi/web/extensions/ext.min.js"
+grep -Fq "excl_devl:['devl','digi_modes','s4285','prefs']" "$ui_js"
 grep -Fq 'FreeDV_main();' "$build/gen/ext_init.cpp"
 grep -aFq FreeDV_main "$candidate"
 zgrep -Fq "FreeDV v$version" "$kiwi/web/extensions/FreeDV/FreeDV.min.js.gz"

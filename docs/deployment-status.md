@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-22 20:55 UTC (2026-07-23 08:55 NZST)
+Last verified: 2026-07-23 01:27 UTC (2026-07-23 13:27 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -10,11 +10,10 @@ guest**.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-29`
+- active Kiwi release: `freedv-v0-1-30`
 - active Kiwi SHA-256:
-  `1a56e24a9aff45f8a3ebc5917dd243f5af5fa6eb6fcf41a282d6ece23b394961`
-- Kiwi BuildID: `31c71012c3d558aa6e8cab2caee94f35261df288`
-- immediate Kiwi rollback: stock `baseline-1.902`
+  `c747045c887b727642a9b0595da8451e17ea7a3b5927c9165b661af47c742f90`
+- Kiwi BuildID: `6a500f0c7af4013d49502c3afb78b461829c6a80`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
 - decoder-guest release: `0.1.21`
@@ -30,7 +29,70 @@ guest**.
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
 
+## v0.1.30 browser-bundle recovery
+
+v0.1.30 is the accepted replacement for the withdrawn v0.1.29 candidate. The
+build now creates `file_optim` in a separate Make invocation before the web
+Makefile evaluates its optimized input list. Candidate verification rejects a
+main JavaScript bundle smaller than 100,000 bytes, a gzip package smaller than
+10,000 bytes, invalid or non-matching gzip content, and an optimized bundle
+that does not contain the FreeDV-only publication change. Deployment, explicit
+rollback and soak gates also fetch the served main UI bundle and reject a
+short response.
+
+The rebuilt production bundle is 639,117 bytes with SHA-256
+`8e9ac919b37b42844c7705206b405a84e86d92dbcac8413ad5da06d619e4810a`.
+Its 212,901-byte gzip package has SHA-256
+`34e7848f54c37e1d721caa9dfc8bf0e50b065d2f634f16221732ef39f1f957ea`
+and decompresses byte-for-byte to the main bundle. An independent Node syntax
+check passed. The resulting 32-bit ARM production binary has SHA-256 and
+BuildID recorded in the live-state section above.
+
+Atomic activation selected `freedv-v0-1-30` with stock
+`baseline-1.902` as the previous release. Root, Admin, `/status`, the served
+main UI and the FreeDV v0.1.30 asset passed the activation gate. The owner then
+accepted the restored browser interface before requesting publication and
+merge.
+
+John's KiwiClient opened the ordinary SND and EXT connections for a normal
+700D session. The decoder reached one authenticated Codec2 camper, synchronized
+on received audio, advanced to 14 decoded frames and reported zero dropped
+frames or authentication failures. The RX-only Reporter moved from connecting
+to online. Closing the client returned to zero sessions and no camper, and the
+15-second stale-session safety gate removed Reporter presence.
+
+The final idle soak passed 41/41 Kiwi samples and 41/41 decoder samples at
+15-second intervals. Every Kiwi sample reported v0.1.30 active, firmware 1.902,
+healthy service/status/root HTML, a 212,988-byte served main UI response, zero
+deployment wrappers and zero critical log matches. Every decoder sample
+reported release 0.1.21, a fresh and connected Kiwi control loop, zero
+sessions/campers, Reporter disabled, zero authentication failures and zero
+dropped frames. The Kiwi and decoder soak-log SHA-256 values are respectively
+`bcaaee680f204a56ae419ea3d6cdfd871331c937314690100bdf7aa223d664db`
+and `023fac8240a76d9085d411a2f96aec131b391f0ca14783e9b05df0187eaa5787`.
+The final Kiwi error-priority journal was empty and `kiwid.service` had zero
+restarts. No decoder change or decoder snapshot was required for this release.
+
 ## v0.1.29 KiwiSDR 1.902 redeployment
+
+**Withdrawn after visual failure.** The receiver and Admin root documents,
+service, `/status`, FreeDV asset, decoder transport, Reporter check and idle
+soaks all passed, but the browser application itself rendered blank. The
+previous acceptance incorrectly treated the automated browser's blank page as
+a control-channel limitation. The owner's independent browser report proved it
+was the deployed page. The Kiwi was immediately and successfully rolled back
+to the checksum-verified stock `baseline-1.902`.
+
+Post-rollback inspection found `/root/KiwiSDR/web/kiwisdr.min.js` was zero bytes
+and its gzip package was only 35 bytes. `web/Makefile` evaluates the main bundle
+input list by running `file_optim` while Make parses the file. The build helper
+removed the old bundle and invoked that target before `file_optim` existed, so
+the suppressed lookup failure produced an empty input list and a formally
+successful empty bundle. The binary then embedded that bundle. v0.1.30 builds
+`file_optim` in a separate Make invocation and requires a non-trivial main
+bundle, a valid matching gzip, the expected patched extension list, and a
+served main bundle of at least 100,000 bytes in candidate, activation, rollback
+and soak gates.
 
 John's v1.902 updater correctly installed its stock server and, as expected,
 replaced the custom FreeDV executable. The old `active` symlink still named
