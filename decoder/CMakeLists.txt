@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kiwi_freedv_decoder VERSION 0.1.23 LANGUAGES C CXX)
+project(kiwi_freedv_decoder VERSION 0.1.24 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,6 +47,7 @@ endfunction()
 
 add_executable(freedv-decoder
   src/main.cpp
+  src/audio_pacer.cpp
   src/kiwi_protocol.cpp
   src/resampler.cpp
   src/codec2_backend.cpp
@@ -96,6 +97,14 @@ if(BUILD_TESTING)
   enable_radev1(freedv-backend-test)
   add_test(NAME freedv-backend-test COMMAND freedv-backend-test)
 
+  add_executable(freedv-audio-pacer-test
+    tests/audio_pacer_test.cpp
+    src/audio_pacer.cpp
+  )
+  target_include_directories(freedv-audio-pacer-test PRIVATE include)
+  target_compile_options(freedv-audio-pacer-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+  add_test(NAME freedv-audio-pacer-test COMMAND freedv-audio-pacer-test)
+
   if(HAVE_RADE)
     add_executable(freedv-rade-reference-test
       tests/rade_reference_test.cpp
@@ -115,6 +124,18 @@ if(BUILD_TESTING)
   target_compile_options(freedv-reference-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG ${CODEC2_CFLAGS_OTHER} ${SAMPLERATE_CFLAGS_OTHER})
   if(CODEC2_FOUND)
     target_compile_definitions(freedv-reference-test PRIVATE HAVE_CODEC2=1)
+  endif()
+
+  if(CODEC2_FOUND)
+    add_executable(freedv-codec2-reference-generator
+      tests/codec2_reference_generator.cpp
+    )
+    target_include_directories(freedv-codec2-reference-generator PRIVATE
+      ${CODEC2_INCLUDE_DIRS} ${SAMPLERATE_INCLUDE_DIRS})
+    target_link_libraries(freedv-codec2-reference-generator PRIVATE
+      ${CODEC2_LIBRARIES} ${SAMPLERATE_LIBRARIES})
+    target_compile_options(freedv-codec2-reference-generator PRIVATE
+      -Wall -Wextra -Wpedantic ${CODEC2_CFLAGS_OTHER} ${SAMPLERATE_CFLAGS_OTHER})
   endif()
 
   add_executable(freedv-transport-reference-test

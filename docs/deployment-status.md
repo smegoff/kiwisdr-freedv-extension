@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-30 09:48 UTC (2026-07-30 21:48 NZST)
+Last verified: 2026-07-30 11:50 UTC (2026-07-30 23:50 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -14,24 +14,73 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-31`
+- active Kiwi release: `freedv-v0-1-32`
 - active Kiwi SHA-256:
-  `57c049cc26a43ab28661f11923f3ccabe65cffabc8c9071aa01a31694a991537`
-- Kiwi BuildID: `08ef729d22d340159c5275afdb8447771ea7be61`
+  `796504358c9693ec6664d0937add4c195378e127460af6c2af46b496f430a402`
+- Kiwi BuildID: `ddc4132ca0753fe9ad2d1851f310c973ed8e733a`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.23`
+- decoder-guest release: `0.1.24`
 - decoder binary SHA-256:
-  `125481a2c65475b6aee39d1d38aeaa3b7ebe48183e00ec70e530139f94a39cad`
+  `6611edb2622720a88847c75632a3adadca45819470ed453c9c1c8536b3971cf0`
 - Reporter sidecar SHA-256:
   `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
 - Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder dashboard assets: `0.1.23`
-- decoder-guest snapshot: `pre-decoder-v0-1-23`
+- decoder dashboard assets: `0.1.24`
+- decoder-guest snapshot: `pre-decoder-v0-1-24`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.32 / decoder v0.1.24 returned-audio pacing
+
+The prior decoder returned each complete Codec2 speech frame immediately.
+Those modem-sized bursts were about 1,920 samples for 700D, and multiple
+WebSocket replies could arrive together. Kiwi then drained every queued reply
+during one sound callback, delivering more audio than elapsed wall-clock time
+and causing browser buffer overrun/dropout cycling. This could make a clean
+synchronized signal sound broken even though decoder CPU headroom was ample.
+
+Decoder 0.1.24 places decoded speech in a 500 ms bounded queue and emits at
+most one input-sized packet for each incoming Kiwi SND packet. Kiwi v0.1.32
+also consumes at most one return packet per normal sound cadence and discards
+stale excess instead of draining a network burst. A packet capture confirmed
+512-sample returned packets. The deterministic test now uses
+`FreeDV.clean.au`, a continuous 700D reference generated from the
+BSD-licensed speech sample in the pinned FreeDV RADE C repository. Its
+SHA-256 is
+`426dcc677932903d863fa266fc3acfc0bbcafc63906e231a9b16fc4429e6d37a`.
+
+Before deployment, a 31,481,480-byte Kiwi configuration archive was streamed
+directly to the ignored project backup directory, structurally inspected and
+verified with SHA-256
+`aa4265adc0bf0f022d0ff8b5753daccaebeefcbaf963e6927ebed99c7c0cb498`.
+The production candidate contained a 639,117-byte browser application and a
+valid matching 212,901-byte gzip package. Atomic activation retained
+`freedv-v0-1-31` as the immediate custom-release rollback.
+
+A real browser found FreeDV in the ordinary extension menu and verified the
+spaced v0.1.32 panel, inline Reporter link and Help coverage for receiver
+filters, DRM contention, the clean Test, Reporter and the public repository.
+The clean 700D Test reached sync at about 31 dB SNR with near-zero frequency
+offset, advanced to 100 percent and ended at `test passed`. The decoder
+returned about 11.5 seconds of speech in receiver-sized packets with zero
+dropped samples or frames.
+
+A normal 700D session then passed 41/41 Kiwi and 41/41 decoder samples at
+15-second intervals. Every sample had firmware 1.902, the full receiver UI,
+v0.1.32 active, decoder 0.1.24 healthy, one authenticated camper and Reporter
+online. Critical journal searches remained empty. Stop returned to zero
+sessions, no camper, Reporter disabled and a zero audio queue. The accepted
+soak logs have SHA-256
+`a3408237f365aa30aaf88874cae32dc6c5ca242d22f5dba40e858b8f60f49cd9`
+and
+`275a00ead7e8c9e17c2cb041ce2b78ba62d4275edfdd121fe44b20342cbe932f`.
+
+After acceptance, the superseded `pre-decoder-v0-1-23` snapshot was removed.
+The clean Debian baseline, RADEV1 architectural checkpoint and
+`pre-decoder-v0-1-24` immediate rollback remain.
 
 ## v0.1.31 / decoder v0.1.23 reliability recovery
 

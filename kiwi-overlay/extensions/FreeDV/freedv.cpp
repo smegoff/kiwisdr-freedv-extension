@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.31"
+#define FREEDV_RELEASE "0.1.32"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -111,7 +111,9 @@ static void freedv_test_audio(int rx_chan, int instance, int nsamps,
 
 static void freedv_load_test_signal()
 {
-    const char *path = DIR_CFG "/samples/FreeDV.test.au";
+    const char *path = DIR_CFG "/samples/FreeDV.clean.au";
+    if (access(path, R_OK) != 0)
+        path = DIR_CFG "/samples/FreeDV.test.au";
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
         printf("FreeDV: test signal unavailable: %s\n", path);

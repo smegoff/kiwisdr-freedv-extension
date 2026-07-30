@@ -41,11 +41,12 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the reference deployment, the Kiwi runs `freedv-v0-1-31` on firmware
+For the reference deployment, the Kiwi runs `freedv-v0-1-32` on firmware
 1.902. The checksum-verified stock `baseline-1.902` is its immediate software
-rollback target. The decoder guest runs `0.1.23`, and the immediate guest
-rollback snapshot is `pre-decoder-v0-1-23`, taken before the authenticated
-camper-bootstrap fix. The retained
+rollback target; `freedv-v0-1-31` is retained as the immediate custom-release
+rollback. The decoder guest runs `0.1.24`, and the immediate guest rollback
+snapshot is `pre-decoder-v0-1-24`, taken before returned-audio pacing was
+deployed. The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
 clean operating-system baseline. Superseded dashboard and v0.1.22 reliability
 snapshots were removed after v0.1.23 passed its browser tests and active

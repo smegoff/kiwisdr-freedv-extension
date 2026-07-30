@@ -78,6 +78,17 @@ passed. A deliberate service restart recovered the same active browser session.
 The subsequent 41-sample active soak passed with zero auth failures, drops,
 reconnects or crash restarts.
 
+Decoder 0.1.24 and Kiwi extension 0.1.32 address the remaining audible
+transport defect. Codec2 produces decoded speech in modem-sized bursts, and
+the previous path could forward a complete burst immediately. Several replies
+could then arrive together and the Kiwi would drain them into the browser
+faster than real time, causing buffer overrun/dropout cycling even when the
+modem had a clean synchronized signal. The decoder now emits receiver-sized
+packets from a bounded queue, and the Kiwi consumes at most one returned packet
+per normal sound cadence. The deterministic Test also uses a clean continuous
+700D reference so weak or intermittent source audio cannot be mistaken for a
+transport fault.
+
 The generated RADEV1 reference waveform synchronized, produced 150,880 speech
 samples and completed with a real-time factor of about 0.021 on the decoder
 guest. The official `freedv/rade_c` `FDV_offair.wav` recording also

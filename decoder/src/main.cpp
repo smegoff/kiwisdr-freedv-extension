@@ -1,4 +1,5 @@
 #include "freedv/backend.hpp"
+#include "freedv/audio_pacer.hpp"
 #include "freedv/dashboard.hpp"
 #include "freedv/kiwi_protocol.hpp"
 #include "freedv/resampler.hpp"
@@ -41,7 +42,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.23";
+constexpr char kRelease[] = "0.1.24";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr int kSocketPollMilliseconds = 100;
 
@@ -51,6 +52,10 @@ struct Metrics {
   std::atomic<uint64_t> sessions{0};
   std::atomic<uint64_t> snd_frames{0};
   std::atomic<uint64_t> decoded_frames{0};
+  std::atomic<uint64_t> return_packets{0};
+  std::atomic<uint64_t> return_samples{0};
+  std::atomic<uint64_t> return_dropped_samples{0};
+  std::atomic<uint64_t> audio_queue_milliseconds{0};
   std::atomic<uint64_t> dropped_frames{0};
   std::atomic<uint64_t> reconnects{0};
   std::atomic<uint64_t> auth_failures{0};
@@ -112,6 +117,10 @@ std::string metrics_text() {
       << "freedv_sessions " << metrics.sessions.load() << '\n'
       << "freedv_snd_frames_total " << metrics.snd_frames.load() << '\n'
       << "freedv_decoded_frames_total " << metrics.decoded_frames.load() << '\n'
+      << "freedv_return_packets_total " << metrics.return_packets.load() << '\n'
+      << "freedv_return_samples_total " << metrics.return_samples.load() << '\n'
+      << "freedv_return_dropped_samples_total "
+      << metrics.return_dropped_samples.load() << '\n'
       << "freedv_dropped_frames_total " << metrics.dropped_frames.load() << '\n'
       << "freedv_reconnects_total " << metrics.reconnects.load() << '\n'
       << "freedv_auth_failures_total " << metrics.auth_failures.load() << '\n'
@@ -123,7 +132,8 @@ std::string metrics_text() {
       << "freedv_sync " << metrics.synced.load() << '\n'
       << "freedv_status_updates_total " << metrics.status_updates.load() << '\n'
       << "freedv_main_loop_age_seconds " << main_loop_age_seconds() << '\n'
-      << "freedv_audio_queue_milliseconds 0\n"
+      << "freedv_audio_queue_milliseconds "
+      << metrics.audio_queue_milliseconds.load() << '\n'
       << "freedv_reporter_state{state=\"" << reporter_state() << "\"} 1\n";
   return out.str();
 }
@@ -393,6 +403,7 @@ class KiwiCamper {
       backend_->reset();
       input_resampler_.reset();
       output_resampler_.reset();
+      output_pacer_.clear();
       expected_sequence_valid_ = false;
       return_adpcm_valid_ = false;
       std::cerr << "test reference armed: generation=" << job_.generation << '\n';
@@ -427,6 +438,8 @@ class KiwiCamper {
     expected_sequence_valid_ = false;
     input_resampler_.reset();
     output_resampler_.reset();
+    output_pacer_.clear();
+    output_pacer_.configure(audio_rate_);
     return_adpcm_valid_ = false;
     first_audio_packet_ = true;
     job_decoded_frames_ = 0;
@@ -452,6 +465,7 @@ class KiwiCamper {
     backend_.reset();
     input_resampler_.reset();
     output_resampler_.reset();
+    output_pacer_.clear();
     input_adpcm_valid_ = false;
     return_adpcm_valid_ = false;
     expected_sequence_valid_ = false;
@@ -484,6 +498,8 @@ class KiwiCamper {
       metrics.dropped_frames += static_cast<uint32_t>(packet.sequence - expected_sequence_);
       backend_->reset();
       input_resampler_.reset();
+      output_resampler_.reset();
+      output_pacer_.clear();
       return_adpcm_valid_ = false;
     }
     expected_sequence_ = packet.sequence + 1;
@@ -513,28 +529,45 @@ class KiwiCamper {
       backend_->reset();
       input_resampler_.reset();
       output_resampler_.reset();
+      output_pacer_.clear();
       return_adpcm_valid_ = false;
       return;
     }
     metrics.synced = decoded.status.synced ? 1 : 0;
 
-    // Never return modem noise or partial speech while the FreeDV modem is
-    // unsynchronized. The Kiwi-side return-audio gate supplies silence.
+    // The modem produces speech in large bursts (e.g. about 1920 samples for
+    // a 700D frame at 12 kHz). Queue those samples, then return at most one
+    // receiver-sized packet for each incoming SND packet. Sending a whole
+    // modem burst at once makes the browser receive more audio than elapsed
+    // wall-clock time and causes audible overrun/dropout cycling.
     if (decoded.status.synced && !decoded.pcm.empty()) {
       const auto speech = output_resampler_.process(decoded.pcm, decoded.sample_rate, audio_rate_);
-      if (compressed && !return_adpcm_valid_) {
-        return_adpcm_ = input_adpcm_;
-        return_adpcm_valid_ = true;
-      }
-      auto payload = kfd::encode_kiwi_audio(speech, packet.flags, return_adpcm_);
-      static constexpr char prefix[] = "SET rev_bin=";
-      std::vector<uint8_t> message(prefix, prefix + sizeof(prefix) - 1);
-      message.insert(message.end(), payload.begin(), payload.end());
-      send_binary(message);
+      const uint64_t dropped_before = output_pacer_.dropped_samples();
+      output_pacer_.configure(audio_rate_);
+      output_pacer_.push(speech);
+      metrics.return_dropped_samples += output_pacer_.dropped_samples() - dropped_before;
       metrics.decoded_frames++;
       job_decoded_frames_++;
     } else if (!decoded.status.synced) {
       output_resampler_.reset();
+    }
+
+    const auto speech_packet = output_pacer_.take(input.size());
+    metrics.audio_queue_milliseconds = audio_rate_ == 0 ? 0 :
+        output_pacer_.queued_samples() * 1000 / audio_rate_;
+    if (!speech_packet.empty()) {
+      if (compressed && !return_adpcm_valid_) {
+        return_adpcm_ = input_adpcm_;
+        return_adpcm_valid_ = true;
+      }
+      auto payload = kfd::encode_kiwi_audio(speech_packet, packet.flags, return_adpcm_);
+      static constexpr char prefix[] = "SET rev_bin=";
+      std::vector<uint8_t> message(prefix, prefix + sizeof(prefix) - 1);
+      message.insert(message.end(), payload.begin(), payload.end());
+      send_binary(message);
+      metrics.return_packets++;
+      metrics.return_samples += speech_packet.size();
+    } else if (!decoded.status.synced) {
       return_adpcm_valid_ = false;
     }
 
@@ -603,6 +636,7 @@ class KiwiCamper {
   uint64_t job_decoded_frames_ = 0;
   kfd::StreamingResampler input_resampler_;
   kfd::StreamingResampler output_resampler_;
+  kfd::AudioPacer output_pacer_;
   std::chrono::steady_clock::time_point next_poll_{};
   std::chrono::steady_clock::time_point next_keepalive_{};
   std::chrono::steady_clock::time_point next_status_{};
@@ -624,6 +658,10 @@ int main() {
                 {"sessions", metrics.sessions.load()},
                 {"snd_frames_total", metrics.snd_frames.load()},
                 {"decoded_frames_total", metrics.decoded_frames.load()},
+                {"return_packets_total", metrics.return_packets.load()},
+                {"return_samples_total", metrics.return_samples.load()},
+                {"return_dropped_samples_total", metrics.return_dropped_samples.load()},
+                {"audio_queue_milliseconds", metrics.audio_queue_milliseconds.load()},
                 {"dropped_frames_total", metrics.dropped_frames.load()},
                 {"reconnects_total", metrics.reconnects.load()},
                 {"auth_successes_total", metrics.auth_successes.load()},

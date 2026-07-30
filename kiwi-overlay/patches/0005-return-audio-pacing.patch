@@ -1,0 +1,36 @@
+diff --git a/rx/rx_sound.cpp b/rx/rx_sound.cpp
+index f94d7f1..dcd4dd4 100644
+--- a/rx/rx_sound.cpp
++++ b/rx/rx_sound.cpp
+@@ -1511,15 +1511,22 @@ bool c2s_sound_mon(int rx_chan, int bytes)
+     // decoder on an external server.
+     bool sent_return_audio = false;
+     if (wf->have_rtn_snd) {
+-        while (1) {
+-            int qct = 0;
+-            if (ndesc_valid(&rxc->rtn_snd_nd))
+-                qct = nbuf_queued(&rxc->rtn_snd_nd);
+-            //real_printf(GREEN "%d" NORM " ", qct); fflush(stdout);
+-            if (qct == 0) {
+-                //real_printf(YELLOW "0" NORM " "); fflush(stdout);
+-                break;
+-            }
++        int qct = 0;
++        if (ndesc_valid(&rxc->rtn_snd_nd))
++            qct = nbuf_queued(&rxc->rtn_snd_nd);
++
++        // A return packet replaces exactly one normal receiver packet. Network
++        // jitter can deliver several decoder replies together, so consume at
++        // most one per sound cadence. Draining the entire queue here sends
++        // more samples than elapsed wall-clock time and eventually makes the
++        // browser discard audio buffers. Keep the queue below about 500 ms.
++        while (qct > 12) {
++            nbuf_t *stale = nbuf_dequeue(&rxc->rtn_snd_nd);
++            stale->done = TRUE;
++            qct--;
++        }
++
++        if (qct > 0) {
+             nbuf_t *nb = nbuf_dequeue(&rxc->rtn_snd_nd);
+             //real_printf(GREEN "%d:%d" NORM " ", rx_chan, nb->len-12); fflush(stdout);
+             // "12" skips the "SET rev_bin=" header
