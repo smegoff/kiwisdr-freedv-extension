@@ -1,8 +1,6 @@
 #include "freedv/backend.hpp"
 
 #include <algorithm>
-#include <array>
-#include <cmath>
 #include <cctype>
 #include <cstring>
 #include <stdexcept>
@@ -17,9 +15,10 @@ namespace kfd {
 #ifdef HAVE_RADE
 namespace {
 
-constexpr std::size_t kHilbertTaps = 127;
-constexpr std::size_t kHilbertDelay = (kHilbertTaps - 1) / 2;
 constexpr std::size_t kMaxQueuedSamples = 4000;  // 500 ms at 8 kHz.
+// The official rade_c real-valued receiver path uses imag=0 and compensates
+// for the discarded negative-frequency image with 2 / RADE_INT16_SCALE.
+constexpr float kRadeRealInt16Scale = 2.0f / 16384.0f;
 
 bool valid_eoo_callsign(const char* value) {
   if (!value || !*value) return false;
@@ -33,17 +32,6 @@ bool valid_eoo_callsign(const char* value) {
 class RadeBackend final : public DecoderBackend {
  public:
   RadeBackend() {
-    constexpr float pi = 3.14159265358979323846f;
-    for (std::size_t i = 0; i < hilbert_.size(); i++) {
-      const int n = static_cast<int>(i) - static_cast<int>(kHilbertDelay);
-      if (n == 0 || (n & 1) == 0) {
-        hilbert_[i] = 0.0f;
-      } else {
-        const float h = 2.0f / (pi * n);
-        const float w = 0.54f - 0.46f * std::cos(2.0f * pi * i / (kHilbertTaps - 1));
-        hilbert_[i] = h * w;
-      }
-    }
     char error[160] = {0};
     decoder_ = kfd_rade_create(error, sizeof(error));
     if (!decoder_) throw std::runtime_error(error[0] ? error : "unable to open RADEv1");
@@ -71,17 +59,7 @@ class RadeBackend final : public DecoderBackend {
 
     iq_.reserve(iq_.size() + count);
     for (std::size_t i = 0; i < count; i++) {
-      const float sample = static_cast<float>(samples[i]) / 32768.0f;
-      history_[history_position_] = sample;
-      float imaginary = 0.0f;
-      for (std::size_t tap = 0; tap < kHilbertTaps; tap++) {
-        const std::size_t index = (history_position_ + kHilbertTaps - tap) % kHilbertTaps;
-        imaginary += hilbert_[tap] * history_[index];
-      }
-      const std::size_t real_index =
-          (history_position_ + kHilbertTaps - kHilbertDelay) % kHilbertTaps;
-      iq_.push_back({history_[real_index], imaginary});
-      history_position_ = (history_position_ + 1) % kHilbertTaps;
+      iq_.push_back({static_cast<float>(samples[i]) * kRadeRealInt16Scale, 0.0f});
     }
 
     std::size_t consumed = 0;
@@ -116,8 +94,6 @@ class RadeBackend final : public DecoderBackend {
 
   void reset() override {
     iq_.clear();
-    history_.fill(0.0f);
-    history_position_ = 0;
     callsign_.clear();
     last_status_ = {};
     char error[160] = {0};
@@ -127,9 +103,6 @@ class RadeBackend final : public DecoderBackend {
 
  private:
   kfd_rade_decoder* decoder_ = nullptr;
-  std::array<float, kHilbertTaps> hilbert_{};
-  std::array<float, kHilbertTaps> history_{};
-  std::size_t history_position_ = 0;
   std::vector<kfd_rade_complex> iq_;
   std::vector<int16_t> pcm_scratch_;
   std::string callsign_;

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -21,11 +22,13 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <poll.h>
 #include <unistd.h>
 
 namespace asio = boost::asio;
@@ -38,8 +41,9 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.21";
+constexpr char kRelease[] = "0.1.22";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
+constexpr int kSocketPollMilliseconds = 100;
 
 struct Metrics {
   std::atomic<uint64_t> kiwi_connected{0};
@@ -234,6 +238,26 @@ class KiwiCamper {
     send_text("SET auth t=kiwi p=" + password_);
 
     for (;;) {
+      // Boost.Beast's WebSocket timeout option only applies to asynchronous
+      // operations. A synchronous read can otherwise block forever when the
+      // Kiwi is idle, preventing job polls and keepalives until the process
+      // watchdog kills the service. Poll the native socket first so the
+      // control loop continues to make progress even when no frame arrives.
+      mark_main_loop_progress();
+      maybe_poll();
+      maybe_keepalive();
+      pollfd descriptor{ws_.next_layer().native_handle(), POLLIN, 0};
+      int ready;
+      do {
+        ready = ::poll(&descriptor, 1, kSocketPollMilliseconds);
+      } while (ready < 0 && errno == EINTR);
+      if (ready < 0)
+        throw std::system_error(errno, std::generic_category(), "Kiwi socket poll");
+      if (ready == 0) continue;
+      if (descriptor.revents & (POLLERR | POLLHUP | POLLNVAL))
+        throw std::runtime_error("Kiwi socket disconnected");
+      if (!(descriptor.revents & POLLIN)) continue;
+
       beast::flat_buffer buffer;
       ws_.read(buffer);
       mark_main_loop_progress();
@@ -242,8 +266,6 @@ class KiwiCamper {
       const std::string tag = frame.substr(0, 3);
       if (tag == "MSG") process_message(trim(frame.substr(3)));
       else if (tag == "SND") process_audio(frame);
-      maybe_poll();
-      maybe_keepalive();
     }
   }
 
@@ -469,6 +491,7 @@ class KiwiCamper {
       first_audio_packet_ = false;
     }
     const auto modem = input_resampler_.process(input, input_rate_, backend_->modem_sample_rate());
+    dashboard_.push_modem_audio(modem.data(), modem.size(), backend_->modem_sample_rate());
     const auto started = std::chrono::steady_clock::now();
     auto decoded = backend_->push(modem.data(), modem.size());
     const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(

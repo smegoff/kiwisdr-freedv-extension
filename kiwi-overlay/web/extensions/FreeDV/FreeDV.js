@@ -38,9 +38,8 @@ var freedv = {
    legacy_modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    modes: ['1600', '700C', '700D', '700E', '2400A', '2400B', '800XA'],
    filter_index: 0,
-   filter_modes: ['Auto (lock on sync)', 'Tight', 'Normal', 'Wide'],
-   filter_keys: ['auto', 'tight', 'normal', 'wide'],
-   filter_locked: false,
+   filter_modes: ['Flat (recommended)', 'Mode +350 Hz', 'Mode +200 Hz', 'Mode +50 Hz'],
+   filter_keys: ['flat', 'wide', 'normal', 'tight'],
    saved_setup: null,
    saved_passband: null,
    receiver_profile: null,
@@ -52,9 +51,10 @@ var freedv = {
 };
 
 // FreeDV HF waveforms are centred at 1500 Hz. These are the documented
-// occupied RF bandwidths. Automatic mode adds 200 Hz per edge for acquisition,
-// tightens to 50 Hz per edge on first sync and rounds outward to a 25 Hz
-// boundary. John uses the same
+// occupied RF bandwidths. FreeDV's own receiving guidance recommends a flat
+// audio path without a narrow receiver DSP filter because the modem already
+// contains its own matched filters. Mode-shaped profiles remain available as
+// manual diagnostic overrides. John uses the same
 // amateur voice convention: below 10 MHz is LSB except for the 60 metre
 // allocation, which uses USB. Frequencies at 10 MHz and above use USB.
 function freedv_sideband_for_frequency(freq_kHz)
@@ -66,35 +66,34 @@ function freedv_sideband_for_frequency(freq_kHz)
 
 function freedv_filter_key()
 {
-   return freedv.filter_keys[freedv.filter_index] || 'auto';
+   return freedv.filter_keys[freedv.filter_index] || 'flat';
 }
 
 function freedv_filter_guard_hz()
 {
    var key = freedv_filter_key();
+   if (key == 'flat') return -1;
    if (key == 'tight') return 50;
    if (key == 'wide') return 350;
-   if (key == 'auto' && freedv.filter_locked) return 50;
    return 200;
 }
 
 function freedv_filter_label()
 {
    var key = freedv_filter_key();
-   if (key == 'auto') return freedv.filter_locked? 'auto locked':'auto acquiring';
-   return key;
+   return key == 'flat'? 'flat recommended':key;
 }
 
 function freedv_receiver_profile(mode, freq_kHz, guard_hz)
 {
-   guard_hz = isFinite(+guard_hz)? +guard_hz:200;
+   guard_hz = isFinite(+guard_hz)? +guard_hz:-1;
    var p = {
       mode: mode,
       sideband: freedv_sideband_for_frequency(freq_kHz),
       nominal_hz: 0,
       low: 300,
       high: 3000,
-      guard_hz: guard_hz,
+      guard_hz: Math.max(0, guard_hz),
       filter_label: freedv_filter_label(),
       note: ''
    };
@@ -109,7 +108,7 @@ function freedv_receiver_profile(mode, freq_kHz, guard_hz)
    };
    p.nominal_hz = widths[mode] || 0;
 
-   if (p.nominal_hz) {
+   if (p.nominal_hz && guard_hz >= 0) {
       p.low = Math.max(300,
          Math.floor((1500 - p.nominal_hz/2 - guard_hz) / 25) * 25);
       p.high = Math.min(5700,
@@ -159,15 +158,6 @@ function freedv_apply_receiver_profile()
 
 function freedv_filter_reset()
 {
-   freedv.filter_locked = false;
-   freedv_apply_receiver_profile();
-}
-
-function freedv_filter_sync(synced)
-{
-   if (!synced || !freedv.running || freedv.testing ||
-       freedv_filter_key() != 'auto' || freedv.filter_locked) return;
-   freedv.filter_locked = true;
    freedv_apply_receiver_profile();
 }
 
@@ -296,7 +286,6 @@ function freedv_recv(data)
             w3_innerHTML('id-freedv-state', status.state || 'running');
             w3_innerHTML('id-freedv-backend', status.backend || 'external');
             w3_innerHTML('id-freedv-sync', status.sync? 'yes':'no');
-            freedv_filter_sync(status.sync);
             if (freedv.testing && +status.decoded_frames > 0) {
                // Returned PCM is emitted only while Codec2 reports sync. Use
                // the per-session counter so a short sync interval cannot fall
@@ -325,7 +314,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.30 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.31 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -340,7 +329,7 @@ function freedv_controls_setup()
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.30 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.31 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -401,7 +390,6 @@ function freedv_calling_frequency_cb(path, index, first)
    }
 
    freedv.calling_index = index;
-   freedv.filter_locked = false;
    w3_innerHTML('id-freedv-error', '');
    // Calling frequencies are displayed RF frequencies. Kiwi tuning uses the
    // receiver frequency after subtracting any configured transverter offset.
@@ -421,7 +409,6 @@ function freedv_filter_cb(path, index, first)
 {
    if (first) return;
    freedv.filter_index = +index;
-   freedv.filter_locked = false;
    freedv_apply_receiver_profile();
 }
 
@@ -439,7 +426,6 @@ function freedv_start_ui(testing)
    freedv.test_audio = false;
    freedv.test_armed = false;
    freedv.last_test_result = '';
-   freedv.filter_locked = false;
    w3_button_text('id-freedv-start', 'Stop');
    w3_button_text('id-freedv-test', testing? 'Stop test':'Test',
       testing? 'w3-red':'w3-aqua', testing? 'w3-aqua':'w3-red');
@@ -519,7 +505,6 @@ function freedv_stop_ui(send_stop)
    w3_disable('id-freedv.mode', false);
    w3_disable('id-freedv.calling_index', false);
    w3_disable('id-freedv.filter_index', false);
-   freedv.filter_locked = false;
    freedv_apply_receiver_profile();
    freedv_update_reporter_state();
    freedv_restore_audio_compression();
@@ -620,11 +605,12 @@ function FreeDV_help(show)
          '<b>Listening</b><br>' +
          'The extension follows the usual amateur voice convention: 160, 80 and 40 ' +
          'metres use LSB, 60 metres is the USB exception, and 10 MHz and above use USB. It changes ' +
-         'sideband automatically when you retune. Each HF mode gets a filter based on ' +
-         'its documented occupied bandwidth, centred at 1500 Hz. Automatic filter mode ' +
-         'starts with 200 Hz of acquisition room on each edge, tightens to 50 Hz on ' +
-         'first sync and stays locked until a retune, mode change or restart. Tight, ' +
-         'Normal and Wide are manual overrides. The active sideband and filter are shown in ' +
+         'sideband automatically when you retune. The recommended Flat profile uses a ' +
+         '300 to 3000 Hz receive-audio path. FreeDV already contains tightly matched ' +
+         'modem filters, so narrowing the Kiwi filter does not improve decoding and can ' +
+         'make synchronization or reacquisition less reliable. Mode +350, +200 and +50 Hz ' +
+         'profiles are retained as manual diagnostic overrides around each documented ' +
+         'occupied bandwidth and 1500 Hz centre. The active sideband and filter are shown in ' +
          'the main panel. 2400A and 2400B remain integration-only because they require ' +
          'a VHF/FM 48 kHz receive path.<br><br>' +
          'Opening FreeDV temporarily turns off the Kiwi noise filter, denoiser and ' +
@@ -655,7 +641,10 @@ function FreeDV_help(show)
          '<a href="https://github.com/smegoff/kiwisdr-freedv-extension" target="_blank">' +
          'KiwiSDR FreeDV Extension GitHub repository</a>.<br>' +
          'FreeDV mode specifications and operating information: ' +
-         '<a href="https://freedv.org/" target="_blank">freedv.org</a>';
+         '<a href="https://freedv.org/" target="_blank">freedv.org</a>.<br>' +
+         'The FreeDV-maintained RADE C repository includes an ' +
+         '<a href="https://github.com/freedv/rade_c/blob/a36161bce0fb37daf3f4602344b095f6817dddb1/FDV_offair.wav" target="_blank">' +
+         'off-air RADEV1 reference recording</a> for decoder comparisons.';
       confirmation_show_scrolling_content('FreeDV mode guide', s, 720, 500);
    }
    return true;

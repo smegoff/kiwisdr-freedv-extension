@@ -107,6 +107,7 @@ int main() {
   config.history_seconds = 60;
   config.waterfall_fps = 10;
   config.websocket_heartbeat_seconds = 1;
+  config.capture_seconds = 1;
   kfd::Dashboard dashboard(config, [] {
     return nlohmann::json{{"release", "test"}, {"kiwi_connected", true},
                           {"decode_seconds_total", 1.25}};
@@ -122,6 +123,7 @@ int main() {
   status.resyncs = 1;
   dashboard.update_status(status, "codec2", 3);
   dashboard.push_audio(tone.data(), tone.size(), sample_rate);
+  dashboard.push_modem_audio(tone.data(), tone.size(), 8000);
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
   auto current = request(config.port, http::verb::get, "/api/v1/status");
@@ -130,6 +132,16 @@ int main() {
   assert(current_json["session"]["mode"] == "700D");
   assert(current_json["session"]["modem"]["bits"] == 100);
   assert(current_json["dashboard"]["waterfall_frames"].get<uint64_t>() > 0);
+  assert(current_json["dashboard"]["capture"]["available"] == true);
+  assert(current_json["dashboard"]["capture"]["sample_rate"] == 8000);
+  auto capture = request(config.port, http::verb::get, "/api/v1/capture.wav");
+  assert(capture.result() == http::status::ok);
+  assert(capture[http::field::content_type] == "audio/wav");
+  assert(capture.body().size() == 44 + tone.size() * sizeof(int16_t));
+  assert(capture.body().substr(0, 4) == "RIFF");
+  assert(capture.body().substr(8, 8) == "WAVEfmt ");
+  assert(static_cast<unsigned char>(capture.body()[24]) == 0x40);
+  assert(static_cast<unsigned char>(capture.body()[25]) == 0x1f);
   std::vector<int16_t> overflow(40000, 0);
   dashboard.push_audio(overflow.data(), overflow.size(), sample_rate);
   auto overflow_status = request(config.port, http::verb::get, "/api/v1/status");

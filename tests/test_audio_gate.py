@@ -51,10 +51,10 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.30", source)
+        self.assertIn(b"FreeDV v0.1.31", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.30"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.31"', SERVER.read_text(encoding="utf-8"))
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -125,25 +125,22 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("freedv_restore_noise_filter()", blur.group(1))
         self.assertNotIn("noise_blank", force.group(1) + restore.group(1))
 
-    def test_automatic_filter_tightens_once_and_has_manual_overrides(self) -> None:
+    def test_flat_filter_is_default_and_mode_shaped_overrides_are_manual(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
-        self.assertIn("filter_modes: ['Auto (lock on sync)', 'Tight', 'Normal', 'Wide']", source)
-        self.assertIn("filter_keys: ['auto', 'tight', 'normal', 'wide']", source)
+        self.assertIn(
+            "filter_modes: ['Flat (recommended)', 'Mode +350 Hz', 'Mode +200 Hz', 'Mode +50 Hz']",
+            source,
+        )
+        self.assertIn("filter_keys: ['flat', 'wide', 'normal', 'tight']", source)
+        self.assertIn("if (key == 'flat') return -1", source)
         self.assertIn("if (key == 'tight') return 50", source)
         self.assertIn("if (key == 'wide') return 350", source)
-        self.assertIn("if (key == 'auto' && freedv.filter_locked) return 50", source)
         self.assertIn("return 200", source)
-        lock = re.search(
-            r"function freedv_filter_sync\(synced\)(.*?)\n\}", source, re.DOTALL
-        )
-        self.assertIsNotNone(lock)
-        self.assertIn("freedv_filter_key() != 'auto'", lock.group(1))
-        self.assertIn("freedv.filter_locked", lock.group(1))
-        self.assertIn("freedv.filter_locked = true", lock.group(1))
-        self.assertIn("freedv_filter_sync(status.sync)", source)
+        self.assertNotIn("function freedv_filter_sync", source)
+        self.assertNotIn("freedv.filter_locked", source)
         self.assertIn("function freedv_filter_cb(path, index, first)", source)
-        self.assertIn("freedv.filter_locked = false", source)
-        self.assertIn("Automatic filter mode", source)
+        self.assertIn("recommended Flat profile", source)
+        self.assertIn("narrowing the Kiwi filter does not improve decoding", source)
         self.assertIn("The noise blanker is not changed", source)
 
     def test_common_calling_frequency_selector(self) -> None:
@@ -232,7 +229,16 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("std::chrono::milliseconds(250)", waiting.group(1))
         self.assertIn("maybe_poll();", waiting.group(1))
         self.assertIn('cfg_true("freedv.reporter_enabled") && !e->test', server)
-        self.assertIn("freedv_status_running(end + 1)", server)
+        receive_status = re.search(
+            r"bool freedv_receive_cmds\(.*?\)(.*?)\n\}", server, re.DOTALL
+        )
+        self.assertIsNotNone(receive_status)
+        self.assertNotIn("test_sample = test_signal.samples", receive_status.group(1))
+        ensure_setup = re.search(
+            r"static void freedv_ensure_setup\(.*?\)(.*?)\n\}", server, re.DOTALL
+        )
+        self.assertIsNotNone(ensure_setup)
+        self.assertNotIn("if (e->setup) return", ensure_setup.group(1))
         self.assertIn("e->test_sample = NULL;", server)
         self.assertIn("u2_t value = (u2_t) *e->test_sample;", server)
         self.assertIn("e->test_sample++;", server)
@@ -269,6 +275,9 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("_exit(4);", decoder)
         self.assertIn("http::status::service_unavailable", decoder)
         self.assertIn("freedv_status_updates_total", decoder)
+        self.assertIn("::poll(&descriptor, 1, kSocketPollMilliseconds)", decoder)
+        self.assertIn("maybe_poll();", decoder)
+        self.assertIn("maybe_keepalive();", decoder)
 
     def test_authenticated_camper_routes_freedv_status_directly(self) -> None:
         patch = PATCH.with_name("0004-freedv-direct-status-relay.patch").read_text(

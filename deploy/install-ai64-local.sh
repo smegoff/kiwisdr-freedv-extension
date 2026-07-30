@@ -97,7 +97,7 @@ systemctl stop freedv-decoder.service freedv-reporter.service 2>/dev/null || tru
 
 ctest --test-dir "$src/build" --output-on-failure
 install -d -m 0750 -o root -g freedv "$validation_root"
-/usr/local/bin/rade_modulate_wav -v 0 /usr/local/share/freedv-rade/voice.wav \
+/usr/local/bin/rade_tx_wav -v 0 /usr/local/share/freedv-rade/input_sample.wav \
   "$src/build/radev1-reference.wav"
 "$src/build/freedv-rade-reference-test" "$src/build/radev1-reference.wav" \
   | tee "$validation_root/reference.txt"
@@ -110,7 +110,7 @@ stamp=$(date -u +%Y%m%dT%H%M%SZ)
   printf 'architecture=%s\n' "$(uname -m)"
   printf 'online_cpus=%s\n' "$cpus"
   printf 'memory_kib=%s\n' "$mem_kib"
-  printf 'rade_pin=%s\n' "$(cat /usr/local/share/freedv-rade/radae_nopy.commit)"
+  printf 'rade_pin=%s\n' "$(cat /usr/local/share/freedv-rade/rade_c.commit)"
   printf 'fargan_pin=%s\n' "$(cat /usr/local/share/freedv-rade/opus-fargan.commit)"
   sha256sum /usr/local/bin/freedv-decoder
 } > "$validation_root/install-manifest.txt"
