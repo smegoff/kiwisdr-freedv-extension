@@ -61,7 +61,12 @@ protocol regression test.
 
 libcodec2 input is resampled to 8 kHz. Decoded speech is resampled to the Kiwi
 audio rate and sent as a binary WebSocket message beginning `SET rev_bin=`.
-The Kiwi relays those bytes through the receiver's ordinary SND stream. From
+Decoder 0.1.24 queues the modem's larger decoded-speech bursts for no more than
+500 ms and emits at most one receiver-sized packet for each incoming SND
+packet. Kiwi extension 0.1.32 likewise consumes at most one returned packet per
+normal sound cadence, discarding stale excess rather than draining a network
+burst into the browser. The Kiwi relays those bytes through the receiver's
+ordinary SND stream. From
 the moment a FreeDV job starts, that stream carries silence until synchronized
 decoded PCM is available. The decoder does not return PCM while its modem is
 unsynchronized. The stream also carries silence between returned packets and
@@ -106,7 +111,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.23 adds a separate read-only management surface on
+Decoder service 0.1.24 adds a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open

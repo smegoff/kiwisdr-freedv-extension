@@ -3,6 +3,7 @@
 #include <samplerate.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -75,15 +76,28 @@ int main(int argc, char** argv) {
     const auto modem = resample(input, input_rate, backend->modem_sample_rate());
     bool synchronized = false;
     uint64_t decoded_samples = 0;
+    uint64_t decoded_frames = 0;
+    const bool trace = std::getenv("FREEDV_REFERENCE_TRACE") != nullptr;
     constexpr std::size_t chunk = 320;
     for (std::size_t offset = 0; offset < modem.size(); offset += chunk) {
       const std::size_t count = std::min(chunk, modem.size() - offset);
       const auto result = backend->push(modem.data() + offset, count);
       synchronized = synchronized || result.status.synced;
-      if (result.status.synced) decoded_samples += result.pcm.size();
+      if (result.status.synced) {
+        decoded_samples += result.pcm.size();
+        if (!result.pcm.empty()) decoded_frames++;
+      }
+      if (trace && (!result.pcm.empty() || result.status.synced)) {
+        std::cout << "trace input_seconds=" << static_cast<double>(offset + count) / 8000.0
+                  << " sync=" << (result.status.synced ? 1 : 0)
+                  << " pcm_samples=" << result.pcm.size()
+                  << " snr_db=" << result.status.snr_db
+                  << " offset_hz=" << result.status.frequency_offset_hz << '\n';
+      }
     }
     std::cout << "mode=" << argv[1] << " input_rate=" << input_rate
               << " sync=" << (synchronized ? 1 : 0)
+              << " decoded_frames=" << decoded_frames
               << " decoded_samples=" << decoded_samples << '\n';
     return synchronized && decoded_samples ? 0 : 1;
   } catch (const std::exception& error) {

@@ -19,6 +19,12 @@ for path in extensions/FreeDV web/extensions/FreeDV rx/rx_monitor.cpp rx/rx_soun
     cp -a "$kiwi/$path" "$backup/$path"
   fi
 done
+sample_dir=/root/kiwi.config/samples
+sample_path=$sample_dir/FreeDV.clean.au
+if [[ -f $sample_path ]]; then
+  install -d -m 0700 "$backup/kiwi.config/samples"
+  cp -a "$sample_path" "$backup/kiwi.config/samples/"
+fi
 
 mkdir -p "$kiwi/extensions/FreeDV" "$kiwi/web/extensions/FreeDV"
 cp -a "$src/kiwi-overlay/extensions/FreeDV/." "$kiwi/extensions/FreeDV/"
@@ -27,6 +33,12 @@ chmod 0644 "$kiwi/extensions/FreeDV/freedv.cpp" "$kiwi/extensions/FreeDV/freedv.
   "$kiwi/web/extensions/FreeDV/FreeDV.js" "$kiwi/web/extensions/FreeDV/FreeDV.css" \
   "$kiwi/web/extensions/FreeDV/FreeDV.min.js" "$kiwi/web/extensions/FreeDV/FreeDV.min.css" \
   "$kiwi/web/extensions/FreeDV/FreeDV.min.js.gz" "$kiwi/web/extensions/FreeDV/FreeDV.min.css.gz"
+install -d -m 0755 "$sample_dir"
+install -m 0644 "$src/kiwi-overlay/samples/FreeDV.clean.au" "$sample_path"
+[[ $(sha256sum "$sample_path" | awk '{print $1}') == \
+  426dcc677932903d863fa266fc3acfc0bbcafc63906e231a9b16fc4429e6d37a ]] || {
+  echo "clean 700D reference checksum mismatch" >&2; exit 3;
+}
 
 source_before="excl_devl: [ 'devl', 'FreeDV', 'digi_modes', 's4285', 'prefs' ],"
 source_after="excl_devl: [ 'devl', 'digi_modes', 's4285', 'prefs' ],"
@@ -80,6 +92,9 @@ sound_gate_marker='bool c2s_sound_mon(int rx_chan, int bytes)'
 if ! grep -Fq "$sound_gate_marker" "$kiwi/rx/rx_sound.cpp"; then
   patch -d "$kiwi" -p1 --batch --forward < \
     "$src/kiwi-overlay/patches/0003-silence-return-audio.patch"
+elif ! grep -Fq 'most one per sound cadence' "$kiwi/rx/rx_sound.cpp"; then
+  patch -d "$kiwi" -p1 --batch --forward < \
+    "$src/kiwi-overlay/patches/0005-return-audio-pacing.patch"
 fi
 [[ $(grep -Fc "$sound_gate_marker" "$kiwi/rx/rx_sound.cpp") == 2 ]] || {
   echo "unexpected FreeDV return-audio silence gate" >&2; exit 3
@@ -87,6 +102,9 @@ fi
 grep -Fq 'memset(((char *) &s->out_pkt_real) + header_bytes, 0, bytes - header_bytes);' \
   "$kiwi/rx/rx_sound.cpp" || {
   echo "FreeDV return-audio silence payload is missing" >&2; exit 3
+}
+grep -Fq 'most one per sound cadence' "$kiwi/rx/rx_sound.cpp" || {
+  echo "FreeDV return-audio pacing gate is missing" >&2; exit 3
 }
 printf '%s\n' "$release" > "$backup/release-id"
 echo "$backup"

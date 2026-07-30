@@ -45,16 +45,23 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn(
             "if (decoded.status.synced && !decoded.pcm.empty())", decoder
         )
+        self.assertIn("const auto speech_packet = output_pacer_.take(input.size());", decoder)
+        self.assertIn("send_binary(message);", decoder)
+        patch = PATCH.read_text(encoding="utf-8")
+        self.assertIn("consume at", patch)
+        self.assertIn("most one per sound cadence", patch)
+        self.assertIn("while (qct > 12)", patch)
+        self.assertNotIn("if (wf->have_rtn_snd) {\n+        while (1)", patch)
         self.assertIn("else if (!decoded.status.synced)", decoder)
 
     def test_packaged_browser_asset_matches_source(self) -> None:
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.31", source)
+        self.assertIn(b"FreeDV v0.1.32", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.31"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.32"', SERVER.read_text(encoding="utf-8"))
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -75,6 +82,11 @@ class AudioGateTest(unittest.TestCase):
             "https://github.com/smegoff/kiwisdr-freedv-extension",
             help_callback.group(1),
         )
+        self.assertIn("<b>Receiver filter</b>", help_callback.group(1))
+        self.assertIn("Flat (recommended)", help_callback.group(1))
+        self.assertIn("Mode +350 Hz", help_callback.group(1))
+        self.assertIn("while any receiver channel is using DRM", help_callback.group(1))
+        self.assertIn("https://qso.freedv.org/", help_callback.group(1))
 
     def test_receiver_sideband_and_mode_filter_profiles(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -193,21 +205,27 @@ class AudioGateTest(unittest.TestCase):
         css = (WEB / "FreeDV.css").read_text(encoding="utf-8")
         for section in (
             "id-freedv-intro",
+            "id-freedv-primary",
             "id-freedv-actions",
             "id-freedv-calling",
+            "id-freedv-filter-note",
+            "id-freedv-detail-grid",
             "id-freedv-radio-info",
             "id-freedv-status",
+            "id-freedv-reporter-link",
             "id-freedv-footer",
         ):
             self.assertIn(section, browser)
             self.assertIn(f".{section}", css)
         self.assertNotIn("font-family", css)
-        self.assertIn("line-height:1.25", css)
+        self.assertIn("grid-template-columns:minmax(0,1fr) minmax(0,1fr)", css)
+        self.assertIn("line-height:1.35", css)
         self.assertIn("border-top:1px solid #777", css)
 
     def test_reference_mode_exercises_external_decoder_and_never_reports(self) -> None:
         server = SERVER.read_text(encoding="utf-8")
         browser = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        self.assertIn('DIR_CFG "/samples/FreeDV.clean.au"', server)
         self.assertIn('DIR_CFG "/samples/FreeDV.test.au"', server)
         self.assertIn("ext_register_receive_real_samps(freedv_test_audio", server)
         self.assertIn('"SET freedv_test=%d mode=%15s"', server)

@@ -132,7 +132,7 @@ same.
 | Mode exposed in the ordinary Kiwi menu | All seven modes |
 | Protocol and backend allow-list | All seven modes |
 | libcodec2 backend open/reset smoke test | All seven modes |
-| Browser-to-Kiwi-to-decoder transport acceptance | 700D bundled reference test plus normal no-signal session |
+| Browser-to-Kiwi-to-decoder transport acceptance | Clean 700D reference test plus normal no-signal session |
 | Live RF decoded speech | Pending for every mode |
 | Reporter | Verified RX-only public presence at the tuned frequency, application-level acceptance, restart recovery and clean removal; received-callsign reports depend on valid decoded metadata |
 | RADEV1 backend | Official portable C adapter; generated and off-air reference WAVs synchronized; generated reference produced 150,880 speech samples |
