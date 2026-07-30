@@ -44,6 +44,7 @@ grep -Fq "excl_devl:['devl','digi_modes','s4285','prefs']" \
 grep -Fq "excl_devl:['devl','digi_modes','s4285','prefs']" "$ui_js"
 grep -Fq 'FreeDV_main();' "$build/gen/ext_init.cpp"
 grep -aFq FreeDV_main "$candidate"
+grep -aFq FreeDV.rade.au "$candidate"
 zgrep -Fq "FreeDV v$version" "$kiwi/web/extensions/FreeDV/FreeDV.min.js.gz"
 zgrep -Fq 'freq_kHz < 10000' "$kiwi/web/extensions/FreeDV/FreeDV.min.js.gz"
 [[ ! -e /root/freedv-releases/$release ]] || {

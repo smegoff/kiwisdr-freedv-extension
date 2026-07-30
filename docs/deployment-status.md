@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-30 11:50 UTC (2026-07-30 23:50 NZST)
+Last verified: 2026-07-30 19:20 UTC (2026-07-31 07:20 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -14,10 +14,10 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-32`
+- active Kiwi release: `freedv-v0-1-33`
 - active Kiwi SHA-256:
-  `796504358c9693ec6664d0937add4c195378e127460af6c2af46b496f430a402`
-- Kiwi BuildID: `ddc4132ca0753fe9ad2d1851f310c973ed8e733a`
+  `94b4bf0723236e906108bdb601219265a8d0d10968f74f6bef23e42e4c73395c`
+- Kiwi BuildID: `a4be1d019b6523c727e90f125b19bf298e7fcf2f`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
 - decoder-guest release: `0.1.24`
@@ -32,6 +32,52 @@ and no AI-64 local-decoder service is enabled.
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.33 dual 700D and RADEV1 reference tests
+
+Kiwi v0.1.33 adds a second deterministic waveform without changing decoder
+service 0.1.24. With RADEV1 selected the extension shows **Test RADE** and uses
+`FreeDV.rade.au`; every legacy selection shows **Test 700D** and uses the
+established clean 700D reference. The server selects the waveform per receiver
+session and does not arm it until the authenticated camper readiness
+handshake completes.
+
+The RADEV1 waveform was generated from the pinned portable C
+`freedv/rade_c` `input_sample.wav` using `rade_tx_wav -v 0`, then resampled
+and packaged as 12 kHz mono big-endian AU. Its SHA-256 is
+`85ff073a2cc67c348b5ac956bea9b6bd028dacab00e8e7333dc29a73788e8c86`.
+The source 8 kHz waveform passed `freedv-rade-reference-test`, producing
+150,880 synchronized speech samples with real-time factor about 0.021.
+
+Before deployment, a fresh 31,707,198-byte Kiwi configuration archive with 40
+structurally verified entries was streamed directly to ignored local storage.
+Its SHA-256 is
+`b6b03c9297876c62503eb174129936200bfe6fc1320f81fe7b0e4da25c7e820a`.
+The production build contained a 639,117-byte main browser application and a
+matching 212,901-byte gzip package. Candidate verification recorded the binary
+and BuildID shown above. Atomic deployment retained `freedv-v0-1-32` as the
+immediate custom-release rollback.
+
+A real browser loaded the complete receiver, found FreeDV in the ordinary
+extension menu and rendered the v0.1.33 panel with RADEV1 selected by default.
+**Test RADE** reached `rade-v1`, synchronization, about 35.4 dB SNR, -0.1 Hz
+offset, 100 percent progress, `test passed` and zero dropped frames. Switching
+to 700D changed the button to **Test 700D**; that reference reached `codec2`,
+sync, about 31.2 dB SNR, -0.2 Hz offset, 100 percent, `test passed` and zero
+drops. Help was opened in the live browser and verified to describe both
+references, expected 700D/RADE speech character, receiver filters, Reporter
+exclusion and the public project links.
+
+A normal RADEV1 session then passed 41/41 Kiwi and 41/41 decoder samples at
+15-second intervals. Every decoder sample had one authenticated camper, one
+session, release 0.1.24, Reporter online and no critical journal matches.
+Every Kiwi sample had firmware 1.902, v0.1.33 active, receiver/root UI present,
+no deployment wrapper and no critical journal match. Stop returned the decoder
+to zero sessions/campers and removed Reporter presence. The accepted soak logs
+have SHA-256
+`6dfd9d906272defaa309ad0d96c2a357a12c67f914a679a3ea7915eee140aa2f`
+and
+`b2b07cfc95a0ebcea29381a3a07f9774f04f34d6a7bed6ae13a92982f8944eb9`.
 
 ## v0.1.32 / decoder v0.1.24 returned-audio pacing
 

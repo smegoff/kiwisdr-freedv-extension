@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.32`, decoder service `0.1.24`, and KiwiSDR
+written for Kiwi extension `0.1.33`, decoder service `0.1.24`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]
@@ -268,7 +268,7 @@ readings and the decoder guest snapshot. Activate with a unique release label:
 
 ```bash
 /root/kiwi-freedv/tools/deploy-kiwi-release.sh /root/build \
-    freedv-v0-1-32-$(date -u +%Y%m%dT%H%M%SZ)
+    freedv-v0-1-33-$(date -u +%Y%m%dT%H%M%SZ)
 ```
 
 The deployment script captures the current production executable as
@@ -283,16 +283,20 @@ candidate check automatically restores the previous release.
 2. Open it and press **help**. Require the modal to describe 1600, 700C, 700D,
    700E, 2400A, 2400B, 800XA, RADEV1, normal listening, Test mode, temporary
    noise-filter control and automatic/manual receiver filtering.
-3. Press **Test**. It forces 700D and feeds the clean, continuous reference
-   generated from the BSD-licensed FreeDV RADE C speech sample through the
-   normal Kiwi sound channel, the external decoder and `rev_bin` return path.
-   The v0.1.32 Kiwi path consumes at most one returned packet per normal sound
+3. With RADEV1 still disabled, select 700D and press **Test 700D**. Require
+   `Reference: 100%`, `State: test passed`, backend `codec2`, sync, zero
+   dropped frames and Reporter exclusion. After the legacy gate passes, enable
+   RADEV1 in both the decoder environment and Kiwi Admin, reopen FreeDV, select
+   RADEV1 and press **Test RADE**. It feeds a deterministic waveform generated
+   by the pinned portable C `rade_tx_wav` utility through the normal Kiwi sound
+   channel, external decoder and `rev_bin` return path. Require the same result
+   with backend `rade-v1`. All other legacy selections deliberately use the
+   established 700D reference.
+   The v0.1.33 Kiwi path consumes at most one returned packet per normal sound
    cadence, while decoder v0.1.24 emits receiver-sized packets from a bounded
    queue. This prevents burst delivery from overrunning the browser audio
    buffer. The authenticated readiness handshake separately detects a stalled
    camper or reference-audio path.
-   Require `Test: 100%`, `State: test passed`, backend `codec2`, zero dropped
-   frames and Reporter `enabled (test excluded)` when Reporter is opted in.
 4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
    state must reach `running`, backend must read `codec2`, and ordinary
    analogue/static audio must be silent. Decoded PCM is audible only while the

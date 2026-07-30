@@ -30,7 +30,7 @@ the optional diagnostics page connects to its management-only web port.
   with mode-shaped +350, +200 and +50 Hz manual overrides for difficult local
   interference.
 - Selector for 18 common FreeDV calling frequencies from 160 metres to QO-100.
-- Built-in deterministic 700D test using a clean, continuous reference generated
+- Built-in deterministic **Test 700D** and **Test RADE** references generated
   from the BSD-licensed FreeDV RADE C speech sample.
 - Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
 - Optional, independently gated RADEV1 decoder.
@@ -46,15 +46,16 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.32 | Deployed on KiwiSDR 1.902; browser-accepted and clean 700D Test passed |
+| Kiwi extension | 0.1.33 | Deployed on KiwiSDR 1.902; browser-accepted 700D and RADEV1 reference tests |
 | Decoder service | 0.1.24 | Proxmox-offloaded camper service with cadence-bounded returned audio |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
 | AI-64 local decoder | Separate experiment | Source-compatible tooling only; not used by or enabled on the reference deployment |
 
-The clean 700D test has passed end to end with returned audio and zero
-dropped frames. Live-RF speech acceptance is still pending mode by mode. See
+The clean 700D and RADEV1 tests have passed end to end with synchronized
+returned audio and zero dropped frames. Live-RF speech acceptance is still
+pending mode by mode. See
 [Mode support](docs/modes.md) and [Deployment status](docs/deployment-status.md)
 for the exact evidence and remaining gaps.
 
@@ -187,13 +188,18 @@ The default **Flat (recommended)** filter keeps the SSB receive path at
 Use the **Mode +350 Hz**, **Mode +200 Hz** or **Mode +50 Hz** overrides only
 when nearby interference justifies a fixed mode-shaped passband.
 
-The **Test** button runs a clean, continuous 700D reference through the same
-Kiwi camper, decoder and returned-audio path used for live reception. The
-reference is generated from the BSD-licensed speech sample in the pinned
-FreeDV RADE C repository. After a short acquisition, synchronization should
-remain on and the returned speech should be continuous. A passing test proves
-the transport and Codec2 pipeline are working; it does not test the antenna,
-RF signal level or every FreeDV mode.
+The reference button follows the selected codec. With **RADEV1** selected it
+shows **Test RADE** and sends a clean RADEV1 waveform. Every legacy-mode
+selection shows **Test 700D** and uses the established 700D reference. Both
+pass through the same Kiwi sound channel, external decoder and returned-audio
+path used for live reception.
+
+After a short acquisition, synchronization should remain on and returned
+speech should be continuous. RADEV1 should sound more natural than 700D.
+700D is a very low-bit-rate Codec2 voice signal, so a narrow, synthetic or
+buzzy character is expected; repeated gaps, cyclic stutter or buffer underruns
+are not. A passing reference test proves its selected modem and transport path
+are working, but it does not test the antenna or live RF channel.
 
 ## Decoder diagnostics
 
@@ -238,7 +244,9 @@ synthesizer. It is disabled by default and requires both gates:
 2. **Enable RADEV1** in Kiwi Admin.
 
 Enable it only after the RADEV1 reference and load tests pass on the target
-decoder guest. RADEV1 live-RF speech validation remains pending.
+decoder guest. Select RADEV1 in the receiver and press **Test RADE** to exercise
+the complete Kiwi-to-decoder-to-browser path without needing an on-air
+transmission. RADEV1 live-RF speech validation remains pending.
 
 ## Testing
 
