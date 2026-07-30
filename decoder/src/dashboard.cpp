@@ -353,11 +353,11 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
                                         history_json().dump() + "\n"));
       } else if (target == "/api/v1/capture.wav" && request.method() == http::verb::get) {
         auto wav = capture_wav();
-        write_response(socket, response(wav.empty() ? http::status::not_found : http::status::ok,
-                                        request.version(),
-                                        wav.empty() ? "application/json" : "audio/wav",
-                                        wav.empty() ? "{\"error\":\"capture-unavailable\"}\n" :
-                                                      std::move(wav)));
+        const bool available = !wav.empty();
+        const auto status = available ? http::status::ok : http::status::not_found;
+        const char* type = available ? "audio/wav" : "application/json";
+        if (!available) wav = "{\"error\":\"capture-unavailable\"}\n";
+        write_response(socket, response(status, request.version(), type, std::move(wav)));
       } else {
         write_response(socket, response(http::status::not_found, request.version(),
                                         "application/json", "{\"error\":\"not-found\"}\n"));
