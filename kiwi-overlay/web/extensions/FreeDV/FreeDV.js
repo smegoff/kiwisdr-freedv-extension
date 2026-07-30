@@ -4,6 +4,9 @@ var freedv = {
    running: false,
    testing: false,
    test_available: false,
+   test_700d_available: false,
+   test_rade_available: false,
+   test_mode: '700D',
    test_synced: false,
    test_audio: false,
    test_armed: false,
@@ -242,6 +245,7 @@ function freedv_recv(data)
             freedv.modes = freedv.legacy_modes.slice();
             if (freedv.rade_enabled) freedv.modes.push('RADEV1');
             if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
+            freedv_update_test_button();
             break;
          case 'reporter_enabled':
             freedv.reporter_enabled = (+value != 0);
@@ -252,7 +256,17 @@ function freedv_recv(data)
             break;
          case 'test_available':
             freedv.test_available = (+value != 0);
-            w3_disable('id-freedv-test', !freedv.test_available);
+            freedv.test_700d_available = freedv.test_available;
+            freedv_update_test_button();
+            break;
+         case 'test_700d_available':
+            freedv.test_700d_available = (+value != 0);
+            freedv.test_available = freedv.test_700d_available;
+            freedv_update_test_button();
+            break;
+         case 'test_rade_available':
+            freedv.test_rade_available = (+value != 0);
+            freedv_update_test_button();
             break;
          case 'state':
             if (freedv.testing && value == 'test-signal-running')
@@ -314,7 +328,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.32 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.33 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -329,7 +343,7 @@ function freedv_controls_setup()
    var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.32 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.33 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -339,7 +353,9 @@ function freedv_controls_setup()
             w3_select('w3-text-red', 'Mode', '', 'freedv.mode', freedv.modes.indexOf(freedv.mode),
                freedv.modes, 'freedv_mode_cb'),
             w3_button('id-freedv-start w3-green w3-margin-T-8', 'Start', 'freedv_start_cb'),
-            w3_button('id-freedv-test w3-aqua w3-margin-T-8', 'Test', 'freedv_test_cb')),
+            w3_button('id-freedv-test w3-aqua w3-margin-T-8',
+               freedv_selected_test_mode() == 'RADEV1'? 'Test RADE':'Test 700D',
+               'freedv_test_cb')),
          w3_select('id-freedv-calling w3-text-red', 'Calling frequency', '',
             'freedv.calling_index', freedv.calling_index, calling_labels,
             'freedv_calling_frequency_cb'),
@@ -350,7 +366,8 @@ function freedv_controls_setup()
             'Flat sends the full SSB modem-audio passband. The Mode overrides narrow it; see Help.')),
       w3_div('id-freedv-detail-grid',
          w3_div('id-freedv-radio-info',
-            w3_div('w3-small', 'Test: ', w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
+            w3_div('w3-small', 'Reference: ',
+               w3_div('id-freedv-test-progress w3-show-inline', 'ready')),
             w3_div('w3-small', 'DSP: ',
                w3_div('id-freedv-clean w3-show-inline', 'noise filter off (saved)')),
             w3_div('w3-small', 'Receiver: ',
@@ -373,7 +390,7 @@ function freedv_controls_setup()
          w3_div('id-freedv-error w3-small w3-text-red')));
    ext_panel_show(controls, null, null);
    ext_set_controls_width_height(540, 500);
-   w3_disable('id-freedv-test', !freedv.test_available);
+   freedv_update_test_button();
    freedv_force_noise_filter_off();
    freedv_apply_receiver_profile();
    ext_send('SET freedv_setup');
@@ -409,6 +426,7 @@ function freedv_mode_cb(path, index, first)
    if (first || freedv.testing) return;
    freedv.mode = freedv.modes[+index];
    freedv_filter_reset();
+   freedv_update_test_button();
    if (freedv.running) ext_send('SET freedv_start=1 mode='+ freedv.mode);
 }
 
@@ -425,6 +443,25 @@ function freedv_start_cb()
    else freedv_start_ui(false);
 }
 
+function freedv_selected_test_mode()
+{
+   return freedv.mode == 'RADEV1'? 'RADEV1':'700D';
+}
+
+function freedv_test_available_for_mode(mode)
+{
+   return mode == 'RADEV1'? freedv.test_rade_available:freedv.test_700d_available;
+}
+
+function freedv_update_test_button()
+{
+   if (!w3_el('id-freedv-test') || freedv.testing) return;
+   var mode = freedv_selected_test_mode();
+   w3_button_text('id-freedv-test', mode == 'RADEV1'? 'Test RADE':'Test 700D',
+      'w3-aqua', 'w3-red');
+   w3_disable('id-freedv-test', !freedv_test_available_for_mode(mode));
+}
+
 function freedv_start_ui(testing)
 {
    freedv.running = true;
@@ -432,9 +469,11 @@ function freedv_start_ui(testing)
    freedv.test_synced = false;
    freedv.test_audio = false;
    freedv.test_armed = false;
+   freedv.test_mode = testing? freedv_selected_test_mode():freedv.mode;
    freedv.last_test_result = '';
    w3_button_text('id-freedv-start', 'Stop');
-   w3_button_text('id-freedv-test', testing? 'Stop test':'Test',
+   w3_button_text('id-freedv-test', testing? 'Stop test':
+      (freedv_selected_test_mode() == 'RADEV1'? 'Test RADE':'Test 700D'),
       testing? 'w3-red':'w3-aqua', testing? 'w3-aqua':'w3-red');
    w3_disable('id-freedv.mode', testing);
    w3_disable('id-freedv.calling_index', testing);
@@ -508,7 +547,7 @@ function freedv_stop_ui(send_stop)
    freedv.running = false;
    freedv.testing = false;
    w3_button_text('id-freedv-start', 'Start');
-   w3_button_text('id-freedv-test', 'Test', 'w3-aqua', 'w3-red');
+   freedv_update_test_button();
    w3_disable('id-freedv.mode', false);
    w3_disable('id-freedv.calling_index', false);
    w3_disable('id-freedv.filter_index', false);
@@ -519,16 +558,21 @@ function freedv_stop_ui(send_stop)
 
 function freedv_test_cb()
 {
-   if (!freedv.test_available) return;
    if (freedv.testing) {
       freedv_stop_ui(true);
       w3_innerHTML('id-freedv-state', 'stopped');
       return;
    }
+   var test_mode = freedv_selected_test_mode();
+   if (!freedv_test_available_for_mode(test_mode)) {
+      w3_innerHTML('id-freedv-error',
+         test_mode +' reference signal is not installed on this Kiwi.');
+      return;
+   }
    if (freedv.running) ext_send('SET freedv_stop');
-   // The installed clean reference is a 700D signal. Keeping the test mode
-   // fixed makes a pass/fail result comparable between deployments.
-   freedv.mode = '700D';
+   // RADEV1 has its own deterministic waveform. Every legacy selection uses
+   // the established 700D reference so the legacy pass/fail stays comparable.
+   freedv.mode = test_mode;
    w3_select_value('freedv.mode', freedv.modes.indexOf(freedv.mode));
    freedv_start_ui(true);
 }
@@ -649,13 +693,15 @@ function FreeDV_help(show)
          'suitable downconverter/transverter frequency offset configured in Admin.<br><br>' +
 
          '<b>Test</b><br>' +
-         'The Test button feeds a clean, continuous 700D reference through the normal ' +
-         'Kiwi sound channel, the external Codec2 decoder and the standard Kiwi ' +
-         'return-audio path. It uses the BSD-licensed speech sample from the pinned ' +
-         'FreeDV RADE C repository. After a short acquisition period, Sync should stay ' +
-         'on and the returned speech should be continuous. A pass requires both modem ' +
-         'synchronization and returned decoded PCM. Test sessions are never sent to ' +
-         'FreeDV Reporter.<br><br>' +
+         'The button follows the selected codec: <b>Test RADE</b> uses a clean RADEV1 ' +
+         'waveform when RADEV1 is selected; every legacy selection uses the established ' +
+         '<b>Test 700D</b> reference. Both are generated from the BSD-licensed speech ' +
+         'sample in the pinned FreeDV RADE C repository and pass through the normal Kiwi ' +
+         'sound channel, external decoder and standard Kiwi return-audio path. After a ' +
+         'short acquisition period, Sync should stay on and returned speech should be ' +
+         'continuous. RADEV1 should sound more natural than 700D, but both remain low-rate ' +
+         'digital voice codecs. A pass requires synchronization and returned decoded PCM. ' +
+         'Test sessions are never sent to FreeDV Reporter.<br><br>' +
 
          '<b>If Test does not start</b><br>' +
          'KiwiSDR blocks all extensions while any receiver channel is using DRM. ' +

@@ -24,9 +24,11 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.32"
+#define FREEDV_RELEASE "0.1.33"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
+
+typedef struct freedv_test_s freedv_test_t;
 
 typedef struct {
     int rx_chan;
@@ -43,18 +45,19 @@ typedef struct {
     u4_t last_status;
     u4_t status_diag_generation;
     u1_t status_diag_code;
+    freedv_test_t *test_signal;
     s2_t *test_sample;
     u4_t test_samples_sent;
     int test_last_percent;
 } freedv_t;
 
-typedef struct {
+struct freedv_test_s {
     char *mapping;
     size_t mapping_size;
     s2_t *samples;
     s2_t *samples_end;
     u4_t sample_count;
-} freedv_test_t;
+};
 
 typedef struct {
     char value[17];
@@ -68,7 +71,8 @@ static freedv_nonce_t recent_nonces[FREEDV_NONCES];
 static int nonce_position;
 static char shared_secret[192];
 static bool secret_loaded;
-static freedv_test_t test_signal;
+static freedv_test_t test_700d_signal;
+static freedv_test_t test_rade_signal;
 
 static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     TYPEMONO16 *samples, int freq_hz)
@@ -77,10 +81,11 @@ static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     (void) freq_hz;
     if (rx_chan < 0 || rx_chan >= rx_chans || nsamps <= 0 || !samples) return;
     freedv_t *e = &freedv[rx_chan];
-    if (!e->running || !e->test || !e->test_sample) return;
+    freedv_test_t *signal = e->test_signal;
+    if (!e->running || !e->test || !signal || !e->test_sample) return;
 
     int copied = 0;
-    while (copied < nsamps && e->test_sample < test_signal.samples_end) {
+    while (copied < nsamps && e->test_sample < signal->samples_end) {
         // FLIP16 is a macro that evaluates its argument more than once. Never
         // pass test_sample++ directly or every second AU sample is skipped.
         u2_t value = (u2_t) *e->test_sample;
@@ -91,8 +96,8 @@ static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     while (copied < nsamps) samples[copied++] = 0;
 
     bool progress_sent = false;
-    if (test_signal.sample_count) {
-        u4_t percent = e->test_samples_sent * 100 / test_signal.sample_count;
+    if (signal->sample_count) {
+        u4_t percent = e->test_samples_sent * 100 / signal->sample_count;
         if (percent > 100) percent = 100;
         if ((int) percent != e->test_last_percent) {
             e->test_last_percent = percent;
@@ -100,7 +105,7 @@ static void freedv_test_audio(int rx_chan, int instance, int nsamps,
             progress_sent = true;
         }
     }
-    if (e->test_sample >= test_signal.samples_end && !e->test_done_sent) {
+    if (e->test_sample >= signal->samples_end && !e->test_done_sent) {
         // ext_send_msg() has a single pending slot in this callback context.
         // Let the 100% update leave first and send completion next time.
         if (progress_sent) return;
@@ -109,14 +114,14 @@ static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     }
 }
 
-static void freedv_load_test_signal()
+static void freedv_load_test_signal(freedv_test_t *signal, const char *path,
+    const char *fallback, const char *name)
 {
-    const char *path = DIR_CFG "/samples/FreeDV.clean.au";
-    if (access(path, R_OK) != 0)
-        path = DIR_CFG "/samples/FreeDV.test.au";
+    if (access(path, R_OK) != 0 && fallback)
+        path = fallback;
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
-        printf("FreeDV: test signal unavailable: %s\n", path);
+        printf("FreeDV: %s test signal unavailable: %s\n", name, path);
         return;
     }
     struct stat st;
@@ -148,12 +153,13 @@ static void freedv_load_test_signal()
         return;
     }
 
-    test_signal.mapping = mapping;
-    test_signal.mapping_size = st.st_size;
-    test_signal.samples = (s2_t *) (mapping + offset);
-    test_signal.sample_count = (st.st_size - offset) / sizeof(s2_t);
-    test_signal.samples_end = test_signal.samples + test_signal.sample_count;
-    printf("FreeDV: loaded %u test samples at 12 kHz\n", test_signal.sample_count);
+    signal->mapping = mapping;
+    signal->mapping_size = st.st_size;
+    signal->samples = (s2_t *) (mapping + offset);
+    signal->sample_count = (st.st_size - offset) / sizeof(s2_t);
+    signal->samples_end = signal->samples + signal->sample_count;
+    printf("FreeDV: loaded %s test: %u samples at 12 kHz\n",
+        name, signal->sample_count);
 }
 
 static bool freedv_mode_valid(const char *mode)
@@ -307,7 +313,7 @@ static void freedv_ensure_setup(int rx_chan)
     // this per-channel flag survives. Re-registering is idempotent and avoids
     // retaining a stale real-sample callback after a reconnect.
     ext_register_receive_cmds(freedv_receive_cmds, rx_chan);
-    if (test_signal.sample_count)
+    if (test_700d_signal.sample_count || test_rade_signal.sample_count)
         ext_register_receive_real_samps(freedv_test_audio, rx_chan);
     e->setup = true;
 }
@@ -323,6 +329,7 @@ static void freedv_stop(int rx_chan)
     e->test = false;
     e->test_job_seen = false;
     e->test_done_sent = false;
+    e->test_signal = NULL;
     e->test_sample = NULL;
     e->test_samples_sent = 0;
     e->test_last_percent = -1;
@@ -423,10 +430,13 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
-            "EXT rade_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s test_available=%d",
+            "EXT rade_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
+            "test_available=%d test_700d_available=%d test_rade_available=%d",
             cfg_true("freedv.rade_enabled")? 1:0,
             cfg_true("freedv.reporter_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
-            test_signal.sample_count? 1:0);
+            test_700d_signal.sample_count? 1:0,
+            test_700d_signal.sample_count? 1:0,
+            test_rade_signal.sample_count? 1:0);
         return true;
     }
     if (strcmp(msg, "SET freedv_setup") == 0) {
@@ -460,6 +470,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         e->test = false;
         e->test_job_seen = false;
         e->test_done_sent = false;
+        e->test_signal = NULL;
         e->test_sample = NULL;
         e->test_samples_sent = 0;
         e->test_last_percent = -1;
@@ -481,16 +492,20 @@ bool freedv_msgs(char *msg, int rx_chan)
             ext_send_msg(rx_chan, false, "EXT state=stopped");
             return true;
         }
-        if (!test_signal.sample_count) {
-            ext_send_msg_encoded(rx_chan, false, "EXT", "error", "FreeDV test signal is unavailable");
-            return true;
-        }
         if (!freedv_mode_valid(mode)) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "unsupported FreeDV test mode");
             return true;
         }
         if (!freedv_mode_enabled(mode)) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv1 is disabled by the administrator");
+            return true;
+        }
+        freedv_test_t *selected_signal =
+            strcmp(mode, "RADEV1") == 0? &test_rade_signal : &test_700d_signal;
+        if (!selected_signal->sample_count) {
+            ext_send_msg_encoded(rx_chan, false, "EXT", "error",
+                strcmp(mode, "RADEV1") == 0?
+                    "RADEV1 test signal is unavailable":"700D test signal is unavailable");
             return true;
         }
         freedv_ensure_setup(rx_chan);
@@ -503,6 +518,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         e->test = true;
         e->test_job_seen = false;
         e->test_done_sent = false;
+        e->test_signal = selected_signal;
         // The sample starts only after the decoder confirms the camper is running.
         e->test_sample = NULL;
         e->test_samples_sent = 0;
@@ -622,12 +638,13 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
     char *encoded = kiwi_str_encode(job);
     send_msg(conn_mon, false, "MSG freedv_job=%s", encoded);
     kiwi_ifree(encoded, "freedv_job");
-    if (job_e && job_e->running && job_e->test && job_e->generation == job_generation) {
+    if (job_e && job_e->running && job_e->test && job_e->test_signal &&
+        job_e->generation == job_generation) {
         job_e->test_job_seen = true;
         if (arm_test_after_response && !job_e->test_sample) {
             // Queue test_ready=true before the real-sample callback can begin
             // advancing the deterministic reference recording.
-            job_e->test_sample = test_signal.samples;
+            job_e->test_sample = job_e->test_signal->samples;
             job_e->test_samples_sent = 0;
             job_e->test_last_percent = -1;
             ext_send_msg(active_rx, false, "EXT state=test-signal-running");
@@ -663,6 +680,10 @@ static ext_t freedv_ext = {
 
 void FreeDV_main()
 {
-    freedv_load_test_signal();
+    freedv_load_test_signal(&test_700d_signal,
+        DIR_CFG "/samples/FreeDV.clean.au",
+        DIR_CFG "/samples/FreeDV.test.au", "700D");
+    freedv_load_test_signal(&test_rade_signal,
+        DIR_CFG "/samples/FreeDV.rade.au", NULL, "RADEV1");
     ext_register(&freedv_ext);
 }

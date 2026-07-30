@@ -33,7 +33,9 @@ Reporter station fields.
 Only a higher generation changes the decoder state. Older jobs are discarded and a
 same-generation conflict is rejected. There is no job queue.
 
-For a bundled test, the first authenticated job response has
+For a bundled test, the Kiwi selects a deterministic waveform that matches the
+test job: RADEV1 uses the bundled RADE waveform and all legacy selector choices
+use the established 700D reference. The first authenticated job response has
 `test_ready=false`. The decoder requests the camper and can issue its next poll
 only after processing Kiwi's camper acknowledgement. Kiwi therefore treats
 that authenticated second poll as authoritative readiness, queues a response
@@ -86,6 +88,12 @@ decodes the monitor transport once, and uses the standard encoded extension
 message helper for the browser relay. A five-second
 status timeout marks the decoder offline but retains the silent FreeDV audio
 gate; only Stop or Close restores normal receiver audio.
+
+The test waveform is armed only after the authenticated camper-readiness
+handshake. It then advances inside the same real-sample callback used by the
+selected receiver, reports percentage progress, and stops at the end of the
+finite recording. Test jobs carry `test=true`, so the Reporter sidecar excludes
+them.
 
 The daemon has no accumulated user-space audio work queue: one SND message is
 processed synchronously. A sequence gap, generation/mode/frequency change,

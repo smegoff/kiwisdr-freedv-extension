@@ -58,10 +58,10 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.32", source)
+        self.assertIn(b"FreeDV v0.1.33", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.32"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.33"', SERVER.read_text(encoding="utf-8"))
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -87,6 +87,8 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("Mode +350 Hz", help_callback.group(1))
         self.assertIn("while any receiver channel is using DRM", help_callback.group(1))
         self.assertIn("https://qso.freedv.org/", help_callback.group(1))
+        self.assertIn("<b>Test RADE</b>", help_callback.group(1))
+        self.assertIn("<b>Test 700D</b>", help_callback.group(1))
 
     def test_receiver_sideband_and_mode_filter_profiles(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -226,6 +228,7 @@ class AudioGateTest(unittest.TestCase):
         server = SERVER.read_text(encoding="utf-8")
         browser = (WEB / "FreeDV.js").read_text(encoding="utf-8")
         self.assertIn('DIR_CFG "/samples/FreeDV.clean.au"', server)
+        self.assertIn('DIR_CFG "/samples/FreeDV.rade.au"', server)
         self.assertIn('DIR_CFG "/samples/FreeDV.test.au"', server)
         self.assertIn("ext_register_receive_real_samps(freedv_test_audio", server)
         self.assertIn('"SET freedv_test=%d mode=%15s"', server)
@@ -234,7 +237,7 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("bool test_job_seen;", server)
         self.assertIn("arm_test_after_response", server)
         self.assertIn("test_ready? \"true\":\"false\"", server)
-        self.assertIn("job_e->test_sample = test_signal.samples;", server)
+        self.assertIn("job_e->test_sample = job_e->test_signal->samples;", server)
         self.assertIn("job_e->test_job_seen = true;", server)
         self.assertIn("job_.test && !job_.test_ready", DECODER.read_text(encoding="utf-8"))
         waiting = re.search(
@@ -251,7 +254,7 @@ class AudioGateTest(unittest.TestCase):
             r"bool freedv_receive_cmds\(.*?\)(.*?)\n\}", server, re.DOTALL
         )
         self.assertIsNotNone(receive_status)
-        self.assertNotIn("test_sample = test_signal.samples", receive_status.group(1))
+        self.assertNotIn("test_sample =", receive_status.group(1))
         ensure_setup = re.search(
             r"static void freedv_ensure_setup\(.*?\)(.*?)\n\}", server, re.DOTALL
         )
@@ -268,7 +271,13 @@ class AudioGateTest(unittest.TestCase):
         self.assertNotIn("(u4_t) ext_update_get_sample_rateHz(active_rx)", server)
         self.assertIn('"EXT test_pct=100 test_done"', server)
         self.assertIn("function freedv_test_cb()", browser)
-        self.assertIn("freedv.mode = '700D'", browser)
+        self.assertIn("function freedv_selected_test_mode()", browser)
+        self.assertIn("freedv.mode == 'RADEV1'? 'RADEV1':'700D'", browser)
+        self.assertIn("freedv.mode = test_mode", browser)
+        self.assertIn("Test RADE", browser)
+        self.assertIn("Test 700D", browser)
+        self.assertIn("test_rade_available", browser)
+        self.assertIn("test_700d_available", browser)
         self.assertIn("freedv.test_synced && freedv.test_audio", browser)
         self.assertIn("+status.decoded_frames > 0", browser)
         self.assertIn("last_test_result", browser)
@@ -284,6 +293,12 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("enabled (test excluded)", browser)
         self.assertIn("freedv_update_reporter_state(status.reporter)", browser)
         self.assertIn('{"decoded_frames", job_decoded_frames_}', DECODER.read_text(encoding="utf-8"))
+        installer = (ROOT / "tools" / "apply-kiwi-overlay.sh").read_text(encoding="utf-8")
+        self.assertIn("FreeDV.rade.au", installer)
+        self.assertIn(
+            "85ff073a2cc67c348b5ac956bea9b6bd028dacab00e8e7333dc29a73788e8c86",
+            installer,
+        )
 
     def test_health_and_watchdog_follow_the_decoder_main_loop(self) -> None:
         decoder = DECODER.read_text(encoding="utf-8")

@@ -20,11 +20,13 @@ for path in extensions/FreeDV web/extensions/FreeDV rx/rx_monitor.cpp rx/rx_soun
   fi
 done
 sample_dir=/root/kiwi.config/samples
-sample_path=$sample_dir/FreeDV.clean.au
-if [[ -f $sample_path ]]; then
-  install -d -m 0700 "$backup/kiwi.config/samples"
-  cp -a "$sample_path" "$backup/kiwi.config/samples/"
-fi
+for sample_name in FreeDV.clean.au FreeDV.rade.au; do
+  sample_path=$sample_dir/$sample_name
+  if [[ -f $sample_path ]]; then
+    install -d -m 0700 "$backup/kiwi.config/samples"
+    cp -a "$sample_path" "$backup/kiwi.config/samples/"
+  fi
+done
 
 mkdir -p "$kiwi/extensions/FreeDV" "$kiwi/web/extensions/FreeDV"
 cp -a "$src/kiwi-overlay/extensions/FreeDV/." "$kiwi/extensions/FreeDV/"
@@ -34,10 +36,17 @@ chmod 0644 "$kiwi/extensions/FreeDV/freedv.cpp" "$kiwi/extensions/FreeDV/freedv.
   "$kiwi/web/extensions/FreeDV/FreeDV.min.js" "$kiwi/web/extensions/FreeDV/FreeDV.min.css" \
   "$kiwi/web/extensions/FreeDV/FreeDV.min.js.gz" "$kiwi/web/extensions/FreeDV/FreeDV.min.css.gz"
 install -d -m 0755 "$sample_dir"
-install -m 0644 "$src/kiwi-overlay/samples/FreeDV.clean.au" "$sample_path"
-[[ $(sha256sum "$sample_path" | awk '{print $1}') == \
+install -m 0644 "$src/kiwi-overlay/samples/FreeDV.clean.au" \
+  "$sample_dir/FreeDV.clean.au"
+install -m 0644 "$src/kiwi-overlay/samples/FreeDV.rade.au" \
+  "$sample_dir/FreeDV.rade.au"
+[[ $(sha256sum "$sample_dir/FreeDV.clean.au" | awk '{print $1}') == \
   426dcc677932903d863fa266fc3acfc0bbcafc63906e231a9b16fc4429e6d37a ]] || {
   echo "clean 700D reference checksum mismatch" >&2; exit 3;
+}
+[[ $(sha256sum "$sample_dir/FreeDV.rade.au" | awk '{print $1}') == \
+  85ff073a2cc67c348b5ac956bea9b6bd028dacab00e8e7333dc29a73788e8c86 ]] || {
+  echo "clean RADEV1 reference checksum mismatch" >&2; exit 3;
 }
 
 source_before="excl_devl: [ 'devl', 'FreeDV', 'digi_modes', 's4285', 'prefs' ],"

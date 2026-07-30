@@ -5,6 +5,11 @@ samples=${1:-41}
 interval=${2:-15}
 expected_release=${3:-baseline-1.902}
 max_users=${4:-8}
+evidence_log=${5:-}
+if [[ -n $evidence_log ]]; then
+  [[ ! -e $evidence_log ]] || { echo "evidence log already exists: $evidence_log" >&2; exit 2; }
+  exec > >(tee "$evidence_log") 2>&1
+fi
 start_epoch=$(date +%s)
 
 for ((sample = 1; sample <= samples; sample++)); do
