@@ -9,12 +9,13 @@ currently provides 4 vCPU and 2 GB
 RAM, and libcodec2 opened every required legacy mode there. Native decoding
 remains an adapter boundary only.
 
-John's current KiwiSDR source also supports the BeagleBone AI-64. Its two
-2 GHz Cortex-A72 cores and 4 GB RAM make a local companion decoder plausible,
-so this repository now includes an ARM64 build, loopback activation, resource
-limits, live soak and rollback path. No physical AI-64 has been available for
-execution, so this is an implemented experimental target rather than a tested
-replacement for the decoder guest. See [ai64-local-decoder.md](ai64-local-decoder.md).
+The live reference deployment is **not** an AI-64. It is a standard AM335x
+KiwiSDR with all FreeDV modem work offloaded to the Proxmox decoder guest.
+John's source also supports the BeagleBone AI-64, so this repository retains
+an ARM64 build, loopback activation, resource limits, live-soak and rollback
+path for a separate future experiment. No physical AI-64 has been available
+for execution, and none of that path is enabled on the reference system. See
+[ai64-local-decoder.md](ai64-local-decoder.md).
 
 The current guest is an unprivileged Proxmox LXC. A full VM uses the same
 architecture and service package when stronger kernel isolation is preferred.
@@ -22,7 +23,7 @@ See [external-decoder-vm.md](external-decoder-vm.md) for the engineering reasons
 VM/LXC choice and deployment procedure.
 
 RADEV1 now uses the official portable C implementation at the reviewed,
-V1-only pin `peterbmarks/radae_nopy@6e6fff3fc0546363693b60b52f463e08c71117e6`
+V1-only pin `freedv/rade_c@a36161bce0fb37daf3f4602344b095f6817dddb1`
 and FARGAN/Opus pin `940d4e5af64351ca8ba8390df3f555484c567fbb`.
 It is disabled by default in the repository and requires matching decoder and Kiwi
 administrator feature flags.
@@ -63,14 +64,25 @@ WebSocket loop, not decoder headroom.
 
 The deterministic Test path also had a control race rather than a compute
 limit. Early `rev_txt` status could arrive before Kiwi completed its MON-to-SND
-camper transition, leaving both sides waiting at zero percent. v0.1.19 repeats
-status while waiting, and Kiwi v0.1.21 uses the decoder's authenticated second
-job poll after the camper acknowledgement as the authoritative readiness
-fallback. Three consecutive browser tests armed within 2.4 seconds and passed.
+camper transition, leaving both sides waiting at zero percent. Kiwi extension
+v0.1.31 uses the decoder's authenticated second job poll after the camper
+acknowledgement as the authoritative readiness signal.
 
-The RADEV1 reference waveform represented about 11.9 seconds of modem audio.
-The reference decoder guest synchronized, produced 181,600 speech samples and completed the decode
-in 0.253-0.256 seconds: real-time factor about 0.0215. An eight-worker,
+Decoder v0.1.22 exposed a second transport fault: Beast could read the initial
+Kiwi monitor frame into its own WebSocket buffer during the handshake, making
+a later native-socket `poll()` wait forever even though the frame was already
+available. Decoder v0.1.23 consumes the short authentication/monitor bootstrap
+before entering its 100 ms socket-polling loop. The live bundled 700D Test then
+advanced from 0 to 100 percent, synchronized, returned decoded audio and
+passed. A deliberate service restart recovered the same active browser session.
+The subsequent 41-sample active soak passed with zero auth failures, drops,
+reconnects or crash restarts.
+
+The generated RADEV1 reference waveform synchronized, produced 150,880 speech
+samples and completed with a real-time factor of about 0.021 on the decoder
+guest. The official `freedv/rade_c` `FDV_offair.wav` recording also
+synchronized after resampling its 48 kHz mono PCM to the decoder's 8 kHz modem
+input, with a real-time factor of about 0.021. An eight-worker,
 20-repetition stress test completed with per-worker real-time factor 0.0855
 and peak container memory 385,695,744 bytes. This is ample external-compute
 headroom; production remains capped at one session for predictable Kiwi audio

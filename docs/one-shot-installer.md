@@ -10,6 +10,12 @@ automatic software rollback. It supports:
 The local option is not supported on the original BeagleBone Green or Black.
 Those boards must use the external decoder option.
 
+> [!IMPORTANT]
+> The validated reference system uses the external VM/LXC option on Proxmox.
+> It is a standard AM335x KiwiSDR, not an AI-64. Choose the local AI-64 option
+> only for separate experimental hardware that has passed its own headroom and
+> rollback gates.
+
 > [!CAUTION]
 > This script builds and replaces the executable used by a live KiwiSDR. A
 > power failure, storage failure, incompatible source tree or interrupted

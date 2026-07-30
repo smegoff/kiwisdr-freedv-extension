@@ -26,9 +26,9 @@ the optional diagnostics page connects to its management-only web port.
 - Reversible DSP handling: opening FreeDV disables the Kiwi noise filter and
   closing it restores the listener's previous selection; the noise blanker is
   left unchanged.
-- Mode-specific receiver filters derived from documented FreeDV bandwidths,
-  with automatic acquisition-to-sync tightening and Tight, Normal and Wide
-  manual overrides.
+- A flat 300–3000 Hz SSB receive path by default, following FreeDV guidance,
+  with mode-shaped +350, +200 and +50 Hz manual overrides for difficult local
+  interference.
 - Selector for 18 common FreeDV calling frequencies from 160 metres to QO-100.
 - Built-in deterministic 700D test using the bundled Kiwi reference recording.
 - Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
@@ -45,12 +45,12 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.30 | Deployed on KiwiSDR 1.902; browser-accepted and 41-sample soak passed |
-| Decoder service | 0.1.21 | Token-free LAN dashboard deployed and browser-tested |
+| Kiwi extension | 0.1.31 | Deployed on KiwiSDR 1.902; browser-accepted and reference Test passed |
+| Decoder service | 0.1.23 | Proxmox-offloaded camper service; restart recovery and 41-sample active soak passed |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
-| AI-64 local decoder | Experimental | ARM64 install/activation/rollback gates implemented; physical validation pending |
+| AI-64 local decoder | Separate experiment | Source-compatible tooling only; not used by or enabled on the reference deployment |
 
 The bundled 700D test has passed end to end with returned audio and zero
 dropped frames. Live-RF speech acceptance is still pending mode by mode. See
@@ -81,10 +81,12 @@ handles RF processing, receiver channels, waterfalls, audio and networking.
 See [Why run an external decoder guest?](docs/external-decoder-vm.md) for the
 resource, isolation and VM-versus-LXC trade-offs.
 
-An optional [BeagleBone AI-64 local-decoder path](docs/ai64-local-decoder.md)
-runs the same resource-bounded service over loopback on John's supported AI-64
-Kiwi platform. Its installer, offline benchmark, activation and rollback gates
-are implemented, but remain explicitly unverified on physical AI-64 hardware.
+The live reference system is a standard AM335x KiwiSDR with a separate
+Proxmox decoder guest. It is **not** an AI-64 deployment and no modem workload
+is moved onto the Kiwi. An optional
+[BeagleBone AI-64 local-decoder experiment](docs/ai64-local-decoder.md) is kept
+source-compatible for future hardware validation, but is not part of the
+supported reference installation.
 
 ## Supported modes
 
@@ -111,7 +113,7 @@ and selection advice: [docs/modes.md](docs/modes.md).
 - Debian 11 or Debian 12 on the Kiwi host; the installer detects and validates
   it before changing the live receiver.
 - Private Debian 11 or Debian 12 VM/unprivileged LXC reachable from the Kiwi
-  LAN, unless using the experimental AI-64 local path.
+  LAN. This is the required decoder target for the reference installation.
 - Recommended decoder allocation: 2 vCPU, 2 GB RAM and 16 GB disk.
 - Root or equivalent administrative access to the Kiwi and decoder guest.
 - A unique 256-bit shared secret stored only in root-readable environment
@@ -139,7 +141,8 @@ sudo ./tools/install-freedv.py --dry-run
 sudo ./tools/install-freedv.py
 ```
 
-It prompts for local AI-64 or external VM/LXC mode, private addresses,
+Select **external VM/LXC** for this reference architecture. The installer asks
+for private addresses,
 fresh-install or configuration-only decoder preparation, recovery readiness
 and optional RADEV1. Reporter and RADEV1 remain disabled by default. The
 installer detects Debian 11/12 on each relevant host and uses a pinned Codec2
@@ -178,11 +181,10 @@ advanced or site-specific deployments. Both cover:
 6. Press **Stop** or close the panel to restore the previous receiver mode,
    passband, noise-filter selection and normal audio.
 
-The default **Auto (lock on sync)** receiver filter begins with acquisition
-headroom and tightens once the modem first synchronizes. That narrower passband
-remains locked for the transmission. Retuning, changing mode or restarting the
-session resets acquisition. Use **Tight**, **Normal** or **Wide** when local
-conditions need a fixed manual passband.
+The default **Flat (recommended)** filter keeps the SSB receive path at
+300–3000 Hz (mirrored for LSB) so Kiwi DSP does not reshape the modem waveform.
+Use the **Mode +350 Hz**, **Mode +200 Hz** or **Mode +50 Hz** overrides only
+when nearby interference justifies a fixed mode-shaped passband.
 
 The **Test** button runs a bundled 700D recording through the same Kiwi camper,
 decoder and returned-audio path used for live reception. A passing test proves
@@ -191,12 +193,15 @@ RF signal level or every FreeDV mode.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.21 installs a lightweight read-only dashboard at
+Decoder service 0.1.23 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.
 The waterfall offers Cividis, Viridis, greyscale and the OpenWebRX Turbo,
 Classic/teejeez and HA7ILM colour schemes.
+The dashboard also offers a bounded in-memory download of the latest modem
+audio at `/api/v1/capture.wav`; it is retained only for diagnostics and is
+replaced by the next session.
 See [Decoder diagnostics dashboard](docs/dashboard.md) for installation,
 network security, display options, API framing and troubleshooting.
 
@@ -317,7 +322,7 @@ This project builds on:
   [Codec2](https://github.com/drowe67/codec2) by David Rowe and contributors;
 - [FreeDV Reporter](https://qso.freedv.org/); and
 - the portable RADE work in
-  [peterbmarks/radae_nopy](https://github.com/peterbmarks/radae_nopy).
+  [freedv/rade_c](https://github.com/freedv/rade_c).
 
 FreeDV, Codec2, KiwiSDR and the upstream projects remain independent projects;
 this repository provides an integration framework for receive-only use.

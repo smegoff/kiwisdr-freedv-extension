@@ -1,6 +1,6 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.21 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.23 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
@@ -29,6 +29,8 @@ The main view provides:
   sync metric where libcodec2 supplies them.
 - Service counters for input, decoded and dropped frames, reconnects, control
   authentication and decoder CPU time.
+- A bounded in-memory WAV download of the latest post-resampler modem audio,
+  useful for separating marginal RF from transport or decoder faults.
 
 Unavailable RADEV1 or mode-specific diagnostics are displayed as **Not
 available**. The service returns JSON `null`; it does not invent substitute
@@ -97,7 +99,13 @@ The management listener provides:
 
 - `GET /api/v1/status`
 - `GET /api/v1/history`
+- `GET /api/v1/capture.wav`
 - WebSocket `/api/v1/stream`
+
+`capture.wav` contains at most the configured diagnostic window (60 seconds by
+default). It is held in memory, survives Stop so it can be downloaded, is
+cleared when the next session begins, and is never written continuously to
+guest storage.
 
 Status, history and WebSocket requests are available to any source admitted by
 the management firewall. Unknown paths, including traversal attempts, are
@@ -126,5 +134,5 @@ decoder guest. Pass `1` as the final argument for an active session or `0` for
 idle cleanup:
 
 ```bash
-sudo ./tools/soak-dashboard.sh 41 15 0.1.21 1
+sudo ./tools/soak-dashboard.sh 41 15 0.1.23 1
 ```

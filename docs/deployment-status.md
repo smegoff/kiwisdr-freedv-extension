@@ -1,33 +1,80 @@
 # Deployment status
 
-Last verified: 2026-07-23 01:27 UTC (2026-07-23 13:27 NZST)
+Last verified: 2026-07-30 09:48 UTC (2026-07-30 21:48 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
 requirements; the portable documentation calls this system the **decoder
 guest**.
 
+The reference receiver is a standard AM335x KiwiSDR with all FreeDV modem
+processing offloaded to the Proxmox decoder guest. It is not an AI-64 system,
+and no AI-64 local-decoder service is enabled.
+
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-30`
+- active Kiwi release: `freedv-v0-1-31`
 - active Kiwi SHA-256:
-  `c747045c887b727642a9b0595da8451e17ea7a3b5927c9165b661af47c742f90`
-- Kiwi BuildID: `6a500f0c7af4013d49502c3afb78b461829c6a80`
+  `57c049cc26a43ab28661f11923f3ccabe65cffabc8c9071aa01a31694a991537`
+- Kiwi BuildID: `08ef729d22d340159c5275afdb8447771ea7be61`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.21`
+- decoder-guest release: `0.1.23`
 - decoder binary SHA-256:
-  `7875127ae3fdf5a4a2c19bcbf90d44808c09c49780f6121f22e428042efee639`
+  `125481a2c65475b6aee39d1d38aeaa3b7ebe48183e00ec70e530139f94a39cad`
 - Reporter sidecar SHA-256:
   `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
 - Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder dashboard assets: `0.1.21-openwebrx-palettes`
-- decoder-guest snapshot: `pre-dashboard-openwebrx-palettes`
+- decoder dashboard assets: `0.1.23`
+- decoder-guest snapshot: `pre-decoder-v0-1-23`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.31 / decoder v0.1.23 reliability recovery
+
+The decoder v0.1.21/v0.1.22 synchronous WebSocket loop could remain blocked
+while idle. Beast may also read the Kiwi's first `MSG monitor` frame into its
+internal buffer during the client handshake, where a later native-socket
+`poll()` cannot see it. The live v0.1.22 service accumulated watchdog restarts
+and the browser Test remained at zero percent despite showing the transport as
+connected.
+
+Decoder v0.1.23 consumes the bounded authentication/monitor bootstrap before
+entering the 100 ms socket-polling control loop. Kiwi extension v0.1.31 keeps
+the deterministic waveform disarmed until the authenticated second job poll
+confirms that the camper is ready. The default receive path is now flat
+300–3000 Hz, with only explicit mode-shaped manual overrides, and the current
+official `freedv/rade_c` real-audio input scale is used for RADEV1.
+
+All 39 repository regression tests and the decoder's three CTest targets
+passed. The generated RADEV1 reference synchronized with real-time factor
+0.02098, and the resampled official `FDV_offair.wav` synchronized with
+real-time factor 0.02099. The deployed decoder binary has the SHA-256 recorded
+above.
+
+A real browser loaded the complete Kiwi UI, found FreeDV in the ordinary
+extension menu, selected 700D and ran the bundled reference Test. The waveform
+advanced from 0 to 100 percent, reached Codec2 sync and ended at `test passed`.
+The decoder received 1,179 SND frames, produced 28 decoded frames, recorded
+zero drops and made a valid 812,446-byte diagnostic WAV available. Reporter
+was correctly excluded from the Test.
+
+A deliberate decoder-service restart recovered the same normal 700D browser
+session with an authenticated camper and Reporter online. The final
+active-session soak passed 41/41 samples over 667 seconds: every sample had
+healthy Kiwi pages, decoder v0.1.23 connected, one camper session, zero auth
+failures, zero drops, no crash restarts and main-loop age 0–1 seconds. The open
+dashboard advanced by 5,703 waterfall frames. Final Stop returned to zero
+sessions, no camper and Reporter disabled; both Kiwi and decoder critical-log
+searches were empty.
+
+After acceptance, snapshot retention was reduced to the clean Debian baseline,
+the RADEV1 architectural checkpoint and `pre-decoder-v0-1-23` as the immediate
+rollback. The superseded OpenWebRX palette and v0.1.22 reliability snapshots
+were removed.
 
 ## v0.1.30 browser-bundle recovery
 
@@ -614,7 +661,7 @@ before the bundled recording is armed. Reference transport tests passed all 12
 byte-order/rate/first-packet combinations, and the standalone 700D and RADEV1
 reference decoders both passed.
 
-## RADEV1 build evidence
+## Legacy v0.1.16 RADEV1 build evidence
 
 - RADE C pin:
   `peterbmarks/radae_nopy@6e6fff3fc0546363693b60b52f463e08c71117e6`
@@ -637,8 +684,10 @@ factor 0.0855 with peak container memory 385,695,744 bytes.
 
 After acceptance, the obsolete 667 MB `/opt/radae_decoder` tree, old
 `webrx_rade_decode` tool and legacy commit marker were removed. They remain
-recoverable from snapshot `pre-radev1-v0-1-15`; the live service uses only the
-official `radae_nopy` installation.
+recoverable from snapshot `pre-radev1-v0-1-15`. That release used
+`radae_nopy`; decoder v0.1.23 subsequently migrated the live service to
+`freedv/rade_c@a36161bce0fb37daf3f4602344b095f6817dddb1`, as recorded in the
+current reliability section.
 
 ## v0.1.16 browser and transport acceptance
 

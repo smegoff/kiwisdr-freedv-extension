@@ -41,15 +41,15 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the reference deployment, the Kiwi runs `freedv-v0-1-30` on firmware
+For the reference deployment, the Kiwi runs `freedv-v0-1-31` on firmware
 1.902. The checksum-verified stock `baseline-1.902` is its immediate software
-rollback target. The decoder guest runs `0.1.21`,
-and the latest pre-upgrade guest snapshot is
-`pre-dashboard-openwebrx-palettes`, taken immediately before the OpenWebRX
-palette asset upgrade. The retained
+rollback target. The decoder guest runs `0.1.23`, and the immediate guest
+rollback snapshot is `pre-decoder-v0-1-23`, taken before the authenticated
+camper-bootstrap fix. The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
-clean operating-system baseline. Superseded per-release snapshots were removed
-after v0.1.21 passed its browser tests and stability soak. If only
+clean operating-system baseline. Superseded dashboard and v0.1.22 reliability
+snapshots were removed after v0.1.23 passed its browser tests and active
+stability soak. If only
 RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
 Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
 upgrade itself fails, restore the decoder-guest snapshot or retained previous
