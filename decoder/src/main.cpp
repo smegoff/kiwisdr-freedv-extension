@@ -41,7 +41,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.22";
+constexpr char kRelease[] = "0.1.23";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr int kSocketPollMilliseconds = 100;
 
@@ -237,6 +237,13 @@ class KiwiCamper {
     metrics.kiwi_connected = 1;
     send_text("SET auth t=kiwi p=" + password_);
 
+    // The WebSocket client handshake may read ahead into Beast's internal
+    // buffer. In that case the Kiwi's initial MSG monitor frame is no longer
+    // visible to poll(2) on the native socket. Consume the short
+    // authentication/monitor bootstrap synchronously before switching to the
+    // bounded native-socket polling loop.
+    while (!control_ready_) receive_one();
+
     for (;;) {
       // Boost.Beast's WebSocket timeout option only applies to asynchronous
       // operations. A synchronous read can otherwise block forever when the
@@ -258,14 +265,7 @@ class KiwiCamper {
         throw std::runtime_error("Kiwi socket disconnected");
       if (!(descriptor.revents & POLLIN)) continue;
 
-      beast::flat_buffer buffer;
-      ws_.read(buffer);
-      mark_main_loop_progress();
-      const std::string frame = beast::buffers_to_string(buffer.data());
-      if (frame.size() < 3) continue;
-      const std::string tag = frame.substr(0, 3);
-      if (tag == "MSG") process_message(trim(frame.substr(3)));
-      else if (tag == "SND") process_audio(frame);
+      receive_one();
     }
   }
 
@@ -287,6 +287,17 @@ class KiwiCamper {
   void send_binary(const std::vector<uint8_t>& message) {
     ws_.binary(true);
     ws_.write(asio::buffer(message));
+  }
+
+  void receive_one() {
+    beast::flat_buffer buffer;
+    ws_.read(buffer);
+    mark_main_loop_progress();
+    const std::string frame = beast::buffers_to_string(buffer.data());
+    if (frame.size() < 3) return;
+    const std::string tag = frame.substr(0, 3);
+    if (tag == "MSG") process_message(trim(frame.substr(3)));
+    else if (tag == "SND") process_audio(frame);
   }
 
   void maybe_poll(bool force = false) {

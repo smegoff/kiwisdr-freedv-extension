@@ -272,6 +272,8 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("main_loop_heartbeat", decoder)
         self.assertIn("main_loop_age_seconds", decoder)
         self.assertIn("main loop stalled for", decoder)
+        self.assertIn("while (!control_ready_) receive_one();", decoder)
+        self.assertIn("void receive_one()", decoder)
         self.assertIn("_exit(4);", decoder)
         self.assertIn("http::status::service_unavailable", decoder)
         self.assertIn("freedv_status_updates_total", decoder)
