@@ -21,6 +21,7 @@ struct DashboardConfig {
   unsigned history_seconds = 600;
   unsigned waterfall_fps = 10;
   unsigned websocket_heartbeat_seconds = 1;
+  unsigned capture_seconds = 60;
 };
 
 DashboardConfig dashboard_config_from_environment();
@@ -51,6 +52,7 @@ class Dashboard {
   void update_status(const DecodeStatus& status, const std::string& backend,
                      uint64_t decoded_frames);
   void push_audio(const int16_t* samples, std::size_t count, uint32_t sample_rate);
+  void push_modem_audio(const int16_t* samples, std::size_t count, uint32_t sample_rate);
 
  private:
   struct Impl;

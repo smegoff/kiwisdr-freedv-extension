@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-21}
-release=${2:-v0.1.21}
+candidate=${1:-/opt/kiwi-freedv-v0-1-23}
+release=${2:-v0.1.23}
 health_release=${release#v}
 decoder_health_release=${3:-$health_release}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -55,6 +55,7 @@ ensure_env FREEDV_DASHBOARD_PORT 8076
 ensure_env FREEDV_DASHBOARD_ASSET_DIR /usr/local/share/freedv-dashboard/current
 ensure_env FREEDV_DASHBOARD_HISTORY_SECONDS 600
 ensure_env FREEDV_DASHBOARD_WATERFALL_FPS 10
+ensure_env FREEDV_DIAGNOSTIC_CAPTURE_SECONDS 60
 
 mv -Tf /usr/local/bin/freedv-decoder.new /usr/local/bin/freedv-decoder
 mv -Tf /opt/freedv-reporter/reporter.py.new /opt/freedv-reporter/reporter.py

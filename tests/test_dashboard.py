@@ -50,6 +50,8 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertNotIn("dashboard.token", installer)
         self.assertNotIn("FREEDV_DASHBOARD_TOKEN_FILE", environment)
         self.assertIn("FREEDV_DASHBOARD_PORT=8076", environment)
+        self.assertIn("FREEDV_DIAGNOSTIC_CAPTURE_SECONDS=60", environment)
+        self.assertIn("FREEDV_DIAGNOSTIC_CAPTURE_SECONDS 60", upgrade)
         self.assertIn("dashboard-assets", upgrade)
         self.assertIn("-dport 8076", firewall)
 
@@ -58,11 +60,28 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn("/api/v1/status", source)
         self.assertIn("/api/v1/history", source)
         self.assertIn("/api/v1/stream", source)
+        self.assertIn("/api/v1/capture.wav", source)
+        self.assertIn('"audio/wav"', source)
+        self.assertIn("push_modem_audio", source)
         self.assertNotIn("/api/v1/login", source)
         self.assertNotIn("/api/v1/logout", source)
         self.assertNotIn("http::status::unauthorized", source)
         self.assertIn('"Content-Security-Policy"', source)
         self.assertNotIn("Access-Control-Allow-Origin", source)
+
+    def test_radev1_uses_current_official_real_audio_path(self):
+        backend = (ROOT / "decoder" / "src" / "rade_backend.cpp").read_text(
+            encoding="utf-8"
+        )
+        build = (ROOT / "deploy" / "build-radae.sh").read_text(encoding="utf-8")
+        self.assertIn("2.0f / 16384.0f", backend)
+        self.assertIn(", 0.0f});", backend)
+        self.assertNotIn("Hilbert", backend)
+        self.assertIn("https://github.com/freedv/rade_c.git", build)
+        self.assertIn("a36161bce0fb37daf3f4602344b095f6817dddb1", build)
+        self.assertIn("rade_rx_wav", build)
+        self.assertIn("rade_tx_wav", build)
+        self.assertIn("FDV_offair.wav", build)
 
 
 if __name__ == "__main__":

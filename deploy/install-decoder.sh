@@ -26,10 +26,10 @@ cmake --build "$src/build" --parallel
 cmake --install "$src/build" --prefix /usr/local
 
 install -d -m 0750 -o root -g freedv /etc/freedv-decoder
-install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.21
+install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.23
 install -m 0644 "$src/dashboard/index.html" "$src/dashboard/app.js" \
-  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.21/
-ln -sfn 0.1.21 /usr/local/share/freedv-dashboard/current
+  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.23/
+ln -sfn 0.1.23 /usr/local/share/freedv-dashboard/current
 install -d -m 0755 /opt/freedv-reporter
 install -m 0755 "$src/reporter/reporter.py" /opt/freedv-reporter/reporter.py
 python3 -m venv /opt/freedv-reporter/venv

@@ -73,17 +73,16 @@ out-of-range tune.
 | 10 metres | 28.720 MHz | USB | |
 | 10 GHz (QO-100) | 10489.640 MHz | USB | Requires a suitable frequency offset |
 
-The HF modem is centred at 1,500 Hz. The default **Auto (lock on sync)** profile
-starts with the upstream occupied RF bandwidth plus 200 Hz of acquisition
-headroom at each edge. On the first successful modem synchronization it
-tightens to 50 Hz per edge and remains locked for that transmission. Retuning,
-changing FreeDV mode or restarting the session returns it to acquisition.
+The HF modem is centred at 1,500 Hz. The default **Flat (recommended)** profile
+uses the ordinary 300–3,000 Hz SSB audio path so receiver DSP does not reshape
+the modem waveform before it reaches the external decoder.
 
-Three fixed manual profiles are also available: **Tight** adds 50 Hz per edge,
-**Normal** adds 200 Hz and **Wide** adds 350 Hz. All limits round outward to the
-next 25 Hz. For LSB, Kiwi mirrors the positive audio limits shown below into
-negative-frequency passband limits automatically. The table shows the Normal
-and Auto-acquisition values.
+Three fixed, mode-shaped manual profiles add **+350 Hz**, **+200 Hz** or
+**+50 Hz** at each documented occupied-band edge. Use them only when local
+adjacent-channel interference justifies narrowing the acquisition path. All
+limits round outward to the next 25 Hz. For LSB, Kiwi mirrors the positive
+audio limits into negative-frequency passband limits automatically. The table
+shows the +200 Hz override.
 
 | FreeDV mode | Documented occupied width | USB filter | LSB filter |
 | --- | ---: | ---: | ---: |
@@ -106,7 +105,7 @@ The first seven rows are the classic all-Codec2 modes selected for a small,
 predictable headless decoder. They are not the entire FreeDV catalogue. The
 LPCNet-based 2020 variants remain outside this milestone. RADEV1 uses the
 official portable C implementation pinned to
-`peterbmarks/radae_nopy@6e6fff3fc0546363693b60b52f463e08c71117e6`; the
+`freedv/rade_c@a36161bce0fb37daf3f4602344b095f6817dddb1`; the
 FARGAN/Opus dependency is pinned to
 `940d4e5af64351ca8ba8390df3f555484c567fbb`.
 
@@ -136,7 +135,7 @@ same.
 | Browser-to-Kiwi-to-decoder transport acceptance | 700D bundled reference test plus normal no-signal session |
 | Live RF decoded speech | Pending for every mode |
 | Reporter | Verified RX-only public presence at the tuned frequency, application-level acceptance, restart recovery and clean removal; received-callsign reports depend on valid decoded metadata |
-| RADEV1 backend | Official portable C adapter; reference WAV synchronized and produced 181,600 speech samples at 16 kHz |
+| RADEV1 backend | Official portable C adapter; generated and off-air reference WAVs synchronized; generated reference produced 150,880 speech samples |
 | RADEV1 transport | Real browser no-signal session reached `running / rade-v1`, one decoder camper/session, zero drops, then cleaned up to zero |
 | RADEV1 live RF decoded speech | Pending a suitable on-air transmission |
 
@@ -173,10 +172,17 @@ decoding in every advertised mode.
   1.5 kHz and produces 16 kHz decoded speech. The mode is visible only after
   both the decoder service and Kiwi administrator gates are enabled.
 
+The official `rade_c` off-air recording is 48 kHz mono PCM. Resample it to the
+current 8 kHz modem input before using the repository reference tool:
+
+```bash
+sox FDV_offair.wav -r 8000 -c 1 -b 16 FDV_offair-8k.wav
+```
+
 ## Upstream references
 
 - [Codec2 FreeDV mode tables and design notes](https://github.com/drowe67/codec2/blob/310777b1c6f1af0bc7c72f5b32f80f6fd9136962/README_freedv.md)
 - [FreeDV GUI user manual and mode guidance](https://github.com/drowe67/freedv-gui/blob/master/USER_MANUAL.md)
 - [FreeDV 1600 specification](https://freedv.org/freedv-specification/)
 - [FreeDV RADE overview](https://freedv.org/radio-autoencoder/)
-- [Portable RADE C implementation](https://github.com/peterbmarks/radae_nopy)
+- [Portable RADE C implementation](https://github.com/freedv/rade_c)

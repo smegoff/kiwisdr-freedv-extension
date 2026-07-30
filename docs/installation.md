@@ -2,8 +2,14 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.30`, decoder service `0.1.21`, and KiwiSDR
+written for Kiwi extension `0.1.31`, decoder service `0.1.23`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
+
+> [!IMPORTANT]
+> The validated reference deployment is a standard AM335x KiwiSDR plus an
+> external Proxmox VM or unprivileged LXC. It is not an AI-64 installation.
+> Select the external decoder path and keep all Codec2/RADEV1 processing in
+> the decoder guest.
 
 For a guided install with the same backup, zero-listener and automatic rollback
 gates, use [the one-shot installer](one-shot-installer.md). This page remains
@@ -139,7 +145,7 @@ For an in-place upgrade, `tools/deploy-decoder-release.sh` records the previous
 decoder, Reporter client, units, configuration and Python package set, then
 restores them automatically if health checks fail. A Reporter-only release can
 retain the existing decoder health version using the optional third argument,
-for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-21 v0.1.21 0.1.21`.
+for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-23 v0.1.23 0.1.23`.
 
 Generate one 256-bit shared secret. Store the same 64 hexadecimal characters on
 the guest and Kiwi, but never commit, paste into an issue, or print the value in
@@ -164,6 +170,7 @@ FREEDV_DASHBOARD_PORT=8076
 FREEDV_DASHBOARD_ASSET_DIR=/usr/local/share/freedv-dashboard/current
 FREEDV_DASHBOARD_HISTORY_SECONDS=600
 FREEDV_DASHBOARD_WATERFALL_FPS=10
+FREEDV_DIAGNOSTIC_CAPTURE_SECONDS=60
 FREEDV_ENABLE_RADE=0
 ```
 
@@ -278,7 +285,7 @@ candidate check automatically restores the previous release.
    noise-filter control and automatic/manual receiver filtering.
 3. Press **Test**. It forces 700D and feeds John's bundled reference recording
    through the normal Kiwi sound channel, the external decoder and `rev_bin`
-   return path. The readiness acknowledgement included in v0.1.23 prevents a
+   return path. The v0.1.31 Kiwi handshake and decoder v0.1.23 bootstrap prevent a
    slow camper start from being reported as an unarmed decoder and separately
    detects a stalled Kiwi reference-audio path.
    Require `Test: 100%`, `State: test passed`, backend `codec2`, zero dropped
@@ -293,9 +300,9 @@ candidate check automatically restores the previous release.
    both mirrored Kiwi controls to show Off while FreeDV is open. Stop and close
    the extension; require the previous noise-filter algorithm to return, along
    with normal receiver audio. The noise-blanker setting must remain unchanged.
-7. Verify **Auto (lock on sync)** begins in acquisition, and that Tight, Normal
-   and Wide immediately apply their documented fixed passbands. A suitable live
-   FreeDV signal should make Auto report locked after the first synchronization.
+7. Verify **Flat (recommended)** selects the 300–3,000 Hz SSB path. Confirm the
+   **Mode +350 Hz**, **Mode +200 Hz** and **Mode +50 Hz** overrides immediately
+   apply their documented fixed passbands.
 8. Require sessions and camper state to return to zero and Reporter to read
    `enabled (idle)` when opted in.
 9. Confirm the Kiwi root receiver and Admin pages still load.

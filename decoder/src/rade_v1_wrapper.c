@@ -21,11 +21,30 @@ struct kfd_rade_decoder {
   float continuation[5 * NB_TOTAL_FEATURES];
 };
 
+#define KFD_RADE_EOO_CALLSIGN_MAX 8
+
 _Static_assert(sizeof(kfd_rade_complex) == sizeof(RADE_COMP),
                "RADE complex sample layout changed");
 
 static void set_error(char* error, size_t error_size, const char* message) {
   if (error && error_size) snprintf(error, error_size, "%s", message ? message : "RADE error");
+}
+
+static int decode_eoo_callsign(const float* eoo_bits, int count, char* output) {
+  if (!eoo_bits || !output || count < KFD_RADE_EOO_CALLSIGN_MAX * 7) {
+    if (output) output[0] = '\0';
+    return 0;
+  }
+  for (int i = 0; i < KFD_RADE_EOO_CALLSIGN_MAX; i++) {
+    unsigned char value = 0;
+    for (int bit = 0; bit < 7; bit++)
+      value |= (unsigned char)((eoo_bits[i * 7 + bit] > 0.0f ? 1 : 0) << (6 - bit));
+    output[i] = (char)value;
+  }
+  output[KFD_RADE_EOO_CALLSIGN_MAX] = '\0';
+  int length = KFD_RADE_EOO_CALLSIGN_MAX;
+  while (length > 0 && output[length - 1] == ' ') output[--length] = '\0';
+  return length;
 }
 
 static void reset_vocoder(kfd_rade_decoder* decoder) {
@@ -155,9 +174,9 @@ int kfd_rade_decode(kfd_rade_decoder* decoder,
   decoder->last_sync = modem_sync;
 
   if (has_eoo) {
-    char callsign[RADE_EOO_CALLSIGN_MAX + 1] = {0};
-    const int length = rade_rx_get_eoo_callsign(decoder->eoo_bits,
-                                                decoder->eoo_bit_count, callsign);
+    char callsign[KFD_RADE_EOO_CALLSIGN_MAX + 1] = {0};
+    const int length = decode_eoo_callsign(decoder->eoo_bits,
+                                           decoder->eoo_bit_count, callsign);
     if (length > 0) snprintf(output->eoo_callsign, sizeof(output->eoo_callsign), "%s", callsign);
   }
 

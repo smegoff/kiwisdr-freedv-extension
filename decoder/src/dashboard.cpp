@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <cstring>
 #include <cstdlib>
 #include <cctype>
 #include <deque>
@@ -89,7 +90,7 @@ http::response<http::string_body> response(http::status status, unsigned version
                                            const std::string& content_type,
                                            std::string body) {
   http::response<http::string_body> result{status, version};
-  result.set(http::field::server, "freedv-dashboard/0.1.21");
+  result.set(http::field::server, "freedv-dashboard/0.1.23");
   result.set(http::field::content_type, content_type);
   result.set(http::field::cache_control, "no-store");
   result.set("X-Content-Type-Options", "nosniff");
@@ -174,6 +175,7 @@ DashboardConfig dashboard_config_from_environment() {
                                    "/usr/local/share/freedv-dashboard/current");
   config.history_seconds = env_unsigned("FREEDV_DASHBOARD_HISTORY_SECONDS", 600, 60, 3600);
   config.waterfall_fps = env_unsigned("FREEDV_DASHBOARD_WATERFALL_FPS", 10, 1, 10);
+  config.capture_seconds = env_unsigned("FREEDV_DIAGNOSTIC_CAPTURE_SECONDS", 60, 0, 300);
   return config;
 }
 
@@ -210,6 +212,10 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
   std::mutex state_mutex;
   json session = {{"active", false}};
   std::deque<json> history;
+  std::mutex capture_mutex;
+  std::vector<int16_t> capture;
+  uint64_t capture_write = 0;
+  uint32_t capture_rate = 0;
   std::string index_html;
   std::string app_js;
   std::string styles_css;
@@ -222,13 +228,59 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
     }
     const auto queued = audio_write.load(std::memory_order_acquire) -
                         audio_read.load(std::memory_order_acquire);
-    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.21"},
+    json capture_status;
+    {
+      std::lock_guard<std::mutex> lock(capture_mutex);
+      const auto samples = std::min<uint64_t>(capture_write, capture.size());
+      capture_status = {{"enabled", config.capture_seconds != 0},
+                        {"available", samples != 0},
+                        {"sample_rate", capture_rate},
+                        {"samples", samples},
+                        {"seconds", capture_rate ? samples / static_cast<double>(capture_rate) : 0.0}};
+    }
+    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.23"},
                             {"clients", dashboard_clients.load()},
                             {"waterfall_frames", waterfall_frames.load()},
                             {"spectrum_drops", spectrum_drops.load()},
+                            {"capture", std::move(capture_status)},
                             {"audio_queue_ms", audio_rate.load() ?
                                 queued * 1000.0 / audio_rate.load() : 0.0}};
     return output;
+  }
+
+  std::string capture_wav() {
+    std::lock_guard<std::mutex> lock(capture_mutex);
+    const std::size_t samples = static_cast<std::size_t>(
+        std::min<uint64_t>(capture_write, capture.size()));
+    if (!samples || !capture_rate) return {};
+    const std::size_t data_bytes = samples * sizeof(int16_t);
+    std::string wav(44 + data_bytes, '\0');
+    auto put16 = [&wav](std::size_t offset, uint16_t value) {
+      wav[offset] = static_cast<char>(value & 0xff);
+      wav[offset + 1] = static_cast<char>((value >> 8) & 0xff);
+    };
+    auto put32 = [&wav](std::size_t offset, uint32_t value) {
+      for (unsigned i = 0; i < 4; i++) wav[offset + i] = static_cast<char>(value >> (8 * i));
+    };
+    std::memcpy(wav.data(), "RIFF", 4);
+    put32(4, static_cast<uint32_t>(36 + data_bytes));
+    std::memcpy(wav.data() + 8, "WAVEfmt ", 8);
+    put32(16, 16);
+    put16(20, 1);
+    put16(22, 1);
+    put32(24, capture_rate);
+    put32(28, capture_rate * 2);
+    put16(32, 2);
+    put16(34, 16);
+    std::memcpy(wav.data() + 36, "data", 4);
+    put32(40, static_cast<uint32_t>(data_bytes));
+    const uint64_t first = capture_write > capture.size() ? capture_write - capture.size() : 0;
+    for (std::size_t i = 0; i < samples; i++) {
+      const uint16_t value = static_cast<uint16_t>(capture[(first + i) % capture.size()]);
+      wav[44 + 2 * i] = static_cast<char>(value & 0xff);
+      wav[45 + 2 * i] = static_cast<char>((value >> 8) & 0xff);
+    }
+    return wav;
   }
 
   json history_json() {
@@ -299,6 +351,13 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
       } else if (target == "/api/v1/history" && request.method() == http::verb::get) {
         write_response(socket, response(http::status::ok, request.version(), "application/json",
                                         history_json().dump() + "\n"));
+      } else if (target == "/api/v1/capture.wav" && request.method() == http::verb::get) {
+        auto wav = capture_wav();
+        const bool available = !wav.empty();
+        const auto status = available ? http::status::ok : http::status::not_found;
+        const char* type = available ? "audio/wav" : "application/json";
+        if (!available) wav = "{\"error\":\"capture-unavailable\"}\n";
+        write_response(socket, response(status, request.version(), type, std::move(wav)));
       } else {
         write_response(socket, response(http::status::not_found, request.version(),
                                         "application/json", "{\"error\":\"not-found\"}\n"));
@@ -422,12 +481,18 @@ bool Dashboard::enabled() const { return impl_->config.enabled; }
 void Dashboard::session_started(uint64_t generation, int rx_channel, const std::string& mode,
                                 uint64_t frequency_hz, uint32_t input_rate, bool test,
                                 const std::string& backend) {
-  std::lock_guard<std::mutex> lock(impl_->state_mutex);
-  impl_->session = {{"active", true}, {"generation", generation}, {"rx_channel", rx_channel},
-                    {"mode", mode}, {"frequency_hz", frequency_hz},
-                    {"input_rate", input_rate}, {"test", test}, {"backend", backend},
-                    {"sync", false}, {"snr_db", 0.0}, {"frequency_offset_hz", 0.0},
-                    {"callsign", ""}, {"text", ""}, {"decoded_frames", 0}};
+  {
+    std::lock_guard<std::mutex> lock(impl_->state_mutex);
+    impl_->session = {{"active", true}, {"generation", generation}, {"rx_channel", rx_channel},
+                      {"mode", mode}, {"frequency_hz", frequency_hz},
+                      {"input_rate", input_rate}, {"test", test}, {"backend", backend},
+                      {"sync", false}, {"snr_db", 0.0}, {"frequency_offset_hz", 0.0},
+                      {"callsign", ""}, {"text", ""}, {"decoded_frames", 0}};
+  }
+  std::lock_guard<std::mutex> capture_lock(impl_->capture_mutex);
+  impl_->capture.clear();
+  impl_->capture_write = 0;
+  impl_->capture_rate = 0;
 }
 
 void Dashboard::session_stopped() {
@@ -475,6 +540,23 @@ void Dashboard::push_audio(const int16_t* samples, std::size_t count, uint32_t s
   for (std::size_t i = 0; i < count; i++) impl_->audio[(write + i) % impl_->audio.size()] = samples[i];
   impl_->audio_rate = sample_rate;
   impl_->audio_write.store(write + count, std::memory_order_release);
+}
+
+void Dashboard::push_modem_audio(const int16_t* samples, std::size_t count,
+                                 uint32_t sample_rate) {
+  if (!impl_->config.enabled || impl_->config.capture_seconds == 0 ||
+      !samples || !count || !sample_rate) return;
+  std::lock_guard<std::mutex> lock(impl_->capture_mutex);
+  const std::size_t capacity = static_cast<std::size_t>(sample_rate) *
+                               impl_->config.capture_seconds;
+  if (impl_->capture_rate != sample_rate || impl_->capture.size() != capacity) {
+    impl_->capture.assign(capacity, 0);
+    impl_->capture_write = 0;
+    impl_->capture_rate = sample_rate;
+  }
+  for (std::size_t i = 0; i < count; i++)
+    impl_->capture[(impl_->capture_write + i) % impl_->capture.size()] = samples[i];
+  impl_->capture_write += count;
 }
 
 }  // namespace kfd

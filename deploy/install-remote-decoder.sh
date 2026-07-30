@@ -47,7 +47,7 @@ if [[ $action == configure && $decoder_existed == 0 ]]; then
 fi
 if [[ $action == configure && $enable_rade == 1 ]]; then
   [[ -f /usr/local/lib/librade.so.0.1 &&
-     -f /usr/local/share/freedv-rade/radae_nopy.commit &&
+     -f /usr/local/share/freedv-rade/rade_c.commit &&
      -f /usr/local/share/freedv-rade/opus-fargan.commit ]] ||
     die "RADEV1 was requested but the pinned portable backend is not installed"
 fi
@@ -98,7 +98,7 @@ if [[ $action == install ]]; then
   "$src/deploy/build-radae.sh"
   "$src/deploy/install-decoder.sh" "$src"
   ctest --test-dir "$src/build" --output-on-failure
-  /usr/local/bin/rade_modulate_wav -v 0 /usr/local/share/freedv-rade/voice.wav \
+  /usr/local/bin/rade_tx_wav -v 0 /usr/local/share/freedv-rade/input_sample.wav \
     "$src/build/radev1-reference.wav"
   "$src/build/freedv-rade-reference-test" "$src/build/radev1-reference.wav" \
     > "$backup/radev1-reference.txt"

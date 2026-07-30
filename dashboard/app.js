@@ -65,6 +65,12 @@ function updateStatus(data) {
     ["malformed_jobs_total","Malformed jobs"],["stale_jobs_total","Stale jobs"],["decode_seconds_total","Decode CPU seconds"],
     ["main_loop_age_seconds","Main-loop age (s)"]]);
   const extra = data.dashboard || {};
+  const capture = extra.capture || {};
+  const captureLink = $("capture-download");
+  captureLink.hidden = !capture.available;
+  if (capture.available) {
+    captureLink.textContent = `Download latest modem audio (${number(capture.seconds,1)} s at ${capture.sample_rate} Hz)`;
+  }
   for (const [key,label] of [["clients","Dashboard clients"],["waterfall_frames","Waterfall frames"],["spectrum_drops","Spectrum drops"],["audio_queue_ms","Audio queue (ms)"]]) addStat("service-stats", label, extra[key]);
 }
 

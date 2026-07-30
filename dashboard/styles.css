@@ -57,6 +57,8 @@ canvas { display: block; width: 100%; height: 100%; }
 .facts div:last-child { border-bottom: 0; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.capture-download { display: inline-block; margin-top: 14px; color: var(--blue); font-size: .9rem; }
+.capture-download[hidden] { display: none; }
 .history { height: 190px; }
 .details-panel { margin-top: 1rem; padding: 0; }
 .details-panel summary { padding: .9rem 1rem; cursor: pointer; font-weight: 650; }

@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.30"
+#define FREEDV_RELEASE "0.1.31"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -205,14 +205,6 @@ static bool freedv_encoded_status_valid(const char *value)
     return true;
 }
 
-static bool freedv_status_running(const char *value)
-{
-    if (!value) return false;
-    return strstr(value, "\"state\":\"running\"") != NULL ||
-        strstr(value, "%22state%22%3A%22running%22") != NULL ||
-        strstr(value, "%22state%22%3a%22running%22") != NULL;
-}
-
 static bool freedv_load_secret()
 {
     if (secret_loaded) return strlen(shared_secret) >= 32;
@@ -309,7 +301,9 @@ static void freedv_ensure_setup(int rx_chan)
 {
     if (rx_chan < 0 || rx_chan >= rx_chans) return;
     freedv_t *e = &freedv[rx_chan];
-    if (e->setup) return;
+    // SND/EXT connections can be torn down and recreated independently while
+    // this per-channel flag survives. Re-registering is idempotent and avoids
+    // retaining a stale real-sample callback after a reconnect.
     ext_register_receive_cmds(freedv_receive_cmds, rx_chan);
     if (test_signal.sample_count)
         ext_register_receive_real_samps(freedv_test_audio, rx_chan);
@@ -396,15 +390,11 @@ bool freedv_receive_cmds(u2_t key, char *cmd, int rx_chan)
     e->last_status = timer_sec();
     e->decoder_online = true;
     freedv_set_return_audio(rx_chan, true);
-    // Do not consume the acquisition portion of the reference recording while
-    // the external service is still polling and attaching its camper. The
-    // first running status is sent only after the decoder has camped.
-    if (e->test && !e->test_sample && freedv_status_running(end + 1)) {
-        e->test_sample = test_signal.samples;
-        e->test_samples_sent = 0;
-        e->test_last_percent = -1;
-        ext_send_msg(rx_chan, false, "EXT state=test-signal-running");
-    }
+    // Do not arm the reference waveform from rev_txt. That status can arrive
+    // before the monitor camper has completed the SND transition, causing the
+    // live receiver stream to be decoded while the UI claims the test is
+    // running. Only freedv_monitor_poll() may complete the authenticated
+    // two-poll test handshake and start the real-sample callback.
     // Decode the monitor transport once and let the extension helper perform
     // the single browser-safe encoding. This follows John's FreeDV/TDoA relay
     // pattern and avoids passing transport escapes through two subsystems.
