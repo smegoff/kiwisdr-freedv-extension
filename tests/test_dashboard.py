@@ -28,6 +28,8 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn("length:256", js)
         self.assertIn('document.addEventListener("visibilitychange"', js)
         self.assertIn("Math.min(devicePixelRatio||1,2)", js)
+        self.assertIn("Control response age (s)", js)
+        self.assertIn("Control stalls", js)
 
     def test_openwebrx_palettes_match_built_in_schemes(self):
         js = (ROOT / "dashboard" / "app.js").read_text(encoding="utf-8")

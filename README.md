@@ -18,6 +18,8 @@ the optional diagnostics page connects to its management-only web port.
 ## Features
 
 - FreeDV extension available in the ordinary KiwiSDR extension menu.
+- FreeDV decoding available through a KiwiSDR reverse-proxy URL without exposing
+  the private decoder guest.
 - External Codec2 decoding keeps modem CPU load off the Kiwi's AM335x.
 - Decoded speech returns through the normal Kiwi audio stream.
 - Analogue noise and static remain silent while FreeDV is running but not
@@ -47,7 +49,7 @@ the optional diagnostics page connects to its management-only web port.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.33 | Deployed on KiwiSDR 1.902; browser-accepted 700D and RADEV1 reference tests |
-| Decoder service | 0.1.24 | Proxmox-offloaded camper service with cadence-bounded returned audio |
+| Decoder service | 0.1.25 | Proxmox-offloaded camper service with cadence-bounded returned audio and stale-control recovery |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
@@ -77,6 +79,14 @@ The Kiwi remains the only receiver endpoint. The decoder service does not
 require public port forwarding. Its decoder control and health surfaces remain
 private; the read-only diagnostics dashboard is available only to the
 configured management LAN and relies on that firewall boundary.
+
+Public KiwiSDR reverse proxies do not change this trust boundary. An internet
+listener's browser connects to John's KiwiSDR proxy, and the proxy forwards the
+ordinary receiver and extension WebSockets to the Kiwi. The decoder guest still
+connects outbound over the private LAN, authenticates its job polls and returns
+speech to the Kiwi. Public browsers never receive the decoder address or shared
+secret and never connect to the decoder dashboard, health port or Reporter
+sidecar.
 
 External decoding is intentional: the Kiwi's single-core processor already
 handles RF processing, receiver channels, waterfalls, audio and networking.
@@ -201,9 +211,30 @@ buzzy character is expected; repeated gaps, cyclic stutter or buffer underruns
 are not. A passing reference test proves its selected modem and transport path
 are working, but it does not test the antenna or live RF channel.
 
+### Public reverse-proxy access
+
+Users may open the receiver through its normal KiwiSDR reverse-proxy address
+and select **FreeDV** from the ordinary extension menu. No browser-side decoder
+configuration is needed. **Test RADE** or **Test 700D** can be used to verify the
+complete proxy, Kiwi, private decoder and returned-audio path before listening
+for a live signal.
+
+The reference installation was accepted through
+`http://21996.proxy.kiwisdr.com:8073/` (which currently redirects to the
+corresponding `proxy2.kiwisdr.com` endpoint). Both reference modes synchronized,
+returned decoded PCM and completed with zero decoder drops. Only one FreeDV
+decode session is allowed globally; a second listener receives a busy message
+instead of displacing the active session. Normal Kiwi admission rules, such as
+listener limits and any same-public-IP limit, still apply.
+
+Decoder v0.1.25 also checks the authenticated control response rather than
+equating an open TCP socket with a healthy connection. If Kiwi poll responses
+stop for more than ten seconds, the decoder marks the connection unhealthy and
+reconnects automatically.
+
 ## Decoder diagnostics
 
-Decoder service 0.1.24 installs a lightweight read-only dashboard at
+Decoder service 0.1.25 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.

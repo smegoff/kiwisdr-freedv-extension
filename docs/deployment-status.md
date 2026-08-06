@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-07-30 19:20 UTC (2026-07-31 07:20 NZST)
+Last verified: 2026-08-06 19:10 UTC (2026-08-07 07:10 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -20,18 +20,70 @@ and no AI-64 local-decoder service is enabled.
 - Kiwi BuildID: `a4be1d019b6523c727e90f125b19bf298e7fcf2f`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.24`
+- decoder-guest release: `0.1.25`
 - decoder binary SHA-256:
-  `6611edb2622720a88847c75632a3adadca45819470ed453c9c1c8536b3971cf0`
+  `bb99468320cc8501ed2770acb90ee8be441531c69450d9f8a1c8ca0fc4be8630`
 - Reporter sidecar SHA-256:
   `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
 - Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder dashboard assets: `0.1.24`
-- decoder-guest snapshot: `pre-decoder-v0-1-24`
+- decoder dashboard assets: `0.1.25`
+- decoder-guest snapshot: `pre-decoder-v0-1-25`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Public reverse-proxy acceptance and decoder v0.1.25 liveness
+
+The receiver was opened as an ordinary internet listener through
+`http://21996.proxy.kiwisdr.com:8073/`; John's service redirected the browser to
+`proxy2.kiwisdr.com` while retaining the normal receiver and extension
+WebSockets. FreeDV v0.1.33 was present in the normal extension menu. The panel,
+mode and calling-frequency selectors, receiver filter, Help control and
+Reporter link all rendered without developer mode.
+
+The first public **Test RADE** exposed a stale decoder control connection: the
+old v0.1.24 dashboard said `kiwi_connected=true`, but its authenticated poll
+counter did not advance and the test could not arm. Restarting only the idle
+decoder restored polling and immediately proved that the public proxy was not
+the cause. This fault led to decoder v0.1.25, which records the age of the last
+authenticated job response. A connection with no response for more than ten
+seconds becomes unhealthy and is torn down for the existing bounded reconnect
+loop. New `control_response_age_seconds` and `control_stalls_total` fields are
+available in health, metrics and dashboard status.
+
+The v0.1.25 candidate passed all four CTest targets. Its RADEV1 reference
+decoded 150,880 synchronized speech samples with a real-time factor of about
+0.022. The binary SHA-256 is recorded above. It was installed through the
+atomic decoder deployment gate after creating snapshot
+`pre-decoder-v0-1-25`; rollback files are in the guest's root-only release
+rollback directory.
+
+A fresh public browser session then passed **Test RADE** with backend
+`rade-v1`, sync, 100 percent reference progress and zero drops. **Test 700D**
+passed with backend `codec2`, sync, about 28.5 dB SNR, -0.2 Hz offset, 100
+percent and zero drops. The decoder returned 261,632 PCM samples in 505 paced
+packets with no dropped frames or returned samples, no authentication failures
+and no browser console warnings or errors. After both tests, session and camper
+counts returned to zero, authenticated poll responses continued at the idle
+cadence and the control-response age was zero seconds.
+
+The deployed service then passed 41/41 idle health samples at 15-second
+intervals. Every sample reported release 0.1.25, a healthy authenticated Kiwi
+control connection, zero sessions, no diagnostic drops and no critical journal
+matches. RSS settled at about 17.6 MB and decoder CPU was effectively idle. A
+final fresh public-proxy session after the asset publication again completed
+**Test RADE** at 100 percent with backend `rade-v1`, synchronization and zero
+drops.
+
+After acceptance, the superseded `pre-decoder-v0-1-24` snapshot was removed.
+The retained guest checkpoints are the clean Debian baseline, the RADEV1
+architectural checkpoint and immediate rollback snapshot
+`pre-decoder-v0-1-25`.
+
+The proxy does not expose any decoder-guest service. Browser identity remains
+separate from the configured owner identity used by the RX-only Reporter, and
+reference tests remain excluded from Reporter publication.
 
 ## v0.1.33 dual 700D and RADEV1 reference tests
 

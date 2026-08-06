@@ -313,6 +313,10 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("::poll(&descriptor, 1, kSocketPollMilliseconds)", decoder)
         self.assertIn("maybe_poll();", decoder)
         self.assertIn("maybe_keepalive();", decoder)
+        self.assertIn("control_response_heartbeat", decoder)
+        self.assertIn("freedv_control_response_age_seconds", decoder)
+        self.assertIn("freedv_control_stalls_total", decoder)
+        self.assertIn('throw std::runtime_error("Kiwi control response timeout")', decoder)
 
     def test_authenticated_camper_routes_freedv_status_directly(self) -> None:
         patch = PATCH.with_name("0004-freedv-direct-status-relay.patch").read_text(

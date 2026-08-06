@@ -263,4 +263,10 @@ JobDisposition classify_job(const DecoderJob& current, const DecoderJob& incomin
   return JobDisposition::changed;
 }
 
+bool control_response_stale(uint64_t now_seconds, uint64_t last_response_seconds,
+                            uint64_t timeout_seconds) {
+  if (last_response_seconds == 0 || now_seconds < last_response_seconds) return true;
+  return now_seconds - last_response_seconds > timeout_seconds;
+}
+
 }  // namespace kfd

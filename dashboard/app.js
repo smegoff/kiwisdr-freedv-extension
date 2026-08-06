@@ -63,7 +63,8 @@ function updateStatus(data) {
     ["snd_frames_total","Input frames"],["decoded_frames_total","Decoded frames"],["dropped_frames_total","Dropped frames"],
     ["reconnects_total","Reconnects"],["auth_successes_total","Control auth successes"],["auth_failures_total","Control auth failures"],
     ["malformed_jobs_total","Malformed jobs"],["stale_jobs_total","Stale jobs"],["decode_seconds_total","Decode CPU seconds"],
-    ["main_loop_age_seconds","Main-loop age (s)"]]);
+    ["main_loop_age_seconds","Main-loop age (s)"],["control_response_age_seconds","Control response age (s)"],
+    ["control_stalls_total","Control stalls"]]);
   const extra = data.dashboard || {};
   const capture = extra.capture || {};
   const captureLink = $("capture-download");
