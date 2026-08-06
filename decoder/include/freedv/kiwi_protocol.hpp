@@ -56,5 +56,7 @@ bool parse_message_pair(const std::string& message, const std::string& name,
                         std::string& value);
 DecoderJob parse_decoder_job(const std::string& encoded_json);
 JobDisposition classify_job(const DecoderJob& current, const DecoderJob& incoming);
+bool control_response_stale(uint64_t now_seconds, uint64_t last_response_seconds,
+                            uint64_t timeout_seconds);
 
 }  // namespace kfd

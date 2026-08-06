@@ -21,6 +21,10 @@ int main() {
       "key", "The quick brown fox jumps over the lazy dog");
   assert(hmac == "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
   assert(kfd::make_poll_command("key", 123, "abcd").find("SET freedv_poll=2,123,abcd,") == 0);
+  assert(kfd::control_response_stale(100, 0, 10));
+  assert(!kfd::control_response_stale(100, 90, 10));
+  assert(kfd::control_response_stale(101, 90, 10));
+  assert(kfd::control_response_stale(99, 100, 10));
 
   std::string pair;
   assert(kfd::parse_message_pair("camp=1,4", "camp", pair) && pair == "1,4");

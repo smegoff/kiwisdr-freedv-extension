@@ -42,8 +42,9 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.24";
+constexpr char kRelease[] = "0.1.25";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
+constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;
 
 struct Metrics {
@@ -67,6 +68,8 @@ struct Metrics {
   std::atomic<uint64_t> synced{0};
   std::atomic<uint64_t> status_updates{0};
   std::atomic<uint64_t> main_loop_heartbeat{0};
+  std::atomic<uint64_t> control_response_heartbeat{0};
+  std::atomic<uint64_t> control_stalls{0};
 };
 
 Metrics metrics;
@@ -80,6 +83,14 @@ void mark_main_loop_progress() { metrics.main_loop_heartbeat = monotonic_seconds
 
 uint64_t main_loop_age_seconds() {
   const uint64_t heartbeat = metrics.main_loop_heartbeat.load();
+  const uint64_t now = monotonic_seconds();
+  return heartbeat == 0 || heartbeat > now ? UINT64_MAX : now - heartbeat;
+}
+
+void mark_control_response() { metrics.control_response_heartbeat = monotonic_seconds(); }
+
+uint64_t control_response_age_seconds() {
+  const uint64_t heartbeat = metrics.control_response_heartbeat.load();
   const uint64_t now = monotonic_seconds();
   return heartbeat == 0 || heartbeat > now ? UINT64_MAX : now - heartbeat;
 }
@@ -132,6 +143,8 @@ std::string metrics_text() {
       << "freedv_sync " << metrics.synced.load() << '\n'
       << "freedv_status_updates_total " << metrics.status_updates.load() << '\n'
       << "freedv_main_loop_age_seconds " << main_loop_age_seconds() << '\n'
+      << "freedv_control_response_age_seconds " << control_response_age_seconds() << '\n'
+      << "freedv_control_stalls_total " << metrics.control_stalls.load() << '\n'
       << "freedv_audio_queue_milliseconds "
       << metrics.audio_queue_milliseconds.load() << '\n'
       << "freedv_reporter_state{state=\"" << reporter_state() << "\"} 1\n";
@@ -151,7 +164,8 @@ void health_server(unsigned short port) {
       const bool is_metrics = request.target() == "/metrics";
       const bool is_health = request.target() == "/healthz" || request.target() == "/";
       const bool live = main_loop_age_seconds() <= kStalledMainLoopSeconds;
-      const bool healthy = live && metrics.kiwi_connected.load() != 0;
+      const bool control_live = control_response_age_seconds() <= kStalledControlSeconds;
+      const bool healthy = live && control_live && metrics.kiwi_connected.load() != 0;
       http::response<http::string_body> response{
           is_metrics ? http::status::ok :
           is_health ? (healthy ? http::status::ok : http::status::service_unavailable) :
@@ -168,6 +182,8 @@ void health_server(unsigned short port) {
                                {"camper_connected", metrics.camper_connected.load() != 0},
                                {"sessions", metrics.sessions.load()},
                                {"main_loop_age_seconds", main_loop_age_seconds()},
+                               {"control_response_age_seconds", control_response_age_seconds()},
+                               {"control_stalls_total", metrics.control_stalls.load()},
                                {"reporter", reporter_state()}}.dump() + "\n";
       } else response.body() = "{\"status\":\"not-found\"}\n";
       response.keep_alive(false);
@@ -263,6 +279,12 @@ class KiwiCamper {
       mark_main_loop_progress();
       maybe_poll();
       maybe_keepalive();
+      if (control_ready_ && kfd::control_response_stale(
+              monotonic_seconds(), metrics.control_response_heartbeat.load(),
+              kStalledControlSeconds)) {
+        metrics.control_stalls++;
+        throw std::runtime_error("Kiwi control response timeout");
+      }
       pollfd descriptor{ws_.next_layer().native_handle(), POLLIN, 0};
       int ready;
       do {
@@ -282,6 +304,7 @@ class KiwiCamper {
   void shutdown() {
     if (job_.running) reporter_send({{"type", "stop"}, {"session_id", job_.generation}});
     metrics.kiwi_connected = 0;
+    metrics.control_response_heartbeat = 0;
     metrics.camper_connected = 0;
     metrics.sessions = 0;
     metrics.synced = 0;
@@ -337,6 +360,7 @@ class KiwiCamper {
     }
     if (message == "monitor" || message.find("monitor ") == 0) {
       control_ready_ = true;
+      mark_control_response();
       maybe_poll(true);
       return;
     }
@@ -349,6 +373,7 @@ class KiwiCamper {
 
     std::string value;
     if (kfd::parse_message_pair(message, "freedv_job", value)) {
+      mark_control_response();
       try {
         apply_job(kfd::parse_decoder_job(value));
         metrics.auth_successes++;
@@ -671,6 +696,8 @@ int main() {
                 {"status_updates_total", metrics.status_updates.load()},
                 {"decode_seconds_total", metrics.decode_nanoseconds.load() / 1.0e9},
                 {"main_loop_age_seconds", main_loop_age_seconds()},
+                {"control_response_age_seconds", control_response_age_seconds()},
+                {"control_stalls_total", metrics.control_stalls.load()},
                 {"reporter", reporter_state()}};
   });
   dashboard.start();
@@ -696,6 +723,7 @@ int main() {
     } catch (const std::exception& error) {
       mark_main_loop_progress();
       metrics.kiwi_connected = 0;
+      metrics.control_response_heartbeat = 0;
       metrics.camper_connected = 0;
       metrics.sessions = 0;
       metrics.synced = 0;

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-24}
-release=${2:-v0.1.24}
+candidate=${1:-/opt/kiwi-freedv-v0-1-25}
+release=${2:-v0.1.25}
 health_release=${release#v}
 decoder_health_release=${3:-$health_release}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)

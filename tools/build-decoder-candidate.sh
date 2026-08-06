@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-release=${1:-0.1.24}
-archive=${2:-/root/freedv-v0-1-24-decoder.tgz}
+release=${1:-0.1.25}
+archive=${2:-/root/freedv-v0-1-25-decoder.tgz}
 candidate="/opt/kiwi-freedv-v${release//./-}"
 rade_pin=a36161bce0fb37daf3f4602344b095f6817dddb1
 opus_pin=940d4e5af64351ca8ba8390df3f555484c567fbb

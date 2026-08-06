@@ -105,9 +105,13 @@ discards stale state.
 The daemon binds `/healthz` and `/metrics` to `127.0.0.1:8074`. Metrics cover
 Kiwi/camper state, authenticated polls, sessions, SND/decoded frames, drops,
 reconnects, generation, sync, decoder CPU time, status updates, main-loop age
-and Reporter state. `/healthz` returns HTTP 503 when the Kiwi control loop is
-disconnected or stale. The in-process watchdog exits after 15 seconds without
-control-loop progress, allowing systemd to replace a wedged process; the
+and Reporter state. Decoder 0.1.25 also exports the age of the last authenticated
+job response and the number of stale-control recoveries. `/healthz` returns
+HTTP 503 when the Kiwi control loop is disconnected, when its main loop is
+stale, or when no authenticated poll response has arrived for more than ten
+seconds. The camper reconnects a stale control socket using its bounded
+backoff. The in-process watchdog exits after 15 seconds without main-loop
+progress, allowing systemd to replace a fully wedged process; the
 systemd service watchdog remains a second failure boundary. Reporter events use
 UDP loopback port 8075. The periodic event repeats the administrator-owned
 Reporter opt-in identity so the sidecar can recover after an independent
@@ -119,7 +123,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.24 adds a separate read-only management surface on
+Decoder service 0.1.25 includes a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open

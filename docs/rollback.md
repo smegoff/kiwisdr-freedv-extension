@@ -44,9 +44,9 @@ independently.
 For the reference deployment, the Kiwi runs `freedv-v0-1-33` on firmware
 1.902. The checksum-verified stock `baseline-1.902` is its immediate software
 rollback target; `freedv-v0-1-32` is retained as the immediate custom-release
-rollback. The decoder guest runs `0.1.24`, and the immediate guest rollback
-snapshot is `pre-decoder-v0-1-24`, taken before returned-audio pacing was
-deployed. The retained
+rollback. The decoder guest runs `0.1.25`, and the immediate guest rollback
+snapshot is `pre-decoder-v0-1-25`, taken before authenticated control-response
+liveness recovery was deployed. The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
 clean operating-system baseline. Superseded dashboard and v0.1.22 reliability
 snapshots were removed after v0.1.23 passed its browser tests and active
