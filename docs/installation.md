@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.34`, decoder service `0.1.26`, and KiwiSDR
+written for Kiwi extension `0.1.37`, decoder service `0.1.26`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]

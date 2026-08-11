@@ -5,6 +5,10 @@ cd "$kiwi"
 rm -f /root/freedv-build.log /root/freedv-build.exit
 target=${KIWI_BUILD_TARGET:-../build/kiwid.bin}
 if [[ $target == ../build/kiwid.bin ]]; then
+  cmp -s web/extensions/FreeDV/FreeDV.css web/extensions/FreeDV/FreeDV.min.css || {
+    echo "FreeDV optimized CSS is stale; regenerate FreeDV.min.css" >&2
+    exit 3
+  }
   gzip --fast --keep --force web/extensions/FreeDV/FreeDV.min.js
   gzip --fast --keep --force web/extensions/FreeDV/FreeDV.min.css
   rm -f web/kiwisdr.min.js web/kiwisdr.min.js.gz \
