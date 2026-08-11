@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-11 09:57 UTC (2026-08-11 21:57 NZST)
+Last verified: 2026-08-11 19:15 UTC (2026-08-12 07:15 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -14,10 +14,10 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-37`
+- active Kiwi release: `freedv-v0-1-38`
 - active Kiwi SHA-256:
-  `a134d497702cc06a59f219d77ee64307e4b058b6580d183c98b62fbf0d3a9ae1`
-- Kiwi BuildID: `f0c5632d896c509762068a6f79e4a8336d08bb78`
+  `6428e69f759a924cbc9f48a0f9025be0eaf4cdffc6f800e2525a0fca40c7798e`
+- Kiwi BuildID: `446cd0f180915cb171524377a8fa2a36c063aff2`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
 - decoder-guest release: `0.1.26`
@@ -32,6 +32,34 @@ and no AI-64 local-decoder service is enabled.
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.38 LAN-only diagnostics link
+
+Kiwi v0.1.38 adds a compact **Decoder diagnostics (LAN)** link beside Dropped
+frames. It points to `http://freedv-decoder.local:8076/` only when the receiver
+page hostname is loopback, RFC1918 or `.local`. It is not rendered for public
+reverse-proxy listeners, and no decoder port or browser-to-decoder transport is
+added.
+
+The pre-change Kiwi configuration archive contains 41 structurally verified
+entries, is 31,931,533 bytes and has SHA-256
+`542e73131bab87121eabb197243dc44beeb201c60ef9cc15a056241f65006ce7`.
+The production binary checksum and BuildID are recorded above. Real-browser
+acceptance verified that the exact dashboard link is visible at the local Kiwi
+address, the Help modal explains its LAN-only scope, and a fresh session through
+`21996.proxy2.kiwisdr.com` still exposes FreeDV and Open Reporter but contains
+no diagnostics link. The dashboard hostname returned HTTP 200 with its expected
+diagnostics page.
+
+The deployment then passed 21/21 post-restart samples. Every sample returned
+healthy Kiwi root HTML and firmware 1.902 plus decoder 0.1.26 with authenticated
+control-response age no greater than one second, zero control stalls, zero
+decoder sessions and zero dashboard clients. The evidence log SHA-256 is
+`2c635beca9ed24973dea9da3b6309dd23dc63c91454f15062f7f48b36e59242a`.
+No Kiwi watchdog, crash, authentication or audio-sequence matches and no orphan
+deployment wrapper were found. v0.1.37 is retained as the immediate custom
+rollback; superseded v0.1.34 and temporary candidate artifacts were removed,
+leaving about 505 MiB free on the Kiwi.
 
 ## v0.1.37 compact extension layout
 

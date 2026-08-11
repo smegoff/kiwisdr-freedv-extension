@@ -22,6 +22,7 @@
 .id-freedv-status > div:last-child { margin-bottom:0; }
 .id-freedv-reporter-row { overflow-wrap:anywhere; }
 .id-freedv-reporter-link { white-space:nowrap; }
+.id-freedv-diagnostics-link { white-space:nowrap; }
 .id-freedv-footer { margin-top:8px; padding-top:6px; border-top:1px solid #777; line-height:1.35; }
 .id-freedv-error { margin-top:5px; }
 .id-freedv-state,

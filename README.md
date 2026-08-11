@@ -41,6 +41,9 @@ the optional diagnostics page connects to its management-only web port.
 - Optional, independently gated RADEV1 decoder.
 - Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
+- A compact **Decoder diagnostics (LAN)** link in the FreeDV panel when the
+  receiver itself is opened from loopback, an RFC1918 address or a `.local`
+  hostname. The link is omitted for public reverse-proxy listeners.
 - Help panel covering the available modes and controls.
 - Authenticated Kiwi-to-decoder control, bounded audio queues, health metrics,
   watchdog recovery, atomic Kiwi releases, and rollback tooling.
@@ -51,7 +54,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.37 | Compact, overflow-safe manual frequency and Reporter layout |
+| Kiwi extension | 0.1.38 | Compact LAN-only diagnostics link plus the overflow-safe frequency and Reporter layout |
 | Decoder service | 0.1.26 | Authenticated, privacy-minimal live Reporter-frequency relay; deployed and soak-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |
@@ -249,6 +252,10 @@ Decoder service 0.1.26 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.
+When the Kiwi receiver is opened from the local network, the FreeDV panel
+footer links directly to this page. The link is intentionally absent when the
+receiver is opened through `proxy.kiwisdr.com`; this does not weaken the
+management-LAN firewall boundary or expose the dashboard publicly.
 The waterfall offers Cividis, Viridis, greyscale and the OpenWebRX Turbo,
 Classic/teejeez and HA7ILM colour schemes.
 The dashboard also offers a bounded in-memory download of the latest modem
