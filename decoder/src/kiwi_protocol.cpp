@@ -162,10 +162,16 @@ std::string hmac_sha256_hex(const std::string& key, const std::string& message) 
 }
 
 std::string make_poll_command(const std::string& secret, int64_t unix_seconds,
-                              const std::string& nonce) {
-  const std::string signed_value = "2|" + std::to_string(unix_seconds) + "|" + nonce;
+                              const std::string& nonce,
+                              const std::string& reporter_frequencies) {
+  const std::string prefix = "2|" + std::to_string(unix_seconds) + "|" + nonce;
+  if (reporter_frequencies.empty()) {
+    return "SET freedv_poll=2," + std::to_string(unix_seconds) + "," + nonce + "," +
+           hmac_sha256_hex(secret, prefix);
+  }
+  const std::string signed_value = prefix + "|" + reporter_frequencies;
   return "SET freedv_poll=2," + std::to_string(unix_seconds) + "," + nonce + "," +
-         hmac_sha256_hex(secret, signed_value);
+         hmac_sha256_hex(secret, signed_value) + "," + reporter_frequencies;
 }
 
 std::string url_encode(const std::string& value) {

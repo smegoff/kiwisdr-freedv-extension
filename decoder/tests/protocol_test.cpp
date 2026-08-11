@@ -21,6 +21,14 @@ int main() {
       "key", "The quick brown fox jumps over the lazy dog");
   assert(hmac == "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
   assert(kfd::make_poll_command("key", 123, "abcd").find("SET freedv_poll=2,123,abcd,") == 0);
+  const auto frequency_poll = kfd::make_poll_command("key", 123, "abcd", "7177000;14236000");
+  assert(frequency_poll.find("SET freedv_poll=2,123,abcd,") == 0);
+  const std::string frequency_suffix = ",7177000;14236000";
+  assert(frequency_poll.size() >= frequency_suffix.size());
+  assert(frequency_poll.compare(frequency_poll.size() - frequency_suffix.size(),
+                                frequency_suffix.size(), frequency_suffix) == 0);
+  assert(frequency_poll.find(kfd::hmac_sha256_hex(
+      "key", "2|123|abcd|7177000;14236000")) != std::string::npos);
   assert(kfd::control_response_stale(100, 0, 10));
   assert(!kfd::control_response_stale(100, 90, 10));
   assert(kfd::control_response_stale(101, 90, 10));

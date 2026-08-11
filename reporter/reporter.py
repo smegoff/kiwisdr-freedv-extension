@@ -12,13 +12,17 @@ import os
 import random
 import re
 import signal
+import tempfile
 import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.28"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.34"
 MODE_ACTIVITY_INTERVAL_SECONDS = 10.0
 SESSION_TIMEOUT_SECONDS = 15.0
+MAX_ACTIVE_FREQUENCIES = 64
+MIN_ADVERTISED_FREQUENCY_HZ = 100_000
+MAX_ADVERTISED_FREQUENCY_HZ = 100_000_000_000
 
 
 def build_auth(config):
@@ -50,6 +54,124 @@ async def publish_rx_selection(sio, frequency, mode, frequency_changed, mode_cha
 def mode_activity_due(last_activity, now):
     """Refresh RX mode periodically because Reporter does not replay last-RX state to new viewers."""
     return last_activity is None or now - last_activity >= MODE_ACTIVITY_INTERVAL_SECONDS
+
+
+class ActiveFrequencyCache:
+    """Track only the frequencies advertised by current Reporter stations.
+
+    Callsigns, locators, messages and browser identities are deliberately not
+    retained. The decoder and Kiwi receive only a sorted, de-duplicated list of
+    integer frequencies.
+    """
+
+    def __init__(self):
+        self.stations = {}
+
+    def clear(self):
+        self.stations.clear()
+
+    def apply(self, event, data):
+        if event == "bulk_update":
+            for item in data if isinstance(data, list) else []:
+                if isinstance(item, list) and len(item) == 2:
+                    self.apply(item[0], item[1])
+            return
+        if not isinstance(data, dict):
+            return
+        sid = str(data.get("sid", ""))
+        if not sid:
+            return
+        if event == "remove_connection":
+            self.stations.pop(sid, None)
+            return
+        if event != "freq_change":
+            return
+        try:
+            frequency = int(data.get("freq", 0))
+        except (TypeError, ValueError):
+            return
+        if MIN_ADVERTISED_FREQUENCY_HZ <= frequency <= MAX_ADVERTISED_FREQUENCY_HZ:
+            self.stations[sid] = frequency
+        else:
+            self.stations.pop(sid, None)
+
+    def frequencies(self):
+        return sorted(set(self.stations.values()))[:MAX_ACTIVE_FREQUENCIES]
+
+
+def write_active_frequencies(cache, path):
+    """Atomically publish a privacy-minimal Reporter frequency snapshot."""
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    payload = {
+        "version": 1,
+        "updated": int(time.time()),
+        "frequencies_hz": cache.frequencies(),
+    }
+    fd, temporary = tempfile.mkstemp(prefix=".freedv-frequencies-", dir=directory, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as output:
+            json.dump(payload, output, separators=(",", ":"))
+            output.write("\n")
+        os.replace(temporary, path)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+async def reporter_frequency_view(url, path):
+    """Maintain a read-only view connection for the live-frequency cache."""
+    import socketio
+
+    cache = ActiveFrequencyCache()
+    retry_delay = 1.0
+    while True:
+        sio = socketio.AsyncClient(reconnection=False, logger=False)
+        accepted = asyncio.Event()
+
+        def update(event, data):
+            cache.apply(event, data)
+            write_active_frequencies(cache, path)
+
+        @sio.on("connection_successful")
+        async def connection_successful(_data=None):
+            accepted.set()
+
+        @sio.on("bulk_update")
+        async def bulk_update(data):
+            update("bulk_update", data)
+
+        @sio.on("freq_change")
+        async def freq_change(data):
+            update("freq_change", data)
+
+        @sio.on("remove_connection")
+        async def remove_connection(data):
+            update("remove_connection", data)
+
+        try:
+            cache.clear()
+            write_active_frequencies(cache, path)
+            await sio.connect(url, auth={"role": "view", "protocol_version": 2}, wait_timeout=10)
+            await asyncio.wait_for(accepted.wait(), timeout=10)
+            retry_delay = 1.0
+            while sio.connected:
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            if sio.connected:
+                await sio.disconnect()
+            raise
+        except Exception as exc:
+            logging.warning("Reporter frequency view failed: %s", exc)
+        finally:
+            if sio.connected:
+                await sio.disconnect()
+            cache.clear()
+            write_active_frequencies(cache, path)
+        await asyncio.sleep(retry_delay * random.uniform(0.75, 1.25))
+        retry_delay = min(retry_delay * 2, 30.0)
 
 
 class ReporterState:
@@ -173,6 +295,8 @@ async def main():
         "message": os.getenv("FREEDV_REPORTER_MESSAGE", "")[:128],
     }
     url = os.getenv("FREEDV_REPORTER_URL", "https://qso.freedv.org")
+    frequencies_path = os.getenv(
+        "FREEDV_REPORTER_FREQUENCIES_FILE", "/tmp/freedv-reporter-frequencies.json")
     queue = asyncio.Queue(maxsize=64)
     loop = asyncio.get_running_loop()
     await loop.create_datagram_endpoint(lambda: Datagram(queue), local_addr=("127.0.0.1", 8075))
@@ -183,6 +307,7 @@ async def main():
     last_rade_activity = 0.0
     last_mode_activity = None
     write_state("disabled")
+    frequency_task = asyncio.create_task(reporter_frequency_view(url, frequencies_path))
 
     async def disconnect(new_state="disabled"):
         nonlocal last_freq, last_mode, last_message, last_mode_activity
@@ -192,7 +317,8 @@ async def main():
         last_mode_activity = None
         write_state(new_state)
 
-    while True:
+    try:
+      while True:
         try:
             event = await asyncio.wait_for(queue.get(), timeout=1.0)
             state.update(event)
@@ -265,6 +391,12 @@ async def main():
             await disconnect("error")
             next_retry = time.monotonic() + retry_delay * random.uniform(0.75, 1.25)
             retry_delay = min(retry_delay * 2, 30.0)
+    finally:
+        frequency_task.cancel()
+        try:
+            await frequency_task
+        except asyncio.CancelledError:
+            pass
 
 
 if __name__ == "__main__":

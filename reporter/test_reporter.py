@@ -1,6 +1,7 @@
 import asyncio
 import unittest
 from reporter.reporter import (
+    ActiveFrequencyCache,
     CALLSIGN,
     CLIENT_VERSION,
     GRID,
@@ -12,7 +13,11 @@ from reporter.reporter import (
     mode_activity_due,
     publish_rx_selection,
     rx_mode_activity,
+    write_active_frequencies,
 )
+import json
+import tempfile
+from pathlib import Path
 
 
 class FakeSocketIO:
@@ -47,6 +52,41 @@ class FakeSocketIO:
 
 
 class ReporterTests(unittest.TestCase):
+    def test_active_frequency_cache_is_deduplicated_and_privacy_minimal(self):
+        cache = ActiveFrequencyCache()
+        cache.apply("freq_change", {"sid": "one", "freq": 14236000,
+                                      "callsign": "ZL2ABC"})
+        cache.apply("freq_change", {"sid": "two", "freq": 14236000,
+                                      "grid_square": "RF80"})
+        cache.apply("freq_change", {"sid": "three", "freq": 7177000})
+        self.assertEqual(cache.frequencies(), [7177000, 14236000])
+        cache.apply("remove_connection", {"sid": "one"})
+        self.assertEqual(cache.frequencies(), [7177000, 14236000])
+        cache.apply("remove_connection", {"sid": "two"})
+        self.assertEqual(cache.frequencies(), [7177000])
+
+    def test_active_frequency_cache_accepts_bulk_updates_and_rejects_bad_values(self):
+        cache = ActiveFrequencyCache()
+        cache.apply("bulk_update", [
+            ["new_connection", {"sid": "one", "callsign": "ZL2ABC"}],
+            ["freq_change", {"sid": "one", "freq": 3625000}],
+            ["freq_change", {"sid": "bad", "freq": "not-a-number"}],
+        ])
+        self.assertEqual(cache.frequencies(), [3625000])
+
+    def test_frequency_file_contains_only_timestamp_version_and_frequencies(self):
+        cache = ActiveFrequencyCache()
+        cache.apply("freq_change", {"sid": "secret-sid", "freq": 7177000,
+                                      "callsign": "ZL2ABC"})
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "frequencies.json"
+            write_active_frequencies(cache, str(path))
+            payload = json.loads(path.read_text(encoding="ascii"))
+        self.assertEqual(set(payload), {"version", "updated", "frequencies_hz"})
+        self.assertEqual(payload["frequencies_hz"], [7177000])
+        self.assertNotIn("secret-sid", json.dumps(payload))
+        self.assertNotIn("ZL2ABC", json.dumps(payload))
+
     def test_identity_validation(self):
         self.assertTrue(CALLSIGN.fullmatch("ZL2ABC"))
         self.assertTrue(CALLSIGN.fullmatch("ZL2ABC/P"))
@@ -116,7 +156,7 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
         self.assertEqual(auth["version"], CLIENT_VERSION)
-        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.28")
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.34")
 
     def test_selected_codec_activity_has_no_transmitter_identity(self):
         payload = rx_mode_activity("700D")

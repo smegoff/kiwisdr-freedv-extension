@@ -49,7 +49,8 @@ std::vector<uint8_t> encode_kiwi_audio(const std::vector<int16_t>& samples, uint
 
 std::string hmac_sha256_hex(const std::string& key, const std::string& message);
 std::string make_poll_command(const std::string& secret, int64_t unix_seconds,
-                              const std::string& nonce);
+                              const std::string& nonce,
+                              const std::string& reporter_frequencies = {});
 std::string url_encode(const std::string& value);
 std::string url_decode(const std::string& value);
 bool parse_message_pair(const std::string& message, const std::string& name,

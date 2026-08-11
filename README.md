@@ -31,7 +31,10 @@ the optional diagnostics page connects to its management-only web port.
 - A flat 300–3000 Hz SSB receive path by default, following FreeDV guidance,
   with mode-shaped +350, +200 and +50 Hz manual overrides for difficult local
   interference.
-- Selector for 18 common FreeDV calling frequencies from 160 metres to QO-100.
+- Manual RF-frequency entry in MHz, kHz or Hz, independent of the Kiwi's native
+  frequency field.
+- Selector for 18 common FreeDV calling frequencies from 160 metres to QO-100,
+  augmented with frequencies currently advertised by FreeDV Reporter stations.
 - Built-in deterministic **Test 700D** and **Test RADE** references generated
   from the BSD-licensed FreeDV RADE C speech sample.
 - Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
@@ -48,10 +51,10 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.33 | Deployed on KiwiSDR 1.902; browser-accepted 700D and RADEV1 reference tests |
-| Decoder service | 0.1.25 | Proxmox-offloaded camper service with cadence-bounded returned audio and stale-control recovery |
+| Kiwi extension | 0.1.34 | Manual frequency entry and live Reporter-frequency presets; deployed and browser-accepted |
+| Decoder service | 0.1.26 | Authenticated, privacy-minimal live Reporter-frequency relay; deployed and soak-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
-| FreeDV Reporter | RX-only client 0.1.28 | Opt-in; selected RX codec, presence, restart recovery and removal tested |
+| FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
 | AI-64 local decoder | Separate experiment | Source-compatible tooling only; not used by or enabled on the reference deployment |
 
@@ -186,7 +189,8 @@ advanced or site-specific deployments. Both cover:
 
 1. Open a KiwiSDR receiver and choose **FreeDV** from the extension menu.
 2. Select the transmitted FreeDV mode.
-3. Tune manually or choose a common calling frequency.
+3. Enter a frequency in the panel (for example `14.236 MHz`, `14236 kHz` or
+   `14236000 Hz`) and press **Tune**, or choose a calling-frequency preset.
 4. Press **Start**.
 5. Watch the state, backend, synchronization, SNR, frequency offset,
    callsign/text, dropped-frame and Reporter fields.
@@ -197,6 +201,13 @@ The default **Flat (recommended)** filter keeps the SSB receive path at
 300–3000 Hz (mirrored for LSB) so Kiwi DSP does not reshape the modem waveform.
 Use the **Mode +350 Hz**, **Mode +200 Hz** or **Mode +50 Hz** overrides only
 when nearby interference justifies a fixed mode-shaped passband.
+
+Calling-frequency entries prefixed **[Reporter live]** are frequencies currently
+advertised by connected FreeDV Reporter stations. They refresh every 30 seconds,
+are de-duplicated, and are removed when no station advertises them. Static calling
+frequencies always remain available if Reporter is unreachable. Both manual and
+preset tuning apply the extension's automatic LSB/USB convention and the Kiwi's
+configured transverter offset and frequency-range checks.
 
 The reference button follows the selected codec. With **RADEV1** selected it
 shows **Test RADE** and sends a clean RADEV1 waveform. Every legacy-mode
@@ -227,14 +238,14 @@ decode session is allowed globally; a second listener receives a busy message
 instead of displacing the active session. Normal Kiwi admission rules, such as
 listener limits and any same-public-IP limit, still apply.
 
-Decoder v0.1.25 also checks the authenticated control response rather than
+Decoder v0.1.26 also checks the authenticated control response rather than
 equating an open TCP socket with a healthy connection. If Kiwi poll responses
 stop for more than ten seconds, the decoder marks the connection unhealthy and
 reconnects automatically.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.25 installs a lightweight read-only dashboard at
+Decoder service 0.1.26 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.

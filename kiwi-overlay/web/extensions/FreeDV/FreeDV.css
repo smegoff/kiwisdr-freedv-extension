@@ -4,8 +4,14 @@
 .id-freedv-intro > div { margin-bottom:3px; }
 .id-freedv-primary { display:grid; gap:10px; }
 .id-freedv-actions { display:flex; align-items:flex-end; gap:10px; margin-bottom:2px; }
+.id-freedv-manual-row { display:flex; align-items:flex-end; gap:8px; }
+.id-freedv-manual-row > div:first-child { flex:1; min-width:0; }
+.id-freedv-manual-row input { width:100%; box-sizing:border-box; }
+.id-freedv-manual-tune { flex:0 0 auto; margin-bottom:1px; }
+.id-freedv-calling-container { margin:0; }
 .id-freedv-calling,
 .id-freedv-filter { margin:0; }
+.id-freedv-live-note { margin-top:-5px; line-height:1.3; }
 .id-freedv-filter-note { margin-top:-4px; line-height:1.3; }
 .id-freedv-detail-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; margin-top:14px; }
 .id-freedv-radio-info,

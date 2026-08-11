@@ -58,10 +58,10 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.33", source)
+        self.assertIn(b"FreeDV v0.1.34", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.33"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.34"', SERVER.read_text(encoding="utf-8"))
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -185,10 +185,27 @@ class AudioGateTest(unittest.TestCase):
                 source,
             )
         self.assertIn("function freedv_calling_frequency_cb(path, index, first)", source)
-        self.assertIn("entry.kHz < range.lo_kHz || entry.kHz > range.hi_kHz", source)
-        self.assertIn("entry.kHz - range.offset_kHz", source)
-        self.assertIn("ext_tune(entry.kHz - range.offset_kHz, entry.sideband, ext_zoom.CUR)", source)
+        self.assertIn("freq_kHz < range.lo_kHz || freq_kHz > range.hi_kHz", source)
+        self.assertIn("freq_kHz - range.offset_kHz", source)
+        self.assertIn("ext_tune(freq_kHz - range.offset_kHz, sideband, ext_zoom.CUR)", source)
         self.assertIn("QO-100 requires a suitable downconverter/transverter", source)
+
+    def test_manual_and_live_reporter_frequency_controls(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        server = SERVER.read_text(encoding="utf-8")
+        self.assertIn("Manual frequency", source)
+        self.assertIn("14.236 MHz or 14236 kHz", source)
+        self.assertIn("function freedv_parse_manual_frequency(value)", source)
+        self.assertIn("function freedv_manual_tune_cb()", source)
+        self.assertIn("[Reporter live]", source)
+        self.assertIn("SET freedv_reporter_refresh", source)
+        self.assertIn("setInterval(freedv_refresh_reporter_frequencies, 30000)", source)
+        self.assertIn("clearInterval(freedv.reporter_frequency_timer)", source)
+        self.assertIn("case 'reporter_freqs':", source)
+        self.assertIn("SET freedv_reporter_refresh", server)
+        self.assertIn("freedv_store_reporter_frequencies", server)
+        self.assertIn("freedv_current_reporter_frequencies", server)
+        self.assertIn("%d|%lld|%s|%s", server)
 
     def test_radev1_requires_server_and_admin_feature_gate(self) -> None:
         server = SERVER.read_text(encoding="utf-8")
