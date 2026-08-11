@@ -17,6 +17,10 @@ var freedv = {
    rade_enabled: false,
    mode: 'RADEV1',
    calling_index: 0,
+   manual_frequency: '',
+   reporter_frequencies: [],
+   reporter_frequency_value: null,
+   reporter_frequency_timer: null,
    calling_frequencies: [
       { label: 'Select a calling frequency', kHz: 0, sideband: '' },
       { label: '160 m - 1.870 MHz LSB', kHz: 1870, sideband: 'lsb' },
@@ -65,6 +69,83 @@ function freedv_sideband_for_frequency(freq_kHz)
    freq_kHz = +freq_kHz;
    if (freq_kHz >= 5250 && freq_kHz < 5450) return 'usb';
    return (freq_kHz < 10000)? 'lsb':'usb';
+}
+
+function freedv_band_for_frequency(freq_kHz)
+{
+   if (freq_kHz >= 1800 && freq_kHz <= 2000) return '160 m';
+   if (freq_kHz >= 3500 && freq_kHz <= 4000) return '80 m';
+   if (freq_kHz >= 5250 && freq_kHz <= 5450) return '60 m';
+   if (freq_kHz >= 7000 && freq_kHz <= 7300) return '40 m';
+   if (freq_kHz >= 10100 && freq_kHz <= 10150) return '30 m';
+   if (freq_kHz >= 14000 && freq_kHz <= 14350) return '20 m';
+   if (freq_kHz >= 18068 && freq_kHz <= 18168) return '17 m';
+   if (freq_kHz >= 21000 && freq_kHz <= 21450) return '15 m';
+   if (freq_kHz >= 24890 && freq_kHz <= 24990) return '12 m';
+   if (freq_kHz >= 28000 && freq_kHz <= 29700) return '10 m';
+   return '';
+}
+
+function freedv_calling_entries()
+{
+   return freedv.calling_frequencies.concat(freedv.reporter_frequencies);
+}
+
+function freedv_calling_select_html()
+{
+   var labels = freedv_calling_entries().map(function(entry) { return entry.label; });
+   return w3_select('id-freedv-calling w3-text-red', 'Calling frequency', '',
+      'freedv.calling_index', freedv.calling_index, labels,
+      'freedv_calling_frequency_cb');
+}
+
+function freedv_update_reporter_frequencies(value)
+{
+   value = value || '-';
+   if (value == freedv.reporter_frequency_value) {
+      if (w3_el('id-freedv-live-note'))
+         w3_innerHTML('id-freedv-live-note', freedv.reporter_frequencies.length?
+            freedv.reporter_frequencies.length +' currently advertised Reporter frequenc'+
+               (freedv.reporter_frequencies.length == 1? 'y':'ies') +
+               ' are marked [Reporter live].':
+            'No live Reporter frequencies are currently advertised; static calling frequencies remain available.');
+      return;
+   }
+   freedv.reporter_frequency_value = value;
+   var seen = {};
+   var entries = [];
+   if (value && value != '-') {
+      value.split(';').forEach(function(raw) {
+         var hz = +raw;
+         if (!isFinite(hz) || hz < 100000 || hz > 100000000000 || seen[hz]) return;
+         seen[hz] = true;
+         var kHz = hz / 1000;
+         var sideband = freedv_sideband_for_frequency(kHz);
+         var band = freedv_band_for_frequency(kHz);
+         entries.push({
+            label: '[Reporter live] '+ (band? band +' - ':'') +
+               (kHz / 1000).toFixed(kHz < 10000? 4:3) +' MHz '+ sideband.toUpperCase(),
+            kHz: kHz,
+            sideband: sideband,
+            reporter: true
+         });
+      });
+   }
+   entries.sort(function(a, b) { return a.kHz - b.kHz; });
+   freedv.reporter_frequencies = entries;
+   freedv.calling_index = 0;
+   if (w3_el('id-freedv-calling-container'))
+      w3_innerHTML('id-freedv-calling-container', freedv_calling_select_html());
+   if (w3_el('id-freedv-live-note'))
+      w3_innerHTML('id-freedv-live-note', entries.length?
+         entries.length +' currently advertised Reporter frequenc'+ (entries.length == 1? 'y':'ies') +
+            ' are marked [Reporter live].':
+         'No live Reporter frequencies are currently advertised; static calling frequencies remain available.');
+}
+
+function freedv_refresh_reporter_frequencies()
+{
+   ext_send('SET freedv_reporter_refresh');
 }
 
 function freedv_filter_key()
@@ -251,6 +332,9 @@ function freedv_recv(data)
             freedv.reporter_enabled = (+value != 0);
             freedv_update_reporter_state();
             break;
+         case 'reporter_freqs':
+            freedv_update_reporter_frequencies(value);
+            break;
          case 'ready':
             freedv_controls_setup();
             break;
@@ -328,7 +412,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.33 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.34 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -340,10 +424,9 @@ function freedv_controls_setup()
    }
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz(),
       freedv_filter_guard_hz());
-   var calling_labels = freedv.calling_frequencies.map(function(entry) { return entry.label; });
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.33 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.34 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -356,9 +439,14 @@ function freedv_controls_setup()
             w3_button('id-freedv-test w3-aqua w3-margin-T-8',
                freedv_selected_test_mode() == 'RADEV1'? 'Test RADE':'Test 700D',
                'freedv_test_cb')),
-         w3_select('id-freedv-calling w3-text-red', 'Calling frequency', '',
-            'freedv.calling_index', freedv.calling_index, calling_labels,
-            'freedv_calling_frequency_cb'),
+         w3_div('id-freedv-manual-row',
+            w3_input('id-freedv-manual/w3-label-not-bold/|size=18',
+               'Manual frequency', 'freedv.manual_frequency', freedv.manual_frequency,
+               'freedv_manual_frequency_cb', '14.236 MHz or 14236 kHz'),
+            w3_button('id-freedv-manual-tune w3-blue', 'Tune', 'freedv_manual_tune_cb')),
+         w3_div('id-freedv-calling-container', freedv_calling_select_html()),
+         w3_div('id-freedv-live-note w3-small w3-text-light-grey',
+            'Loading currently advertised Reporter frequencies...'),
          w3_select('id-freedv-filter w3-text-red', 'Receiver filter', '',
             'freedv.filter_index', freedv.filter_index, freedv.filter_modes,
             'freedv_filter_cb'),
@@ -389,36 +477,82 @@ function freedv_controls_setup()
          w3_div('w3-small', 'Dropped frames: ', w3_div('id-freedv-dropped w3-show-inline', '0')),
          w3_div('id-freedv-error w3-small w3-text-red')));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(540, 500);
+   ext_set_controls_width_height(560, 570);
    freedv_update_test_button();
    freedv_force_noise_filter_off();
    freedv_apply_receiver_profile();
    ext_send('SET freedv_setup');
+   freedv_refresh_reporter_frequencies();
+   if (freedv.reporter_frequency_timer) clearInterval(freedv.reporter_frequency_timer);
+   freedv.reporter_frequency_timer = setInterval(freedv_refresh_reporter_frequencies, 30000);
+}
+
+function freedv_tune_frequency(freq_kHz, sideband, label)
+{
+   var range = ext_get_freq_range();
+   if (freq_kHz < range.lo_kHz || freq_kHz > range.hi_kHz) {
+      w3_innerHTML('id-freedv-error',
+         label +' is outside this Kiwi\'s configured frequency range. ' +
+         'QO-100 requires a suitable downconverter/transverter frequency offset in Kiwi Admin.');
+      return false;
+   }
+   w3_innerHTML('id-freedv-error', '');
+   ext_tune(freq_kHz - range.offset_kHz, sideband, ext_zoom.CUR);
+   freedv_apply_receiver_profile();
+   return true;
+}
+
+function freedv_parse_manual_frequency(value)
+{
+   var match = String(value || '').trim().toLowerCase().match(
+      /^([0-9]+(?:\.[0-9]+)?)\s*(mhz|khz|hz)?$/);
+   if (!match) return NaN;
+   var frequency = +match[1];
+   var unit = match[2] || (frequency < 1000? 'mhz':'khz');
+   if (unit == 'mhz') return frequency * 1000;
+   if (unit == 'hz') return frequency / 1000;
+   return frequency;
+}
+
+function freedv_manual_frequency_cb(path, value)
+{
+   freedv.manual_frequency = value;
+}
+
+function freedv_manual_tune_cb()
+{
+   if (freedv.testing) return;
+   var element = w3_el('freedv.manual_frequency');
+   var value = element? element.value:freedv.manual_frequency;
+   var freq_kHz = freedv_parse_manual_frequency(value);
+   if (!isFinite(freq_kHz) || freq_kHz <= 0) {
+      w3_innerHTML('id-freedv-error',
+         'Enter a frequency such as 14.236 MHz, 14236 kHz or 14236000 Hz.');
+      return;
+   }
+   var sideband = freedv_sideband_for_frequency(freq_kHz);
+   if (freedv_tune_frequency(freq_kHz, sideband, 'The manual frequency')) {
+      freedv.manual_frequency = (freq_kHz / 1000).toFixed(freq_kHz < 10000? 4:3) +' MHz';
+      if (element) element.value = freedv.manual_frequency;
+      freedv.calling_index = 0;
+      w3_select_value('freedv.calling_index', 0);
+   }
 }
 
 function freedv_calling_frequency_cb(path, index, first)
 {
    if (first || freedv.testing) return;
    index = +index;
-   var entry = freedv.calling_frequencies[index];
+   var entry = freedv_calling_entries()[index];
    if (!entry || !entry.kHz) return;
 
-   var range = ext_get_freq_range();
-   if (entry.kHz < range.lo_kHz || entry.kHz > range.hi_kHz) {
-      w3_innerHTML('id-freedv-error',
-         entry.label +' is outside this Kiwi\'s configured frequency range. ' +
-         'QO-100 requires a suitable downconverter/transverter frequency offset in Kiwi Admin.');
+   if (!freedv_tune_frequency(entry.kHz, entry.sideband, entry.label)) {
       freedv.calling_index = 0;
       w3_select_value(path, 0);
       return;
    }
 
    freedv.calling_index = index;
-   w3_innerHTML('id-freedv-error', '');
-   // Calling frequencies are displayed RF frequencies. Kiwi tuning uses the
-   // receiver frequency after subtracting any configured transverter offset.
-   ext_tune(entry.kHz - range.offset_kHz, entry.sideband, ext_zoom.CUR);
-   freedv_apply_receiver_profile();
 }
 
 function freedv_mode_cb(path, index, first)
@@ -588,6 +722,8 @@ function FreeDV_environment_changed(changed)
 
 function FreeDV_blur()
 {
+   if (freedv.reporter_frequency_timer) clearInterval(freedv.reporter_frequency_timer);
+   freedv.reporter_frequency_timer = null;
    ext_send('SET freedv_close');
    freedv_stop_ui(false);
    freedv.generation = 0;
@@ -686,8 +822,15 @@ function FreeDV_help(show)
 
          '<b>Calling frequencies</b><br>' +
          calling_help + '<br><br>' +
-         'The Calling frequency list tunes common FreeDV activity frequencies and sets ' +
-         'the listed sideband. The 14.236 MHz 20 metre entry is marked as the most common. ' +
+         'Enter an RF frequency in the panel\'s <b>Manual frequency</b> field using MHz, ' +
+         'kHz or Hz, then press Tune. With no unit, values below 1000 are treated as MHz ' +
+         'and larger values as kHz. This avoids needing the Kiwi\'s native frequency field. ' +
+         'The Calling frequency list retains the common FreeDV frequencies and also adds ' +
+         'frequencies currently advertised by connected FreeDV Reporter stations. Dynamic ' +
+         'entries are marked <b>[Reporter live]</b>, refresh every 30 seconds and disappear ' +
+         'when no station advertises them. Reporter outages never remove the static list. ' +
+         'Both controls set LSB/USB automatically using the amateur voice convention. ' +
+         'The 14.236 MHz 20 metre entry is marked as the most common. ' +
          'Selecting a frequency does not start decoding; choose the transmitted FreeDV ' +
          'mode and press Start. The QO-100 entry is available only when the Kiwi has a ' +
          'suitable downconverter/transverter frequency offset configured in Admin.<br><br>' +

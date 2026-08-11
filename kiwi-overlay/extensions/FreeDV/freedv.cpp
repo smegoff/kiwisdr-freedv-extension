@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.33"
+#define FREEDV_RELEASE "0.1.34"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -71,6 +71,8 @@ static freedv_nonce_t recent_nonces[FREEDV_NONCES];
 static int nonce_position;
 static char shared_secret[192];
 static bool secret_loaded;
+static char reporter_frequencies[768];
+static time_t reporter_frequencies_seen;
 static freedv_test_t test_700d_signal;
 static freedv_test_t test_rade_signal;
 
@@ -230,6 +232,49 @@ static bool freedv_load_secret()
     }
     fclose(file);
     return strlen(shared_secret) >= 32;
+}
+
+static const char *freedv_current_reporter_frequencies()
+{
+    time_t now = time(NULL);
+    if (!reporter_frequencies[0] || !reporter_frequencies_seen ||
+        now < reporter_frequencies_seen || now - reporter_frequencies_seen > 120)
+        return "-";
+    return reporter_frequencies;
+}
+
+static bool freedv_store_reporter_frequencies(const char *value)
+{
+    if (!value || strcmp(value, "-") == 0) {
+        reporter_frequencies[0] = 0;
+        reporter_frequencies_seen = time(NULL);
+        return true;
+    }
+    char input[768];
+    kiwi_strncpy(input, value, sizeof(input));
+    char normalized[768] = {0};
+    size_t used = 0;
+    unsigned count = 0;
+    char *save = NULL;
+    for (char *token = strtok_r(input, ";", &save); token;
+         token = strtok_r(NULL, ";", &save)) {
+        if (!*token) return false;
+        char *end = NULL;
+        unsigned long long frequency = strtoull(token, &end, 10);
+        if (!end || *end || frequency < 100000ULL || frequency > 100000000000ULL)
+            return false;
+        char number[32];
+        int length = snprintf(number, sizeof(number), "%s%llu",
+            count? ";":"", frequency);
+        if (length <= 0 || used + (size_t) length >= sizeof(normalized)) return false;
+        memcpy(normalized + used, number, length);
+        used += length;
+        normalized[used] = 0;
+        if (++count >= 48) break;
+    }
+    kiwi_strncpy(reporter_frequencies, normalized, sizeof(reporter_frequencies));
+    reporter_frequencies_seen = time(NULL);
+    return true;
 }
 
 static void freedv_hmac_sha256(const char *key, const char *message, BYTE digest[SHA256_BLOCK_SIZE])
@@ -431,16 +476,22 @@ bool freedv_msgs(char *msg, int rx_chan)
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
             "EXT rade_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
-            "test_available=%d test_700d_available=%d test_rade_available=%d",
+            "test_available=%d test_700d_available=%d test_rade_available=%d reporter_freqs=%s",
             cfg_true("freedv.rade_enabled")? 1:0,
             cfg_true("freedv.reporter_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
             test_700d_signal.sample_count? 1:0,
             test_700d_signal.sample_count? 1:0,
-            test_rade_signal.sample_count? 1:0);
+            test_rade_signal.sample_count? 1:0,
+            freedv_current_reporter_frequencies());
         return true;
     }
     if (strcmp(msg, "SET freedv_setup") == 0) {
         freedv_ensure_setup(rx_chan);
+        return true;
+    }
+    if (strcmp(msg, "SET freedv_reporter_refresh") == 0) {
+        ext_send_msg(rx_chan, false, "EXT reporter_freqs=%s",
+            freedv_current_reporter_frequencies());
         return true;
     }
 
@@ -557,9 +608,12 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
     long long timestamp = 0;
     char nonce[17] = {0};
     char supplied_hmac[65] = {0};
+    char supplied_frequencies[768] = {0};
     char extra = 0;
-    if (sscanf(arguments, "%d,%lld,%16[0-9a-fA-F],%64[0-9a-fA-F]%c",
-            &protocol, &timestamp, nonce, supplied_hmac, &extra) != 4 || protocol != FREEDV_PROTOCOL) {
+    int fields = sscanf(arguments,
+        "%d,%lld,%16[0-9a-fA-F],%64[0-9a-fA-F],%767[0-9;-]%c",
+        &protocol, &timestamp, nonce, supplied_hmac, supplied_frequencies, &extra);
+    if ((fields != 4 && fields != 5) || protocol != FREEDV_PROTOCOL) {
         send_msg(conn_mon, false, "MSG freedv_auth=format");
         return true;
     }
@@ -575,12 +629,20 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
         return true;
     }
 
-    char signed_value[96];
-    kiwi_snprintf_buf(signed_value, "%d|%lld|%s", protocol, timestamp, nonce);
+    char signed_value[1024];
+    if (fields == 5)
+        kiwi_snprintf_buf(signed_value, "%d|%lld|%s|%s",
+            protocol, timestamp, nonce, supplied_frequencies);
+    else
+        kiwi_snprintf_buf(signed_value, "%d|%lld|%s", protocol, timestamp, nonce);
     BYTE digest[SHA256_BLOCK_SIZE];
     freedv_hmac_sha256(shared_secret, signed_value, digest);
     if (!freedv_constant_hex_equal(digest, supplied_hmac)) {
         send_msg(conn_mon, false, "MSG freedv_auth=hmac");
+        return true;
+    }
+    if (fields == 5 && !freedv_store_reporter_frequencies(supplied_frequencies)) {
+        send_msg(conn_mon, false, "MSG freedv_auth=frequencies");
         return true;
     }
 

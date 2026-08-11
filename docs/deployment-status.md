@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-06 19:10 UTC (2026-08-07 07:10 NZST)
+Last verified: 2026-08-11 07:44 UTC (2026-08-11 19:44 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -14,24 +14,78 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-33`
+- active Kiwi release: `freedv-v0-1-34`
 - active Kiwi SHA-256:
-  `94b4bf0723236e906108bdb601219265a8d0d10968f74f6bef23e42e4c73395c`
-- Kiwi BuildID: `a4be1d019b6523c727e90f125b19bf298e7fcf2f`
+  `eea15c26a43ebb76dcb9503feb4dc8fb7a09a7836843f08f5a0b01c9b7d7c063`
+- Kiwi BuildID: `6429d2ae6bea30ae31d634f615a14ebf121ef775`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.25`
+- decoder-guest release: `0.1.26`
 - decoder binary SHA-256:
-  `bb99468320cc8501ed2770acb90ee8be441531c69450d9f8a1c8ca0fc4be8630`
+  `5a47abbfbfc8e4d67b6601fbf678ef47923b1eb17d2aa047caef35dca628531d`
 - Reporter sidecar SHA-256:
-  `1b4263a0b19c99044e7e8f5391641b740cc0febfa31c25d2ec9ff1a9b86568c5`
-- Reporter client: `KiwiSDR-FreeDV/0.1.28`
-- decoder dashboard assets: `0.1.25`
-- decoder-guest snapshot: `pre-decoder-v0-1-25`
+  `6aec6f93ef444589acf6205a6240141dd8e65c1668077e37f77c652625f48c8d`
+- Reporter client: `KiwiSDR-FreeDV/0.1.34`
+- decoder dashboard assets: `0.1.26`
+- decoder-guest snapshot: `pre-decoder-v0-1-26`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.34 manual and live Reporter frequencies
+
+Kiwi v0.1.34 adds a FreeDV-owned manual frequency field, so a listener can
+enter values such as `14.236 MHz`, `14236 kHz` or `14236000 Hz` without using
+the receiver's native frequency field. Unitless values below 1000 are treated
+as MHz and larger values as kHz. The extension validates the configured Kiwi
+range, tunes the receiver and applies the amateur voice sideband convention
+automatically.
+
+Decoder v0.1.26 adds a separate read-only FreeDV Reporter viewer connection.
+It retains only the currently advertised numeric receive frequencies and
+writes no station names, callsigns, locators, messages, browser identifiers or
+Reporter session identifiers to the relay cache. The frequencies are carried
+inside the existing HMAC-authenticated decoder poll, cached on the Kiwi for at
+most 120 seconds and delivered to every browser through the normal extension
+WebSocket. Browsers never connect to the decoder guest or Reporter directly.
+The calling-frequency selector merges the static operating list with these
+dynamic entries, marking each one **[Reporter live]** and retaining the static
+list during Reporter outages.
+
+The production decoder candidate passed all four CTest targets and its RADEV1
+reference decoded 150,880 synchronized speech samples at about 0.020 real-time
+factor. The local automated suites passed 63 tests covering the extension,
+Reporter cache and decoder protocol. A fresh local browser rendered FreeDV
+v0.1.34, 13-14 changing live Reporter entries, the manual field and updated
+Help. Manual tuning selected 7.177 MHz LSB. Test 700D completed with Codec2,
+sync, about 31 dB SNR, near-zero offset and zero drops; Test RADE completed
+with the RADE v1 backend, sync, about 35 dB SNR, near-zero offset and zero
+drops.
+
+The same checks were repeated through John's public Kiwi reverse proxy. A
+fresh ordinary-listener session received the dynamic Reporter list through the
+private relay, manually tuned 14.236 MHz USB and completed Test RADE with the
+normal Kiwi return-audio path. No browser warning or error was recorded. A
+The final deployment gate passed 41/41 Kiwi samples and 41/41 decoder samples
+at 15-second intervals. Every Kiwi sample reported firmware 1.902, active
+release v0.1.34, a healthy service, `/status`, root UI, embedded browser assets,
+zero deployment wrappers and zero critical journal matches. After browser
+cleanup the receiver stayed at zero listeners. Every decoder sample reported
+release 0.1.26, authenticated Kiwi control with zero stalls, zero sessions and
+campers, two active services, loopback-only port 8074 and zero critical journal
+matches. The Kiwi evidence SHA-256 is
+`1161b5c968862d2bcef72216f550b7b79f598676e7ee017bc9cf5402529ca0c8`;
+the decoder evidence SHA-256 is
+`ceadb9a0e51fe6fe77ee13969ad23e6ca0cabdc025a6defca86225407c7968f0`.
+
+After acceptance, the superseded decoder snapshot
+`pre-decoder-v0-1-25`, inactive Kiwi release `freedv-v0-1-32`, verified build
+copy and temporary transfer archives were removed. The Kiwi retains the stock
+1.901 and 1.902 baselines, active v0.1.34 and immediate custom rollback
+v0.1.33; free storage increased to about 509 MB. The decoder guest retains the
+clean OS baseline, RADEV1 architectural checkpoint and immediate rollback
+snapshot `pre-decoder-v0-1-26`.
 
 ## Public reverse-proxy acceptance and decoder v0.1.25 liveness
 

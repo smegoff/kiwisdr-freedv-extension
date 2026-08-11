@@ -21,6 +21,15 @@ previously unseen nonces, protocol 2, and a constant-time matching HMAC. The
 secret is loaded from `/root/decoder.env`; it is not stored in `kiwi.json` or
 sent to a browser.
 
+Decoder 0.1.26 may append a semicolon-separated list of integer frequencies
+currently advertised through FreeDV Reporter. When present, the signed value is
+`2|<unix-seconds>|<nonce>|<frequencies>` and the entire list is covered by the
+HMAC. The Kiwi validates every value, retains at most 48 entries for 120 seconds,
+and exposes only those frequency numbers to the extension. Callsigns, locators,
+messages, Socket.IO session identifiers and listener identities are not relayed.
+The older four-field protocol-v2 poll remains valid so the Kiwi candidate can be
+deployed before the decoder candidate.
+
 A valid poll receives URL-encoded JSON:
 
 ```text
@@ -105,7 +114,7 @@ discards stale state.
 The daemon binds `/healthz` and `/metrics` to `127.0.0.1:8074`. Metrics cover
 Kiwi/camper state, authenticated polls, sessions, SND/decoded frames, drops,
 reconnects, generation, sync, decoder CPU time, status updates, main-loop age
-and Reporter state. Decoder 0.1.25 also exports the age of the last authenticated
+and Reporter state. Decoder 0.1.26 also exports the age of the last authenticated
 job response and the number of stale-control recoveries. `/healthz` returns
 HTTP 503 when the Kiwi control loop is disconnected, when its main loop is
 stale, or when no authenticated poll response has arrived for more than ten
@@ -123,7 +132,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.25 includes a separate read-only management surface on
+Decoder service 0.1.26 includes a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open

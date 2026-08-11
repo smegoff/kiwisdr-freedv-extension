@@ -42,7 +42,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.25";
+constexpr char kRelease[] = "0.1.26";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;
@@ -107,6 +107,36 @@ std::string reporter_state() {
   if (state == "connecting" || state == "online" || state == "rate-limited" ||
       state == "error" || state == "disabled") return state;
   return "disabled";
+}
+
+std::string reporter_frequencies() {
+  try {
+    std::ifstream input(env_or("FREEDV_REPORTER_FREQUENCIES_FILE",
+                               "/tmp/freedv-reporter-frequencies.json"));
+    if (!input) return "-";
+    json value;
+    input >> value;
+    if (value.value("version", 0) != 1 || !value.contains("frequencies_hz") ||
+        !value["frequencies_hz"].is_array()) return "-";
+    std::vector<uint64_t> frequencies;
+    for (const auto& item : value["frequencies_hz"]) {
+      if (!item.is_number_unsigned() && !item.is_number_integer()) continue;
+      const int64_t frequency = item.get<int64_t>();
+      if (frequency >= 100000 && frequency <= 100000000000LL)
+        frequencies.push_back(static_cast<uint64_t>(frequency));
+      if (frequencies.size() >= 64) break;
+    }
+    std::sort(frequencies.begin(), frequencies.end());
+    frequencies.erase(std::unique(frequencies.begin(), frequencies.end()), frequencies.end());
+    std::ostringstream output;
+    for (std::size_t i = 0; i < frequencies.size(); ++i) {
+      if (i) output << ';';
+      output << frequencies[i];
+    }
+    return output.str().empty() ? "-" : output.str();
+  } catch (...) {
+    return "-";
+  }
 }
 
 void reporter_send(const json& event) {
@@ -339,7 +369,8 @@ class KiwiCamper {
     if (!force && now < next_poll_) return;
     const auto unix_seconds = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    send_text(kfd::make_poll_command(secret_, unix_seconds, random_nonce()));
+    send_text(kfd::make_poll_command(secret_, unix_seconds, random_nonce(),
+                                     reporter_frequencies()));
     next_poll_ = now + (job_.test && !job_.test_ready ?
         std::chrono::milliseconds(100) : std::chrono::milliseconds(1000));
   }
