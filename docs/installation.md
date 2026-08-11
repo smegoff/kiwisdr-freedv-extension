@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.37`, decoder service `0.1.26`, and KiwiSDR
+written for Kiwi extension `0.1.38`, decoder service `0.1.26`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]
@@ -213,6 +213,12 @@ login, so every host admitted by that rule can view diagnostics. Do not expose
 it to the public internet and do not open port 8074. Then open
 `http://freedv-decoder.local:8076/` or use the guest's private address. Full
 operation and security notes are in [dashboard.md](dashboard.md).
+
+Kiwi extension 0.1.38 also shows **Decoder diagnostics (LAN)** beside the
+dropped-frame counter when the receiver page was opened through loopback, an
+RFC1918 address or a `.local` hostname. It deliberately omits the link on
+John's public Kiwi reverse proxy. This is only a convenient link: firewall TCP
+8076 restrictions remain the security boundary.
 
 ## 5. Prepare and build the Kiwi overlay
 

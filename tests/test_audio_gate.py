@@ -58,10 +58,10 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.37", source)
+        self.assertIn(b"FreeDV v0.1.38", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.37"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.38"', SERVER.read_text(encoding="utf-8"))
 
         css = (WEB / "FreeDV.css").read_bytes()
         optimized_css = (WEB / "FreeDV.min.css").read_bytes()
@@ -98,6 +98,19 @@ class AudioGateTest(unittest.TestCase):
         self.assertIn("https://qso.freedv.org/", help_callback.group(1))
         self.assertIn("<b>Test RADE</b>", help_callback.group(1))
         self.assertIn("<b>Test 700D</b>", help_callback.group(1))
+        self.assertIn("<b>Decoder diagnostics</b>", help_callback.group(1))
+
+    def test_decoder_diagnostics_link_is_lan_only(self) -> None:
+        source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
+        self.assertIn("function freedv_is_local_page()", source)
+        self.assertIn("host.endsWith('.local')", source)
+        self.assertIn("/^(127|10)\\./.test(host)", source)
+        self.assertIn("/^192\\.168\\./.test(host)", source)
+        self.assertIn("private_172[1] >= 16", source)
+        self.assertIn("private_172[1] <= 31", source)
+        self.assertIn("if (!freedv_is_local_page()) return ''", source)
+        self.assertIn("http://freedv-decoder.local:8076/", source)
+        self.assertIn("Decoder diagnostics (LAN)", source)
 
     def test_receiver_sideband_and_mode_filter_profiles(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")
@@ -241,6 +254,7 @@ class AudioGateTest(unittest.TestCase):
             "id-freedv-radio-info",
             "id-freedv-status",
             "id-freedv-reporter-link",
+            "id-freedv-diagnostics-link",
             "id-freedv-footer",
         ):
             self.assertIn(section, browser)

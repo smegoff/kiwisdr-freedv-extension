@@ -109,6 +109,27 @@ function freedv_reporter_frequency_note()
       'https://qso.freedv.org/', 'Open Reporter');
 }
 
+// The decoder dashboard is deliberately a management-LAN service. Only offer
+// the link when this receiver page was itself opened using a loopback, RFC1918
+// or mDNS-local hostname. In particular, don't advertise an unreachable LAN
+// URL to listeners using proxy.kiwisdr.com.
+function freedv_is_local_page()
+{
+   var host = String(window.location.hostname || '').toLowerCase();
+   if (host == 'localhost' || host == '::1' || host == '[::1]' ||
+       host.endsWith('.local')) return true;
+   if (/^(127|10)\./.test(host) || /^192\.168\./.test(host)) return true;
+   var private_172 = host.match(/^172\.(\d+)\./);
+   return !!(private_172 && +private_172[1] >= 16 && +private_172[1] <= 31);
+}
+
+function freedv_diagnostics_link_html()
+{
+   if (!freedv_is_local_page()) return '';
+   return ' &middot; '+ w3_link('id-freedv-diagnostics-link w3-small',
+      'http://freedv-decoder.local:8076/', 'Decoder diagnostics (LAN)');
+}
+
 function freedv_update_reporter_frequencies(value)
 {
    value = value || '-';
@@ -415,7 +436,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.37 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.38 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -429,7 +450,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.37 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.38 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -474,7 +495,9 @@ function freedv_controls_setup()
                w3_div('id-freedv-reporter w3-show-inline',
                   freedv.reporter_enabled? 'enabled (idle)':'disabled')))),
       w3_div('id-freedv-footer',
-         w3_div('w3-small', 'Dropped frames: ', w3_div('id-freedv-dropped w3-show-inline', '0')),
+         w3_div('w3-small', 'Dropped frames: ',
+            w3_div('id-freedv-dropped w3-show-inline', '0'),
+            freedv_diagnostics_link_html()),
          w3_div('id-freedv-error w3-small w3-text-red')));
    ext_panel_show(controls, null, null);
    ext_set_controls_width_height(560, 570);
@@ -858,6 +881,13 @@ function FreeDV_help(show)
          'Start the panel should move from connecting to online. Open the public ' +
          '<a href="https://qso.freedv.org/" target="_blank">FreeDV Reporter</a> ' +
          'to view the receiving station and its selected RX mode.<br><br>' +
+
+         '<b>Decoder diagnostics</b><br>' +
+         'When the Kiwi receiver is opened from the local network, the panel footer ' +
+         'shows a <b>Decoder diagnostics (LAN)</b> link to the external decoder\'s ' +
+         'read-only status dashboard. The link is intentionally hidden from public ' +
+         'Kiwi reverse-proxy listeners because the dashboard is reachable only from ' +
+         'the management LAN.<br><br>' +
 
          '<b>More information</b><br>' +
          'Installation, architecture, mode notes, rollback guidance and current test ' +
