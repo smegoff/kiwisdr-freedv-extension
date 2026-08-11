@@ -58,10 +58,19 @@ class AudioGateTest(unittest.TestCase):
         source = (WEB / "FreeDV.min.js").read_bytes()
         packaged = gzip.decompress((WEB / "FreeDV.min.js.gz").read_bytes())
         self.assertEqual(source, packaged)
-        self.assertIn(b"FreeDV v0.1.34", source)
+        self.assertIn(b"FreeDV v0.1.37", source)
         self.assertIn(b"Built with ", source)
         self.assertIn(b"https://freedv.org/", source)
-        self.assertIn('#define FREEDV_RELEASE "0.1.34"', SERVER.read_text(encoding="utf-8"))
+        self.assertIn('#define FREEDV_RELEASE "0.1.37"', SERVER.read_text(encoding="utf-8"))
+
+        css = (WEB / "FreeDV.css").read_bytes()
+        optimized_css = (WEB / "FreeDV.min.css").read_bytes()
+        packaged_css = gzip.decompress((WEB / "FreeDV.min.css.gz").read_bytes())
+        self.assertEqual(css, optimized_css)
+        self.assertEqual(optimized_css, packaged_css)
+        self.assertIn(b".id-freedv-manual-row { display:flex;", optimized_css)
+        self.assertIn(b"width:245px", optimized_css)
+        self.assertIn(b"padding:10px 16px", optimized_css)
 
     def test_help_modal_is_enabled_and_covers_every_mode(self) -> None:
         source = (WEB / "FreeDV.js").read_text(encoding="utf-8")

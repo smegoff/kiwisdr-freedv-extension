@@ -35,6 +35,13 @@ ui_gz_bytes=$(stat -c %s "$ui_gz" 2>/dev/null || echo 0)
 }
 gzip -t "$ui_gz"
 gzip -cd "$ui_gz" | cmp -s "$ui_js" -
+cmp -s "$kiwi/web/extensions/FreeDV/FreeDV.css" \
+  "$kiwi/web/extensions/FreeDV/FreeDV.min.css"
+gzip -t "$kiwi/web/extensions/FreeDV/FreeDV.min.css.gz"
+gzip -cd "$kiwi/web/extensions/FreeDV/FreeDV.min.css.gz" | \
+  cmp -s "$kiwi/web/extensions/FreeDV/FreeDV.min.css" -
+zgrep -Fq '.id-freedv-manual-row { display:flex;' \
+  "$kiwi/web/extensions/FreeDV/FreeDV.min.css.gz"
 
 grep -Fq "excl_devl: [ 'devl', 'digi_modes', 's4285', 'prefs' ]," \
   "$kiwi/web/extensions/ext.js"

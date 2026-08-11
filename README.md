@@ -51,7 +51,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.34 | Manual frequency entry and live Reporter-frequency presets; deployed and browser-accepted |
+| Kiwi extension | 0.1.37 | Compact, overflow-safe manual frequency and Reporter layout |
 | Decoder service | 0.1.26 | Authenticated, privacy-minimal live Reporter-frequency relay; deployed and soak-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |

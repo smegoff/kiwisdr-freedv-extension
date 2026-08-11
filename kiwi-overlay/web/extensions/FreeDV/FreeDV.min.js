@@ -99,16 +99,22 @@ function freedv_calling_select_html()
       'freedv_calling_frequency_cb');
 }
 
+function freedv_reporter_frequency_note()
+{
+   var text = freedv.reporter_frequencies.length?
+      freedv.reporter_frequencies.length +' live Reporter frequenc'+
+         (freedv.reporter_frequencies.length == 1? 'y':'ies') +' marked [Reporter live].':
+      'No live Reporter frequencies; static list remains available.';
+   return text +' &middot; '+ w3_link('id-freedv-reporter-link w3-small',
+      'https://qso.freedv.org/', 'Open Reporter');
+}
+
 function freedv_update_reporter_frequencies(value)
 {
    value = value || '-';
    if (value == freedv.reporter_frequency_value) {
       if (w3_el('id-freedv-live-note'))
-         w3_innerHTML('id-freedv-live-note', freedv.reporter_frequencies.length?
-            freedv.reporter_frequencies.length +' currently advertised Reporter frequenc'+
-               (freedv.reporter_frequencies.length == 1? 'y':'ies') +
-               ' are marked [Reporter live].':
-            'No live Reporter frequencies are currently advertised; static calling frequencies remain available.');
+         w3_innerHTML('id-freedv-live-note', freedv_reporter_frequency_note());
       return;
    }
    freedv.reporter_frequency_value = value;
@@ -137,10 +143,7 @@ function freedv_update_reporter_frequencies(value)
    if (w3_el('id-freedv-calling-container'))
       w3_innerHTML('id-freedv-calling-container', freedv_calling_select_html());
    if (w3_el('id-freedv-live-note'))
-      w3_innerHTML('id-freedv-live-note', entries.length?
-         entries.length +' currently advertised Reporter frequenc'+ (entries.length == 1? 'y':'ies') +
-            ' are marked [Reporter live].':
-         'No live Reporter frequencies are currently advertised; static calling frequencies remain available.');
+      w3_innerHTML('id-freedv-live-note', freedv_reporter_frequency_note());
 }
 
 function freedv_refresh_reporter_frequencies()
@@ -412,7 +415,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.34 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.37 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -426,7 +429,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.34 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.37 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -451,7 +454,7 @@ function freedv_controls_setup()
             'freedv.filter_index', freedv.filter_index, freedv.filter_modes,
             'freedv_filter_cb'),
          w3_div('id-freedv-filter-note w3-small w3-text-light-grey',
-            'Flat sends the full SSB modem-audio passband. The Mode overrides narrow it; see Help.')),
+            'Flat is recommended; overrides narrow the modem passband. See Help.')),
       w3_div('id-freedv-detail-grid',
          w3_div('id-freedv-radio-info',
             w3_div('w3-small', 'Reference: ',
@@ -469,10 +472,7 @@ function freedv_controls_setup()
             w3_div('', 'Callsign/text: ', w3_div('id-freedv-text w3-show-inline', '')),
             w3_div('id-freedv-reporter-row', 'Reporter: ',
                w3_div('id-freedv-reporter w3-show-inline',
-                  freedv.reporter_enabled? 'enabled (idle)':'disabled'),
-               ' &middot; ',
-               w3_link('id-freedv-reporter-link w3-small',
-                  'https://qso.freedv.org/', 'Open Reporter')))),
+                  freedv.reporter_enabled? 'enabled (idle)':'disabled')))),
       w3_div('id-freedv-footer',
          w3_div('w3-small', 'Dropped frames: ', w3_div('id-freedv-dropped w3-show-inline', '0')),
          w3_div('id-freedv-error w3-small w3-text-red')));

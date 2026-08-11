@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-11 07:44 UTC (2026-08-11 19:44 NZST)
+Last verified: 2026-08-11 09:57 UTC (2026-08-11 21:57 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -14,10 +14,10 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-34`
+- active Kiwi release: `freedv-v0-1-37`
 - active Kiwi SHA-256:
-  `eea15c26a43ebb76dcb9503feb4dc8fb7a09a7836843f08f5a0b01c9b7d7c063`
-- Kiwi BuildID: `6429d2ae6bea30ae31d634f615a14ebf121ef775`
+  `a134d497702cc06a59f219d77ee64307e4b058b6580d183c98b62fbf0d3a9ae1`
+- Kiwi BuildID: `f0c5632d896c509762068a6f79e4a8336d08bb78`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
 - decoder-guest release: `0.1.26`
@@ -32,6 +32,45 @@ and no AI-64 local-decoder service is enabled.
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## v0.1.37 compact extension layout
+
+Kiwi v0.1.37 fixes the manual-frequency field occupying the full panel width
+and pushing Reporter and decoder status below the modal. The field is now 245
+pixels wide with Tune on the same row. Redundant vertical spacing is reduced,
+the receiver-filter hint is shorter, and the public Reporter link sits beside
+the one-line live-frequency count. The two status cards and Dropped frames
+remain visible inside the original 560 by 570 pixel panel.
+
+The root cause was a stale `FreeDV.min.css`: v0.1.34 had the correct source CSS
+but the optimized stylesheet embedded in the production binary was from the
+previous release. The build and candidate gates now require source and
+optimized CSS to be byte-identical, verify the gzip package, and check for the
+manual-row marker. Unit tests enforce the same relationship. Rejected layout
+candidates v0.1.35 and v0.1.36 were inspected in a real browser and removed
+after the final candidate passed.
+
+A fresh streamed pre-change Kiwi configuration archive contains 41
+structurally verified entries and has SHA-256
+`44eb718825c56e61f97cdbfbe6517d7b9e4b71fd5a8258c288f0c83a75408e17`.
+The production binary checksum and BuildID are recorded above. Real-browser
+acceptance measured the controls at 540 pixels high inside a 550-pixel content
+area; the 245-pixel input, Tune button, Open Reporter link and Dropped frames
+were all visible. Manual tuning reached 14.236 MHz. Test 700D completed with
+Codec2, synchronization, about 31.4 dB SNR, -0.2 Hz offset and zero dropped
+frames, with no browser warnings or errors.
+
+The CSS-only release then passed 21/21 Kiwi and 21/21 decoder idle samples at
+15-second intervals. Every Kiwi sample reported firmware 1.902, active v0.1.37,
+healthy service/status/root UI, zero listeners, zero wrappers and zero critical
+log matches. Every decoder sample reported release 0.1.26, authenticated Kiwi
+control, zero stalls, zero sessions/campers and zero critical matches. Evidence
+SHA-256 values are
+`09d0949a032566e58bfb92b8b63ee392aa4876e1b4a8d39a93adc7960fedad93`
+and
+`a4db354d994754ca82f523030f856abcde5fd0de218d2b3fa619a357d22fce5a`.
+Rejected releases and temporary build artifacts were removed; v0.1.34 remains
+the known-good custom rollback and Kiwi free space is about 506 MB.
 
 ## v0.1.34 manual and live Reporter frequencies
 
