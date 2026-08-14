@@ -1,6 +1,6 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.26 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.33 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
@@ -134,5 +134,5 @@ decoder guest. Pass `1` as the final argument for an active session or `0` for
 idle cleanup:
 
 ```bash
-sudo ./tools/soak-dashboard.sh 41 15 0.1.26 1
+sudo ./tools/soak-dashboard.sh 41 15 0.1.33 1
 ```

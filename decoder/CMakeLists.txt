@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(kiwi_freedv_decoder VERSION 0.1.26 LANGUAGES C CXX)
+project(kiwi_freedv_decoder VERSION 0.1.33 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -109,9 +109,12 @@ if(BUILD_TESTING)
     add_executable(freedv-rade-reference-test
       tests/rade_reference_test.cpp
       src/rade_backend.cpp
+      src/resampler.cpp
+      src/audio_pacer.cpp
     )
-    target_include_directories(freedv-rade-reference-test PRIVATE include)
-    target_compile_options(freedv-rade-reference-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG)
+    target_include_directories(freedv-rade-reference-test PRIVATE include ${SAMPLERATE_INCLUDE_DIRS})
+    target_link_libraries(freedv-rade-reference-test PRIVATE ${SAMPLERATE_LIBRARIES})
+    target_compile_options(freedv-rade-reference-test PRIVATE -Wall -Wextra -Wpedantic -UNDEBUG ${SAMPLERATE_CFLAGS_OTHER})
     enable_radev1(freedv-rade-reference-test)
   endif()
 

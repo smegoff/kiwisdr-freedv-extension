@@ -36,6 +36,7 @@ class RadeBackend final : public DecoderBackend {
     decoder_ = kfd_rade_create(error, sizeof(error));
     if (!decoder_) throw std::runtime_error(error[0] ? error : "unable to open RADEv1");
     pcm_scratch_.resize(kfd_rade_pcm_max(decoder_));
+    iq_.reserve(kMaxQueuedSamples);
     if (pcm_scratch_.empty() || kfd_rade_input_max(decoder_) > kMaxQueuedSamples) {
       kfd_rade_destroy(decoder_);
       decoder_ = nullptr;
@@ -50,6 +51,7 @@ class RadeBackend final : public DecoderBackend {
   DecodeResult push(const int16_t* samples, std::size_t count) override {
     DecodeResult result;
     result.sample_rate = 16000;
+    result.pcm.reserve(pcm_scratch_.size());
     if (count && !samples) throw std::invalid_argument("null RADE input");
     if (iq_.size() + count > kMaxQueuedSamples) {
       reset();
@@ -57,7 +59,6 @@ class RadeBackend final : public DecoderBackend {
       return result;
     }
 
-    iq_.reserve(iq_.size() + count);
     for (std::size_t i = 0; i < count; i++) {
       iq_.push_back({static_cast<float>(samples[i]) * kRadeRealInt16Scale, 0.0f});
     }

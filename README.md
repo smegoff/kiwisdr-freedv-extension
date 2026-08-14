@@ -55,7 +55,7 @@ the optional diagnostics page connects to its management-only web port.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.38 | Compact LAN-only diagnostics link plus the overflow-safe frequency and Reporter layout |
-| Decoder service | 0.1.26 | Authenticated, privacy-minimal live Reporter-frequency relay; deployed and soak-tested |
+| Decoder service | 0.1.33 | Allocation-stable resampling and bounded 280 ms return-audio pacing; deployed and soak-tested |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
@@ -241,14 +241,14 @@ decode session is allowed globally; a second listener receives a busy message
 instead of displacing the active session. Normal Kiwi admission rules, such as
 listener limits and any same-public-IP limit, still apply.
 
-Decoder v0.1.26 also checks the authenticated control response rather than
+Decoder v0.1.33 also checks the authenticated control response rather than
 equating an open TCP socket with a healthy connection. If Kiwi poll responses
 stop for more than ten seconds, the decoder marks the connection unhealthy and
 reconnects automatically.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.26 installs a lightweight read-only dashboard at
+Decoder service 0.1.33 installs a lightweight read-only dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.

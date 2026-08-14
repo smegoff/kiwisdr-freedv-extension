@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-release=${1:-0.1.26}
-archive=${2:-/root/freedv-v0-1-26-decoder.tgz}
+release=${1:-0.1.33}
+archive=${2:-/root/freedv-v0-1-33-decoder.tgz}
 candidate="/opt/kiwi-freedv-v${release//./-}"
 rade_pin=a36161bce0fb37daf3f4602344b095f6817dddb1
 opus_pin=940d4e5af64351ca8ba8390df3f555484c567fbb
@@ -29,9 +29,16 @@ ctest --test-dir "$candidate/build" --output-on-failure
 /usr/local/bin/rade_tx_wav -v 0 \
   /usr/local/share/freedv-rade/input_sample.wav "$candidate/build/radev1-reference.wav"
 "$candidate/build/freedv-rade-reference-test" "$candidate/build/radev1-reference.wav" \
+  "$candidate/build/radev1-wrapper-decoded.wav" \
   | tee "$candidate/build/radev1-reference-result.txt"
+/usr/local/bin/rade_rx_wav -v 0 "$candidate/build/radev1-reference.wav" \
+  "$candidate/build/radev1-official-decoded.wav"
+cmp "$candidate/build/radev1-wrapper-decoded.wav" \
+  "$candidate/build/radev1-official-decoded.wav"
 sha256sum "$candidate/build/freedv-decoder" "$candidate/build/freedv-reference-test" \
   "$candidate/build/freedv-rade-reference-test" "$candidate/build/radev1-reference.wav" \
+  "$candidate/build/radev1-wrapper-decoded.wav" \
+  "$candidate/build/radev1-official-decoded.wav" \
   "$candidate/dashboard/index.html" "$candidate/dashboard/app.js" \
   "$candidate/dashboard/styles.css"
 printf '%s\n' "$candidate"

@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.38`, decoder service `0.1.26`, and KiwiSDR
+written for Kiwi extension `0.1.38`, decoder service `0.1.33`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]
@@ -145,7 +145,7 @@ For an in-place upgrade, `tools/deploy-decoder-release.sh` records the previous
 decoder, Reporter client, units, configuration and Python package set, then
 restores them automatically if health checks fail. A Reporter-only release can
 retain the existing decoder health version using the optional third argument,
-for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-26 v0.1.26 0.1.26`.
+for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-33 v0.1.33 0.1.33`.
 
 Generate one 256-bit shared secret. Store the same 64 hexadecimal characters on
 the guest and Kiwi, but never commit, paste into an issue, or print the value in
@@ -307,9 +307,12 @@ cache expires.
    with backend `rade-v1`. All other legacy selections deliberately use the
    established 700D reference.
    The v0.1.34 Kiwi path consumes at most one returned packet per normal sound
-   cadence, while decoder v0.1.26 emits receiver-sized packets from a bounded
-   queue. This prevents burst delivery from overrunning the browser audio
-   buffer. The authenticated readiness handshake separately detects a stalled
+   cadence, while decoder v0.1.33 emits receiver-sized packets from a bounded
+   circular queue. It starts after a configurable 280 ms target, retains a
+   strict 500 ms cap and confirms a starvation event only if later speech
+   resumes. This prevents burst delivery from overrunning the browser audio
+   buffer without treating the normal end-of-over drain as a fault. The
+   authenticated readiness handshake separately detects a stalled
    camper or reference-audio path.
 4. Choose **700D** and press **Start**. On no signal, sync may remain `no`, but
    state must reach `running`, backend must read `codec2`, and ordinary
