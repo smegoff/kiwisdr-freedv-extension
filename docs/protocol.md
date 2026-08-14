@@ -21,7 +21,7 @@ previously unseen nonces, protocol 2, and a constant-time matching HMAC. The
 secret is loaded from `/root/decoder.env`; it is not stored in `kiwi.json` or
 sent to a browser.
 
-Decoder 0.1.26 may append a semicolon-separated list of integer frequencies
+Decoder 0.1.33 may append a semicolon-separated list of integer frequencies
 currently advertised through FreeDV Reporter. When present, the signed value is
 `2|<unix-seconds>|<nonce>|<frequencies>` and the entire list is covered by the
 HMAC. The Kiwi validates every value, retains at most 48 entries for 120 seconds,
@@ -72,9 +72,12 @@ protocol regression test.
 
 libcodec2 input is resampled to 8 kHz. Decoded speech is resampled to the Kiwi
 audio rate and sent as a binary WebSocket message beginning `SET rev_bin=`.
-Decoder 0.1.24 queues the modem's larger decoded-speech bursts for no more than
-500 ms and emits at most one receiver-sized packet for each incoming SND
-packet. Kiwi extension 0.1.32 likewise consumes at most one returned packet per
+Decoder 0.1.33 queues the modem's larger decoded-speech bursts in a fixed-size
+circular buffer for no more than 500 ms. A 280 ms start target smooths modem
+bursts while leaving headroom for 700D's larger decoded frames. The service
+emits at most one receiver-sized packet for each incoming SND packet and counts
+an underrun only if speech later resumes after starvation, excluding the normal
+end-of-over drain. Kiwi extension 0.1.32 likewise consumes at most one returned packet per
 normal sound cadence, discarding stale excess rather than draining a network
 burst into the browser. The Kiwi relays those bytes through the receiver's
 ordinary SND stream. From
@@ -114,7 +117,7 @@ discards stale state.
 The daemon binds `/healthz` and `/metrics` to `127.0.0.1:8074`. Metrics cover
 Kiwi/camper state, authenticated polls, sessions, SND/decoded frames, drops,
 reconnects, generation, sync, decoder CPU time, status updates, main-loop age
-and Reporter state. Decoder 0.1.26 also exports the age of the last authenticated
+and Reporter state. Decoder 0.1.33 also exports the age of the last authenticated
 job response and the number of stale-control recoveries. `/healthz` returns
 HTTP 503 when the Kiwi control loop is disconnected, when its main loop is
 stale, or when no authenticated poll response has arrived for more than ten
@@ -132,7 +135,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.26 includes a separate read-only management surface on
+Decoder service 0.1.33 includes a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open

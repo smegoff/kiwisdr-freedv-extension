@@ -42,10 +42,11 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.26";
+constexpr char kRelease[] = "0.1.33";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;
+constexpr uint32_t kDecodedAudioMaximumMs = 500;
 
 struct Metrics {
   std::atomic<uint64_t> kiwi_connected{0};
@@ -57,6 +58,11 @@ struct Metrics {
   std::atomic<uint64_t> return_samples{0};
   std::atomic<uint64_t> return_dropped_samples{0};
   std::atomic<uint64_t> audio_queue_milliseconds{0};
+  std::atomic<uint64_t> audio_queue_target_milliseconds{0};
+  std::atomic<uint64_t> audio_queue_high_water_milliseconds{0};
+  std::atomic<uint64_t> audio_underruns{0};
+  std::atomic<uint64_t> audio_reprimes{0};
+  std::atomic<uint64_t> audio_primed{0};
   std::atomic<uint64_t> dropped_frames{0};
   std::atomic<uint64_t> reconnects{0};
   std::atomic<uint64_t> auth_failures{0};
@@ -98,6 +104,19 @@ uint64_t control_response_age_seconds() {
 std::string env_or(const char* name, const char* fallback) {
   const char* value = std::getenv(name);
   return value ? value : fallback;
+}
+
+uint32_t decoded_audio_target_ms() {
+  static const uint32_t value = [] {
+    try {
+      const unsigned long parsed = std::stoul(env_or("FREEDV_RETURN_AUDIO_TARGET_MS", "280"));
+      return static_cast<uint32_t>(
+          std::min<unsigned long>(parsed, kDecodedAudioMaximumMs - 1));
+    } catch (...) {
+      return uint32_t{280};
+    }
+  }();
+  return value;
 }
 
 std::string reporter_state() {
@@ -177,6 +196,13 @@ std::string metrics_text() {
       << "freedv_control_stalls_total " << metrics.control_stalls.load() << '\n'
       << "freedv_audio_queue_milliseconds "
       << metrics.audio_queue_milliseconds.load() << '\n'
+      << "freedv_audio_queue_target_milliseconds "
+      << metrics.audio_queue_target_milliseconds.load() << '\n'
+      << "freedv_audio_queue_high_water_milliseconds "
+      << metrics.audio_queue_high_water_milliseconds.load() << '\n'
+      << "freedv_audio_underruns_total " << metrics.audio_underruns.load() << '\n'
+      << "freedv_audio_reprimes_total " << metrics.audio_reprimes.load() << '\n'
+      << "freedv_audio_primed " << metrics.audio_primed.load() << '\n'
       << "freedv_reporter_state{state=\"" << reporter_state() << "\"} 1\n";
   return out.str();
 }
@@ -338,6 +364,9 @@ class KiwiCamper {
     metrics.camper_connected = 0;
     metrics.sessions = 0;
     metrics.synced = 0;
+    metrics.audio_queue_milliseconds = 0;
+    metrics.audio_queue_high_water_milliseconds = 0;
+    metrics.audio_primed = 0;
     dashboard_.session_stopped();
   }
 
@@ -495,7 +524,8 @@ class KiwiCamper {
     input_resampler_.reset();
     output_resampler_.reset();
     output_pacer_.clear();
-    output_pacer_.configure(audio_rate_);
+    output_pacer_.configure(audio_rate_, kDecodedAudioMaximumMs, decoded_audio_target_ms());
+    metrics.audio_queue_target_milliseconds = decoded_audio_target_ms();
     return_adpcm_valid_ = false;
     first_audio_packet_ = true;
     job_decoded_frames_ = 0;
@@ -573,7 +603,7 @@ class KiwiCamper {
                 << " audio_rate=" << audio_rate_ << '\n';
       first_audio_packet_ = false;
     }
-    const auto modem = input_resampler_.process(input, input_rate_, backend_->modem_sample_rate());
+    const auto& modem = input_resampler_.process(input, input_rate_, backend_->modem_sample_rate());
     dashboard_.push_modem_audio(modem.data(), modem.size(), backend_->modem_sample_rate());
     const auto started = std::chrono::steady_clock::now();
     auto decoded = backend_->push(modem.data(), modem.size());
@@ -596,10 +626,12 @@ class KiwiCamper {
     // receiver-sized packet for each incoming SND packet. Sending a whole
     // modem burst at once makes the browser receive more audio than elapsed
     // wall-clock time and causes audible overrun/dropout cycling.
+    const uint64_t underruns_before = output_pacer_.underruns();
+    const uint64_t reprimes_before = output_pacer_.reprimes();
     if (decoded.status.synced && !decoded.pcm.empty()) {
-      const auto speech = output_resampler_.process(decoded.pcm, decoded.sample_rate, audio_rate_);
+      const auto& speech = output_resampler_.process(decoded.pcm, decoded.sample_rate, audio_rate_);
       const uint64_t dropped_before = output_pacer_.dropped_samples();
-      output_pacer_.configure(audio_rate_);
+      output_pacer_.configure(audio_rate_, kDecodedAudioMaximumMs, decoded_audio_target_ms());
       output_pacer_.push(speech);
       metrics.return_dropped_samples += output_pacer_.dropped_samples() - dropped_before;
       metrics.decoded_frames++;
@@ -609,8 +641,13 @@ class KiwiCamper {
     }
 
     const auto speech_packet = output_pacer_.take(input.size());
+    metrics.audio_underruns += output_pacer_.underruns() - underruns_before;
+    metrics.audio_reprimes += output_pacer_.reprimes() - reprimes_before;
+    metrics.audio_primed = output_pacer_.primed() ? 1 : 0;
     metrics.audio_queue_milliseconds = audio_rate_ == 0 ? 0 :
         output_pacer_.queued_samples() * 1000 / audio_rate_;
+    metrics.audio_queue_high_water_milliseconds = audio_rate_ == 0 ? 0 :
+        output_pacer_.high_water_samples() * 1000 / audio_rate_;
     if (!speech_packet.empty()) {
       if (compressed && !return_adpcm_valid_) {
         return_adpcm_ = input_adpcm_;
@@ -718,6 +755,11 @@ int main() {
                 {"return_samples_total", metrics.return_samples.load()},
                 {"return_dropped_samples_total", metrics.return_dropped_samples.load()},
                 {"audio_queue_milliseconds", metrics.audio_queue_milliseconds.load()},
+                {"audio_queue_target_milliseconds", metrics.audio_queue_target_milliseconds.load()},
+                {"audio_queue_high_water_milliseconds", metrics.audio_queue_high_water_milliseconds.load()},
+                {"audio_underruns_total", metrics.audio_underruns.load()},
+                {"audio_reprimes_total", metrics.audio_reprimes.load()},
+                {"audio_primed", metrics.audio_primed.load() != 0},
                 {"dropped_frames_total", metrics.dropped_frames.load()},
                 {"reconnects_total", metrics.reconnects.load()},
                 {"auth_successes_total", metrics.auth_successes.load()},

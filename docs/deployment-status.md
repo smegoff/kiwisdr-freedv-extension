@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-11 19:15 UTC (2026-08-12 07:15 NZST)
+Last verified: 2026-08-14 02:15 UTC (2026-08-14 14:15 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -20,18 +20,48 @@ and no AI-64 local-decoder service is enabled.
 - Kiwi BuildID: `446cd0f180915cb171524377a8fa2a36c063aff2`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.26`
+- decoder-guest release: `0.1.33`
 - decoder binary SHA-256:
-  `5a47abbfbfc8e4d67b6601fbf678ef47923b1eb17d2aa047caef35dca628531d`
+  `0ed6348adcfbe4b175d3cf69533c695caf986d46d5a4589783addf5924ac6632`
 - Reporter sidecar SHA-256:
   `6aec6f93ef444589acf6205a6240141dd8e65c1668077e37f77c652625f48c8d`
 - Reporter client: `KiwiSDR-FreeDV/0.1.34`
-- decoder dashboard assets: `0.1.26`
-- decoder-guest snapshot: `pre-decoder-v0-1-26`
+- decoder dashboard assets: `0.1.33`
+- decoder-guest snapshot: `pre-decoder-v0-1-33`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Decoder v0.1.33 return-audio pacing
+
+Decoder v0.1.33 replaces per-sample deque operations with a fixed circular
+return-audio queue, reuses resampler buffers, and reserves RADE working storage
+outside the hot path. A configurable 280 ms start target smooths modem-sized
+speech bursts while preserving enough of the 500 ms queue cap for 700D's
+larger output frames. Starvation is counted only when later speech actually
+re-primes, so an orderly end-of-over drain is not reported as an audible fault.
+
+The pinned official RADE C decoder remained unchanged. The wrapper decoded
+150,880 samples byte-for-byte identically to `rade_rx_wav` (both WAV files
+SHA-256 `7997f3cb6c3b573e6f5e8272cb151b8fe1983fcd7955320bed5c67e67d2f2aeb`)
+at real-time factor 0.0209. All four CTest targets, the standalone 700D test and
+all 12 transport byte-order/rate/first-packet variants passed.
+
+A real browser then completed **Test RADE** at 35.3 dB SNR and **Test 700D** at
+31.3 dB SNR. Both reached 100 percent, synchronized and returned through their
+expected `rade-v1` and `codec2` backends. Combined metrics recorded zero
+dropped audio samples, zero dropped frames and zero confirmed underruns or
+re-primes; queue high-water was 402 ms, below the 500 ms cap.
+
+The Kiwi passed 41/41 root and `/status` checks over ten minutes with firmware
+1.902, active status and zero listeners. The decoder guest separately passed
+41/41 checks: both services active, authenticated Kiwi control healthy, port
+8074 loopback-only, zero sessions/campers and zero critical journal matches.
+Reporter remained disabled at the decoder service and no public presence was
+published. Snapshot cleanup retained only `clean-debian12`, the RADEV1
+architectural checkpoint `pre-radev1-v0-1-15`, and immediate rollback
+`pre-decoder-v0-1-33`.
 
 ## v0.1.38 LAN-only diagnostics link
 

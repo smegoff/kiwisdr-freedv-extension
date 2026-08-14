@@ -15,8 +15,8 @@ class StreamingResampler {
   StreamingResampler(const StreamingResampler&) = delete;
   StreamingResampler& operator=(const StreamingResampler&) = delete;
 
-  std::vector<int16_t> process(const std::vector<int16_t>& input,
-                               uint32_t input_rate, uint32_t output_rate);
+  const std::vector<int16_t>& process(const std::vector<int16_t>& input,
+                                      uint32_t input_rate, uint32_t output_rate);
   void reset();
 
  private:
@@ -25,6 +25,9 @@ class StreamingResampler {
   SRC_STATE_tag* state_ = nullptr;
   uint32_t input_rate_ = 0;
   uint32_t output_rate_ = 0;
+  std::vector<float> source_;
+  std::vector<float> destination_;
+  std::vector<int16_t> output_;
 };
 
 }  // namespace kfd

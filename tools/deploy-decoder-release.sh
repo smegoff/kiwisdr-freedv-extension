@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-26}
-release=${2:-v0.1.26}
+candidate=${1:-/opt/kiwi-freedv-v0-1-33}
+release=${2:-v0.1.33}
 health_release=${release#v}
 decoder_health_release=${3:-$health_release}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -56,6 +56,8 @@ ensure_env FREEDV_DASHBOARD_ASSET_DIR /usr/local/share/freedv-dashboard/current
 ensure_env FREEDV_DASHBOARD_HISTORY_SECONDS 600
 ensure_env FREEDV_DASHBOARD_WATERFALL_FPS 10
 ensure_env FREEDV_DIAGNOSTIC_CAPTURE_SECONDS 60
+sed -i 's/^FREEDV_RETURN_AUDIO_TARGET_MS=.*/FREEDV_RETURN_AUDIO_TARGET_MS=280/' "$decoder_env"
+ensure_env FREEDV_RETURN_AUDIO_TARGET_MS 280
 ensure_env FREEDV_REPORTER_FREQUENCIES_FILE /tmp/freedv-reporter-frequencies.json
 
 reporter_env=/etc/freedv-decoder/reporter.env
