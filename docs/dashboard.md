@@ -1,6 +1,6 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.33 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.35 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
@@ -20,7 +20,8 @@ The main view provides:
   choices reproduce its current default and two retained historical schemes,
   as defined in
   [OpenWebRX's waterfall source](https://github.com/jketterl/openwebrx/blob/640c5b0b3e19b10d823a7ee703f2a683ec848eac/owrx/waterfall.py).
-- Configurable dBFS floor, ceiling, averaging and five- or ten-frame refresh.
+- Automatic dBFS floor and ceiling tracking, with fixed manual levels available
+  as an override, plus averaging and five- or ten-frame refresh.
 - The nominal modem passband and 1500 Hz centre-frequency overlay.
 - Current session, backend, sync, SNR, frequency offset, callsign/text and
   Reporter state.
@@ -61,9 +62,32 @@ external font, analytics or other third-party resource.
 > private reverse proxy with TLS if the management network is not trusted; do
 > not expose the daemon directly to the internet.
 
+### Remote and public viewing
+
+For the owner's remote access, the safest option is a private VPN into the
+management LAN. It preserves the existing dashboard without publishing port
+8076 or weakening its firewall rule.
+
+The current dashboard must not be placed directly behind a public reverse
+proxy. In addition to the waterfall, it exposes internal service counters and
+the latest bounded modem-audio WAV. A future public viewer should use a
+separate, disabled-by-default listener that provides only a sanitized session
+summary, history and waterfall stream. It should omit the WAV endpoint,
+control/authentication counters, internal addresses and all control methods,
+then sit behind HTTPS, connection limits and request-rate limiting. John's
+KiwiSDR reverse proxy forwards the Kiwi receiver; it does not route this
+separate decoder-guest service.
+
 ## Display behavior
 
 Display preferences are stored only in the current browser's local storage.
+**Auto levels** is enabled by default. It estimates the noise floor and signal
+peak from robust spectrum percentiles, keeps the visible range between 30 and
+70 dB, and smooths contractions more slowly than expansions so a strong signal is not
+clipped and the display does not pump. The current automatic range appears in
+the toolbar. Clear resets the estimator. Disable **Auto levels** to edit and
+retain fixed Floor and Ceiling values.
+
 **Pause** stops rendering without affecting the decoder; **Clear** clears the
 local canvases. The client stops drawing while its tab is hidden and caps
 device-pixel scaling at 2 to limit CPU and memory use.
@@ -134,5 +158,5 @@ decoder guest. Pass `1` as the final argument for an active session or `0` for
 idle cleanup:
 
 ```bash
-sudo ./tools/soak-dashboard.sh 41 15 0.1.33 1
+sudo ./tools/soak-dashboard.sh 41 15 0.1.35 1
 ```

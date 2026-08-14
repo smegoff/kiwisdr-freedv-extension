@@ -44,13 +44,15 @@ independently.
 For the reference deployment, the Kiwi runs `freedv-v0-1-38` on firmware
 1.902. The checksum-verified stock `baseline-1.902` remains available for full
 stock rollback; `freedv-v0-1-37` is retained as the immediate custom-release
-rollback. The decoder guest runs `0.1.33`, and the immediate guest rollback
-snapshot is `pre-decoder-v0-1-33`, taken immediately before the accepted
-return-audio pacing release. The retained
+rollback. The decoder guest runs `0.1.35`, and the immediate guest rollback
+snapshot is `pre-decoder-v0-1-35`, taken immediately before the accepted
+automatic diagnostic-level release. The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
-clean operating-system baseline. Superseded decoder snapshots through v0.1.32
-were removed after v0.1.33 passed both browser reference tests and its full
-stability soak. If only
+clean operating-system baseline. Superseded decoder snapshots through v0.1.33
+were removed after v0.1.35 passed its browser reference test and full
+stability soak. The deployment script also retained the immediately previous
+binary, dashboard assets, configuration and service files beneath
+`/root/freedv-rollbacks/`. If only
 RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
 Admin > Extensions > FreeDV and retest the legacy modes. If the decoder
 upgrade itself fails, restore the decoder-guest snapshot or retained previous

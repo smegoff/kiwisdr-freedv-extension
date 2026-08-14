@@ -1,11 +1,12 @@
 "use strict";
 
 const $ = id => document.getElementById(id);
-const defaults = { view:"split", palette:"cividis", floor:-100, ceiling:-20, averaging:2, fps:10, overlay:true, history:600 };
+const defaults = { view:"split", palette:"cividis", autoLevels:true, floor:-100, ceiling:-20, averaging:2, fps:10, overlay:true, history:600 };
 function loadSettings() { try { return JSON.parse(localStorage.getItem("freedv-dashboard") || "{}"); } catch (_) { return {}; } }
 const settings = Object.assign({}, defaults, loadSettings());
 let statusData = null, historyData = [], socket = null, paused = false, lastRowAt = 0, reconnectDelay = 1000;
 let averageBins = null;
+let autoFloor = null, autoCeiling = null, lastLevelUiAt = 0, autoContext = "";
 
 const modeWidths = {"1600":1125,"700C":1500,"700D":1000,"700E":1500,"2400A":5000,"2400B":5000,"800XA":2000,"RADEV1":1500};
 const paletteStops = {
@@ -29,9 +30,13 @@ function frequency(value) { return value ? `${(+value/1e6).toFixed(6)} MHz` : "â
 
 function applySettings() {
   for (const key of ["view","palette","floor","ceiling","averaging","fps"]) $(key).value = settings[key];
+  $("auto-levels").checked = !!settings.autoLevels;
+  $("floor").disabled = !!settings.autoLevels;
+  $("ceiling").disabled = !!settings.autoLevels;
   $("overlay").checked = !!settings.overlay;
   $("history-window").value = settings.history;
   document.querySelector(".signal-panel").dataset.view = settings.view;
+  updateLevelUi(true);
   drawHistory();
 }
 
@@ -46,6 +51,9 @@ function badge(id, text, tone) { const el=$(id); el.textContent=text; el.classNa
 function updateStatus(data) {
   statusData = data;
   const session = data.session || {active:false};
+  const context = `${!!session.active}:${session.mode || ""}:${session.input_rate || 0}`;
+  if (autoContext && context !== autoContext) resetAutoLevels();
+  autoContext = context;
   badge("health-badge", data.kiwi_connected ? "Healthy" : "Kiwi disconnected", data.kiwi_connected ? "good" : "bad");
   badge("sync-badge", !session.active ? "Idle" : session.sync ? "Synchronized" : "No sync", !session.active ? "neutral" : session.sync ? "good" : "warn");
   setText("release", `v${data.release || "â€”"}`); setText("last-update", new Date().toLocaleTimeString());
@@ -101,14 +109,53 @@ function consumeFrame(buffer) {
   const bins=view.getUint16(6,true), rate=view.getUint32(8,true); if(bins!==512)return;
   const raw=new Float32Array(bins); for(let i=0;i<bins;i++) raw[i]=view.getUint8(16+i)*120/255-120;
   const n=+settings.averaging; if(!averageBins||averageBins.length!==bins)averageBins=raw.slice(); else for(let i=0;i<bins;i++)averageBins[i]+=(raw[i]-averageBins[i])/n;
+  if(settings.autoLevels)updateAutoLevels(averageBins);
   const now=Date.now(); if(now-lastRowAt<1000/+settings.fps)return; lastRowAt=now;
   drawWaterfall(averageBins); drawSpectrum(averageBins,rate);
 }
 
 function resizeCanvas(canvas) { const dpr=Math.min(devicePixelRatio||1,2), rect=canvas.getBoundingClientRect(), w=Math.max(1,Math.floor(rect.width*dpr)), h=Math.max(1,Math.floor(rect.height*dpr)); if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;} return {w,h,dpr}; }
 function interpolate(stops,t) { for(let i=1;i<stops.length;i++){if(t<=stops[i][0]){const [p,a]=stops[i-1],[q,b]=stops[i],u=(t-p)/(q-p);return a.map((v,j)=>Math.round(v+(b[j]-v)*u));}}return stops.at(-1)[1]; }
-function dbRange() { return Math.max(1, settings.ceiling-settings.floor); }
-function color(db) { const t=Math.max(0,Math.min(1,(db-settings.floor)/dbRange())), palette=palettes[settings.palette]||palettes.cividis; return palette[Math.round(t*255)]; }
+function clamp(value, low, high) { return Math.max(low, Math.min(high, value)); }
+function percentile(sorted, fraction) { return sorted[Math.min(sorted.length-1, Math.max(0, Math.round((sorted.length-1)*fraction)))]; }
+function effectiveFloor() { return settings.autoLevels && autoFloor != null ? autoFloor : +settings.floor; }
+function effectiveCeiling() { return settings.autoLevels && autoCeiling != null ? autoCeiling : +settings.ceiling; }
+function dbRange() { return Math.max(1, effectiveCeiling()-effectiveFloor()); }
+function color(db) { const t=Math.max(0,Math.min(1,(db-effectiveFloor())/dbRange())), palette=palettes[settings.palette]||palettes.cividis; return palette[Math.round(t*255)]; }
+
+function updateAutoLevels(bins) {
+  const sorted=Array.from(bins).filter(Number.isFinite).sort((a,b)=>a-b); if(sorted.length<16)return;
+  const noise=percentile(sorted,.20), peak=percentile(sorted,.995);
+  let wantedFloor=clamp(noise-6,-120,-35);
+  let wantedCeiling=clamp(Math.max(peak+3,wantedFloor+30),-90,0);
+  if(wantedCeiling-wantedFloor<30)wantedFloor=clamp(wantedCeiling-30,-120,-35);
+  if(wantedCeiling-wantedFloor>70)wantedFloor=wantedCeiling-70;
+  if(autoFloor==null||autoCeiling==null){autoFloor=wantedFloor;autoCeiling=wantedCeiling;}
+  else {
+    const floorAlpha=wantedFloor<autoFloor ? .30 : .06, ceilingAlpha=wantedCeiling>autoCeiling ? .30 : .06;
+    if(Math.abs(wantedFloor-autoFloor)>.35)autoFloor+=(wantedFloor-autoFloor)*floorAlpha;
+    if(Math.abs(wantedCeiling-autoCeiling)>.35)autoCeiling+=(wantedCeiling-autoCeiling)*ceilingAlpha;
+  }
+  if(autoCeiling-autoFloor<30)autoCeiling=Math.min(0,autoFloor+30);
+  if(autoCeiling-autoFloor>70)autoFloor=autoCeiling-70;
+  updateLevelUi();
+}
+
+function updateLevelUi(force=false) {
+  const now=Date.now(); if(!force&&now-lastLevelUiAt<250)return; lastLevelUiAt=now;
+  if(settings.autoLevels){
+    if(autoFloor==null||autoCeiling==null){$("level-readout").textContent="Auto range waiting for signal";}
+    else {
+      $("floor").value=autoFloor.toFixed(1); $("ceiling").value=autoCeiling.toFixed(1);
+      $("level-readout").textContent=`Auto ${autoFloor.toFixed(1)} to ${autoCeiling.toFixed(1)} dBFS`;
+    }
+  } else {
+    $("floor").value=settings.floor; $("ceiling").value=settings.ceiling;
+    $("level-readout").textContent=`Manual ${(+settings.floor).toFixed(0)} to ${(+settings.ceiling).toFixed(0)} dBFS`;
+  }
+}
+
+function resetAutoLevels() { autoFloor=null; autoCeiling=null; lastLevelUiAt=0; updateLevelUi(true); }
 
 function drawWaterfall(bins) {
   const canvas=$("waterfall"),{w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});
@@ -117,15 +164,16 @@ function drawWaterfall(bins) {
 }
 function drawSpectrum(bins,rate) {
   const canvas=$("spectrum"),{w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false}); ctx.fillStyle="#0c0f13";ctx.fillRect(0,0,w,h);
-  ctx.strokeStyle="#76a9d4";ctx.lineWidth=Math.max(1,dpr);ctx.beginPath(); for(let x=0;x<w;x++){const db=bins[Math.floor(x*bins.length/w)],y=h-(db-settings.floor)/dbRange()*h;x?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke(); drawOverlay(ctx,w,h,dpr,rate);
+  ctx.strokeStyle="#76a9d4";ctx.lineWidth=Math.max(1,dpr);ctx.beginPath(); for(let x=0;x<w;x++){const db=bins[Math.floor(x*bins.length/w)],y=h-(db-effectiveFloor())/dbRange()*h;x?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke(); drawOverlay(ctx,w,h,dpr,rate);
 }
 function drawOverlay(ctx,w,h,dpr,rate=(statusData?.session?.input_rate||12000)) { if(!settings.overlay)return; const nyquist=rate/2, mode=statusData?.session?.mode, width=modeWidths[mode]||0, low=(1500-width/2)/nyquist*w, high=(1500+width/2)/nyquist*w, center=1500/nyquist*w; ctx.save();ctx.strokeStyle="rgba(231,235,239,.32)";ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);ctx.strokeRect(low,0,Math.max(1,high-low),h);ctx.setLineDash([]);ctx.strokeStyle="rgba(208,167,95,.8)";ctx.beginPath();ctx.moveTo(center,0);ctx.lineTo(center,h);ctx.stroke();ctx.restore(); }
 
 function drawHistory() { if(!historyData.length)return; const cutoff=Date.now()-settings.history*1000, points=historyData.filter(p=>p.timestamp_ms>=cutoff); drawLine($("snr-chart"),points.map(p=>p.snr_db),"#68b889"); drawLine($("offset-chart"),points.map(p=>p.frequency_offset_hz),"#76a9d4"); }
 function drawLine(canvas,values,stroke) { const {w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#151a21";ctx.fillRect(0,0,w,h);if(values.length<2)return;let min=Math.min(...values),max=Math.max(...values);if(min===max){min-=1;max+=1;}ctx.strokeStyle="#35404d";ctx.lineWidth=dpr;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.strokeStyle=stroke;ctx.beginPath();values.forEach((v,i)=>{const x=i*w/(values.length-1),y=h-(v-min)/(max-min)*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); }
-function clearPlots() { for(const id of ["waterfall","spectrum","snr-chart","offset-chart"]){const c=$(id),ctx=c.getContext("2d");ctx.fillStyle="#0c0f13";ctx.fillRect(0,0,c.width,c.height);} averageBins=null; }
+function clearPlots() { for(const id of ["waterfall","spectrum","snr-chart","offset-chart"]){const c=$(id),ctx=c.getContext("2d");ctx.fillStyle="#0c0f13";ctx.fillRect(0,0,c.width,c.height);} averageBins=null; resetAutoLevels(); }
 
 for(const key of ["view","palette","floor","ceiling","averaging","fps"]){$(key).value=settings[key];$(key).addEventListener("change",e=>{settings[key]=key==="floor"||key==="ceiling"||key==="averaging"||key==="fps"?+e.target.value:e.target.value;saveSettings();});}
+$("auto-levels").checked=!!settings.autoLevels;$("auto-levels").addEventListener("change",e=>{settings.autoLevels=e.target.checked;resetAutoLevels();saveSettings();});
 $("overlay").checked=settings.overlay;$("overlay").addEventListener("change",e=>{settings.overlay=e.target.checked;saveSettings();});
 $("history-window").value=settings.history;$("history-window").addEventListener("change",e=>{settings.history=+e.target.value;saveSettings();});
 $("pause").addEventListener("click",()=>{paused=!paused;$("pause").textContent=paused?"Resume":"Pause";}); $("clear").addEventListener("click",clearPlots);

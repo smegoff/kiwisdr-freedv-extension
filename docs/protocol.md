@@ -135,7 +135,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.33 includes a separate read-only management surface on
+Decoder service 0.1.35 includes a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open

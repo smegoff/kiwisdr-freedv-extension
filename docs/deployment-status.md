@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-14 02:15 UTC (2026-08-14 14:15 NZST)
+Last verified: 2026-08-14 20:10 UTC (2026-08-15 08:10 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -20,18 +20,51 @@ and no AI-64 local-decoder service is enabled.
 - Kiwi BuildID: `446cd0f180915cb171524377a8fa2a36c063aff2`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.33`
+- decoder-guest release: `0.1.35`
 - decoder binary SHA-256:
-  `0ed6348adcfbe4b175d3cf69533c695caf986d46d5a4589783addf5924ac6632`
+  `6e75ea1a902da4e251b5e51b47e793fcac47c0390a30a8253e7581165b33f946`
 - Reporter sidecar SHA-256:
   `6aec6f93ef444589acf6205a6240141dd8e65c1668077e37f77c652625f48c8d`
 - Reporter client: `KiwiSDR-FreeDV/0.1.34`
-- decoder dashboard assets: `0.1.33`
-- decoder-guest snapshot: `pre-decoder-v0-1-33`
+- decoder dashboard assets: `0.1.35`
+- decoder-guest snapshot: `pre-decoder-v0-1-35`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Decoder v0.1.35 automatic diagnostic levels
+
+Decoder v0.1.35 adds browser-side automatic floor and ceiling tracking to the
+audio-band waterfall and spectrum. It estimates the noise floor at the 20th
+percentile and the signal peak at the 99.5th percentile, adds 6 dB below and
+3 dB above those estimates, and constrains the displayed span to 30--70 dB.
+Expansions use a faster smoothing factor than contractions so an arriving
+strong signal is not clipped while quiet changes do not make the display pump.
+The current range is shown in the toolbar. Auto is the default and Clear resets
+its estimator; disabling it restores the browser's saved manual values.
+
+The dashboard asset tests passed 5/5 and the decoder candidate passed all four
+C++ test targets. Its RADEV1 reference synchronized with no cadence underruns
+at real-time factor 0.0216, and the wrapper output remained byte-identical to
+the official C decoder. In a real browser, **Test RADE** synchronized at 32.8
+dB SNR and automatic levels settled at -90 to -20 dBFS. Switching Auto off
+immediately restored enabled manual -100/-20 dBFS controls.
+
+The deployed release then passed 41/41 samples over ten minutes with five
+diagnostics clients connected: zero visualization drops, zero decoder drops,
+zero critical journal matches and the history ring capped at 600 entries.
+Daemon RSS rose from about 16 to 21 MB while the clients and history were
+active, and steady-state CPU settled at about 0.5 percent. After acceptance,
+all validation clients were closed and dashboard client count returned to
+zero. Snapshot cleanup retained only `clean-debian12`,
+`pre-radev1-v0-1-15` and immediate rollback `pre-decoder-v0-1-35`; the
+superseded v0.1.34 candidate and dashboard assets were removed.
+
+Port 8076 remains management-LAN-only. Public exposure was deliberately not
+enabled because the current surface also includes internal service counters
+and a bounded modem-audio download. The documented public-view design uses a
+separate sanitized listener behind HTTPS and rate limiting.
 
 ## Decoder v0.1.33 return-audio pacing
 
