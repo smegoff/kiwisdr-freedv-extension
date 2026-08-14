@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-release=${1:-0.1.35}
-archive=${2:-/root/freedv-v0-1-35-decoder.tgz}
+release=${1:-0.1.36}
+archive=${2:-/root/freedv-v0-1-36-decoder.tgz}
 candidate="/opt/kiwi-freedv-v${release//./-}"
 rade_pin=a36161bce0fb37daf3f4602344b095f6817dddb1
 opus_pin=940d4e5af64351ca8ba8390df3f555484c567fbb
@@ -40,5 +40,6 @@ sha256sum "$candidate/build/freedv-decoder" "$candidate/build/freedv-reference-t
   "$candidate/build/radev1-wrapper-decoded.wav" \
   "$candidate/build/radev1-official-decoded.wav" \
   "$candidate/dashboard/index.html" "$candidate/dashboard/app.js" \
-  "$candidate/dashboard/styles.css"
+  "$candidate/dashboard/styles.css" "$candidate/public-dashboard/index.html" \
+  "$candidate/public-dashboard/app.js" "$candidate/public-dashboard/styles.css"
 printf '%s\n' "$candidate"

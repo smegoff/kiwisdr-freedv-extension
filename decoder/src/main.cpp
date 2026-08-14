@@ -42,7 +42,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.35";
+constexpr char kRelease[] = "0.1.36";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;

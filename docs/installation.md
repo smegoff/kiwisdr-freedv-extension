@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.38`, decoder service `0.1.35`, and KiwiSDR
+written for Kiwi extension `0.1.38`, decoder service `0.1.36`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]
@@ -140,12 +140,14 @@ installed under `/usr/local`. Debian 12 normally uses its packaged library.
 
 The dashboard has no application login. Restrict its TCP 8076 listener to the
 trusted management CIDR with the Proxmox or host firewall before starting it.
+The separate spectator listener defaults off and to loopback; do not change its
+bind address when using a same-guest HTTPS reverse proxy.
 
 For an in-place upgrade, `tools/deploy-decoder-release.sh` records the previous
 decoder, Reporter client, units, configuration and Python package set, then
 restores them automatically if health checks fail. A Reporter-only release can
 retain the existing decoder health version using the optional third argument,
-for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-35 v0.1.35 0.1.35`.
+for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-36 v0.1.36 0.1.36`.
 
 Generate one 256-bit shared secret. Store the same 64 hexadecimal characters on
 the guest and Kiwi, but never commit, paste into an issue, or print the value in
@@ -170,6 +172,11 @@ FREEDV_DASHBOARD_PORT=8076
 FREEDV_DASHBOARD_ASSET_DIR=/usr/local/share/freedv-dashboard/current
 FREEDV_DASHBOARD_HISTORY_SECONDS=600
 FREEDV_DASHBOARD_WATERFALL_FPS=10
+FREEDV_PUBLIC_DASHBOARD_ENABLED=0
+FREEDV_PUBLIC_DASHBOARD_BIND=127.0.0.1
+FREEDV_PUBLIC_DASHBOARD_PORT=8077
+FREEDV_PUBLIC_DASHBOARD_ASSET_DIR=/usr/local/share/freedv-public-dashboard/current
+FREEDV_PUBLIC_DASHBOARD_MAX_CLIENTS=16
 FREEDV_DIAGNOSTIC_CAPTURE_SECONDS=60
 FREEDV_ENABLE_RADE=0
 ```
@@ -219,6 +226,12 @@ dropped-frame counter when the receiver page was opened through loopback, an
 RFC1918 address or a `.local` hostname. It deliberately omits the link on
 John's public Kiwi reverse proxy. This is only a convenient link: firewall TCP
 8076 restrictions remain the security boundary.
+
+After local acceptance, the optional sanitized spectator page can be enabled
+on loopback port 8077 and placed behind a separately configured HTTPS edge.
+Do not add a direct firewall rule for 8077. See
+[Public FreeDV signal monitor](public-dashboard.md) for the allowlisted API,
+Nginx template and publication gate.
 
 ## 5. Prepare and build the Kiwi overlay
 

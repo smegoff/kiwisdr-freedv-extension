@@ -65,6 +65,11 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn("FREEDV_DIAGNOSTIC_CAPTURE_SECONDS 60", upgrade)
         self.assertIn("dashboard-assets", upgrade)
         self.assertIn("-dport 8076", firewall)
+        self.assertIn("FREEDV_PUBLIC_DASHBOARD_ENABLED=0", environment)
+        self.assertIn("FREEDV_PUBLIC_DASHBOARD_BIND=127.0.0.1", environment)
+        self.assertIn("FREEDV_PUBLIC_DASHBOARD_PORT=8077", environment)
+        self.assertNotIn("-dport 8077 -log", firewall)
+        self.assertIn("public-dashboard-assets", upgrade)
 
     def test_dashboard_api_is_lan_open_and_hardened(self):
         source = (ROOT / "decoder" / "src" / "dashboard.cpp").read_text(encoding="utf-8")
@@ -79,6 +84,38 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertNotIn("http::status::unauthorized", source)
         self.assertIn('"Content-Security-Policy"', source)
         self.assertNotIn("Access-Control-Allow-Origin", source)
+
+    def test_public_spectator_assets_are_sanitized(self):
+        html = (ROOT / "public-dashboard" / "index.html").read_text(encoding="utf-8")
+        js = (ROOT / "public-dashboard" / "app.js").read_text(encoding="utf-8")
+        css = (ROOT / "public-dashboard" / "styles.css").read_text(encoding="utf-8")
+        combined = "\n".join((html, js, css)).lower()
+        self.assertIn("read-only public view", combined)
+        self.assertIn('autoLevels:true', js)
+        self.assertIn("/api/v1/status", js)
+        self.assertIn("/api/v1/history", js)
+        self.assertIn("/api/v1/stream", js)
+        self.assertNotIn("capture.wav", combined)
+        self.assertNotIn("service counters", combined)
+        self.assertNotIn("auth_failures", combined)
+        self.assertNotIn("reporter", combined)
+        self.assertNotIn("callsign", combined)
+        self.assertNotIn("http://", combined)
+        self.assertNotIn("https://", combined)
+        self.assertNotIn("@import", combined)
+        self.assertNotIn("gradient(", combined)
+        self.assertIn("system-ui", css)
+
+    def test_public_https_example_targets_only_loopback_spectator(self):
+        nginx = (ROOT / "deploy" / "nginx-freedv-public.conf.example").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("proxy_pass http://127.0.0.1:8077", nginx)
+        self.assertIn("limit_req_zone", nginx)
+        self.assertIn("limit_conn_zone", nginx)
+        self.assertIn("limit_except GET", nginx)
+        self.assertIn("proxy_set_header Upgrade", nginx)
+        self.assertNotIn("127.0.0.1:8076", nginx)
 
     def test_radev1_uses_current_official_real_audio_path(self):
         backend = (ROOT / "decoder" / "src" / "rade_backend.cpp").read_text(

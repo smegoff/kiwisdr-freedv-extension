@@ -90,11 +90,14 @@ http::response<http::string_body> response(http::status status, unsigned version
                                            const std::string& content_type,
                                            std::string body) {
   http::response<http::string_body> result{status, version};
-  result.set(http::field::server, "freedv-dashboard/0.1.35");
+  result.set(http::field::server, "freedv-dashboard/0.1.36");
   result.set(http::field::content_type, content_type);
   result.set(http::field::cache_control, "no-store");
   result.set("X-Content-Type-Options", "nosniff");
   result.set("X-Frame-Options", "DENY");
+  result.set("Referrer-Policy", "no-referrer");
+  result.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  result.set("Cross-Origin-Resource-Policy", "same-origin");
   result.set("Content-Security-Policy",
              "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'");
   result.keep_alive(false);
@@ -176,6 +179,14 @@ DashboardConfig dashboard_config_from_environment() {
   config.history_seconds = env_unsigned("FREEDV_DASHBOARD_HISTORY_SECONDS", 600, 60, 3600);
   config.waterfall_fps = env_unsigned("FREEDV_DASHBOARD_WATERFALL_FPS", 10, 1, 10);
   config.capture_seconds = env_unsigned("FREEDV_DIAGNOSTIC_CAPTURE_SECONDS", 60, 0, 300);
+  config.public_enabled = env_bool("FREEDV_PUBLIC_DASHBOARD_ENABLED", false);
+  config.public_bind_address = env_or("FREEDV_PUBLIC_DASHBOARD_BIND", "127.0.0.1");
+  config.public_port = static_cast<uint16_t>(
+      env_unsigned("FREEDV_PUBLIC_DASHBOARD_PORT", 8077, 1024, 65535));
+  config.public_asset_directory = env_or(
+      "FREEDV_PUBLIC_DASHBOARD_ASSET_DIR", "/usr/local/share/freedv-public-dashboard/current");
+  config.public_max_clients = env_unsigned(
+      "FREEDV_PUBLIC_DASHBOARD_MAX_CLIENTS", 16, 1, 128);
   return config;
 }
 
@@ -199,13 +210,16 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
   std::atomic<uint64_t> spectrum_drops{0};
   std::atomic<uint64_t> waterfall_frames{0};
   std::atomic<uint64_t> dashboard_clients{0};
+  std::atomic<uint64_t> public_clients{0};
   std::vector<int16_t> audio;
   std::atomic<uint32_t> audio_rate{12000};
   std::thread server_thread;
+  std::thread public_server_thread;
   std::thread fft_thread;
   std::thread history_thread;
   asio::io_context server_ioc;
   std::shared_ptr<tcp::acceptor> acceptor;
+  std::shared_ptr<tcp::acceptor> public_acceptor;
   std::mutex frame_mutex;
   std::vector<uint8_t> latest_frame;
   uint32_t latest_sequence = 0;
@@ -219,6 +233,9 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
   std::string index_html;
   std::string app_js;
   std::string styles_css;
+  std::string public_index_html;
+  std::string public_app_js;
+  std::string public_styles_css;
 
   json status_json() {
     json output = provider ? provider() : json::object();
@@ -238,14 +255,45 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
                         {"samples", samples},
                         {"seconds", capture_rate ? samples / static_cast<double>(capture_rate) : 0.0}};
     }
-    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.35"},
+    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.36"},
                             {"clients", dashboard_clients.load()},
+                            {"public_enabled", config.public_enabled},
+                            {"public_clients", public_clients.load()},
                             {"waterfall_frames", waterfall_frames.load()},
                             {"spectrum_drops", spectrum_drops.load()},
                             {"capture", std::move(capture_status)},
                             {"audio_queue_ms", audio_rate.load() ?
                                 queued * 1000.0 / audio_rate.load() : 0.0}};
     return output;
+  }
+
+  json public_status_json() {
+    const auto full = status_json();
+    json safe_session = {{"active", false}};
+    if (full.contains("session") && full["session"].is_object()) {
+      const auto& source = full["session"];
+      for (const char* key : {"active", "mode", "frequency_hz", "input_rate", "test",
+                              "sync", "snr_db", "frequency_offset_hz"}) {
+        if (source.contains(key)) safe_session[key] = source[key];
+      }
+    }
+    return {{"version", 1},
+            {"release", full.value("release", "unknown")},
+            {"kiwi_connected", full.value("kiwi_connected", false)},
+            {"session", std::move(safe_session)}};
+  }
+
+  json public_history_json() {
+    json safe = json::array();
+    std::lock_guard<std::mutex> lock(state_mutex);
+    for (const auto& source : history) {
+      json sample;
+      for (const char* key : {"timestamp_ms", "sync", "snr_db", "frequency_offset_hz"}) {
+        if (source.contains(key)) sample[key] = source[key];
+      }
+      safe.push_back(std::move(sample));
+    }
+    return safe;
   }
 
   std::string capture_wav() {
@@ -288,15 +336,19 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
     return history;
   }
 
-  void websocket_stream(tcp::socket socket, http::request<http::string_body> request) {
+  void websocket_stream(tcp::socket socket, http::request<http::string_body> request,
+                        std::atomic<uint64_t>& clients) {
+    struct ClientGuard {
+      std::atomic<uint64_t>& value;
+      ~ClientGuard() { value--; }
+    } client_guard{clients};
     beast::tcp_stream stream(std::move(socket));
     websocket::stream<beast::tcp_stream> ws(std::move(stream));
     ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
-    ws.accept(request);
-    dashboard_clients++;
     uint32_t sent = 0;
     auto next_heartbeat = std::chrono::steady_clock::now();
     try {
+      ws.accept(request);
       while (!stopping.load()) {
         std::vector<uint8_t> frame;
         uint32_t sequence = 0;
@@ -326,32 +378,43 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
           break;
       }
     } catch (...) {}
-    dashboard_clients--;
   }
 
-  void handle(tcp::socket socket) {
+  void handle(tcp::socket socket, bool public_view) {
     try {
       beast::flat_buffer buffer;
       http::request<http::string_body> request;
       http::read(socket, buffer, request);
       const std::string target = request.target().to_string();
       if (target == "/api/v1/stream" && websocket::is_upgrade(request)) {
-        websocket_stream(std::move(socket), std::move(request));
+        auto& clients = public_view ? public_clients : dashboard_clients;
+        const uint64_t previous = clients.fetch_add(1);
+        if (public_view && previous >= config.public_max_clients) {
+          clients--;
+          write_response(socket, response(http::status::too_many_requests, request.version(),
+                                          "application/json", "{\"error\":\"viewer-limit\"}\n"));
+          return;
+        }
+        websocket_stream(std::move(socket), std::move(request), clients);
         return;
       }
-      if (target == "/" || target == "/index.html") {
-        write_response(socket, response(http::status::ok, request.version(), "text/html; charset=utf-8", index_html));
-      } else if (target == "/app.js") {
-        write_response(socket, response(http::status::ok, request.version(), "text/javascript; charset=utf-8", app_js));
-      } else if (target == "/styles.css") {
-        write_response(socket, response(http::status::ok, request.version(), "text/css; charset=utf-8", styles_css));
+      if ((target == "/" || target == "/index.html") && request.method() == http::verb::get) {
+        write_response(socket, response(http::status::ok, request.version(), "text/html; charset=utf-8",
+                                        public_view ? public_index_html : index_html));
+      } else if (target == "/app.js" && request.method() == http::verb::get) {
+        write_response(socket, response(http::status::ok, request.version(), "text/javascript; charset=utf-8",
+                                        public_view ? public_app_js : app_js));
+      } else if (target == "/styles.css" && request.method() == http::verb::get) {
+        write_response(socket, response(http::status::ok, request.version(), "text/css; charset=utf-8",
+                                        public_view ? public_styles_css : styles_css));
       } else if (target == "/api/v1/status" && request.method() == http::verb::get) {
         write_response(socket, response(http::status::ok, request.version(), "application/json",
-                                        status_json().dump() + "\n"));
+                                        (public_view ? public_status_json() : status_json()).dump() + "\n"));
       } else if (target == "/api/v1/history" && request.method() == http::verb::get) {
         write_response(socket, response(http::status::ok, request.version(), "application/json",
-                                        history_json().dump() + "\n"));
-      } else if (target == "/api/v1/capture.wav" && request.method() == http::verb::get) {
+                                        (public_view ? public_history_json() : history_json()).dump() + "\n"));
+      } else if (!public_view && target == "/api/v1/capture.wav" &&
+                 request.method() == http::verb::get) {
         auto wav = capture_wav();
         const bool available = !wav.empty();
         const auto status = available ? http::status::ok : http::status::not_found;
@@ -367,14 +430,14 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
     } catch (...) {}
   }
 
-  void server_loop() {
+  void server_loop(const std::shared_ptr<tcp::acceptor>& listener, bool public_view) {
     while (!stopping.load()) {
       try {
         tcp::socket socket(server_ioc);
-        acceptor->accept(socket);
+        listener->accept(socket);
         auto self = shared_from_this();
-        std::thread([self, socket = std::move(socket)]() mutable {
-          self->handle(std::move(socket));
+        std::thread([self, socket = std::move(socket), public_view]() mutable {
+          self->handle(std::move(socket), public_view);
         }).detach();
       } catch (const boost::system::system_error& error) {
         if (!stopping.load()) throw;
@@ -445,7 +508,17 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
     const auto address = asio::ip::make_address(config.bind_address);
     acceptor = std::make_shared<tcp::acceptor>(server_ioc, tcp::endpoint(address, config.port));
     auto self = shared_from_this();
-    server_thread = std::thread([self] { self->server_loop(); });
+    server_thread = std::thread([self] { self->server_loop(self->acceptor, false); });
+    if (config.public_enabled) {
+      public_index_html = read_file(config.public_asset_directory + "/index.html");
+      public_app_js = read_file(config.public_asset_directory + "/app.js");
+      public_styles_css = read_file(config.public_asset_directory + "/styles.css");
+      const auto public_address = asio::ip::make_address(config.public_bind_address);
+      public_acceptor = std::make_shared<tcp::acceptor>(
+          server_ioc, tcp::endpoint(public_address, config.public_port));
+      public_server_thread = std::thread(
+          [self] { self->server_loop(self->public_acceptor, true); });
+    }
     fft_thread = std::thread([self] { self->fft_loop(); });
     history_thread = std::thread([self] { self->history_loop(); });
   }
@@ -463,9 +536,22 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
       beast::error_code wake_ignored;
       wake_socket.close(wake_ignored);
     } catch (...) {}
+    if (config.public_enabled) {
+      try {
+        asio::io_context wake_ioc;
+        tcp::socket wake_socket(wake_ioc);
+        const std::string wake_address = config.public_bind_address == "::" ? "::1" :
+            config.public_bind_address == "0.0.0.0" ? "127.0.0.1" : config.public_bind_address;
+        wake_socket.connect(tcp::endpoint(asio::ip::make_address(wake_address), config.public_port));
+        beast::error_code wake_ignored;
+        wake_socket.close(wake_ignored);
+      } catch (...) {}
+    }
     beast::error_code ignored;
     if (acceptor) acceptor->close(ignored);
+    if (public_acceptor) public_acceptor->close(ignored);
     if (server_thread.joinable()) server_thread.join();
+    if (public_server_thread.joinable()) public_server_thread.join();
     if (fft_thread.joinable()) fft_thread.join();
     if (history_thread.joinable()) history_thread.join();
   }

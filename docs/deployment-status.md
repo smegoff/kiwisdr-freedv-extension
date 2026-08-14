@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-14 20:10 UTC (2026-08-15 08:10 NZST)
+Last verified: 2026-08-14 22:00 UTC (2026-08-15 10:00 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -20,18 +20,55 @@ and no AI-64 local-decoder service is enabled.
 - Kiwi BuildID: `446cd0f180915cb171524377a8fa2a36c063aff2`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.35`
+- decoder-guest release: `0.1.36`
 - decoder binary SHA-256:
-  `6e75ea1a902da4e251b5e51b47e793fcac47c0390a30a8253e7581165b33f946`
+  `7e96da4fd204cbf58c204511b8eaa4d655e211bd5f41ad6811ebfbf5f60a92ed`
 - Reporter sidecar SHA-256:
   `6aec6f93ef444589acf6205a6240141dd8e65c1668077e37f77c652625f48c8d`
 - Reporter client: `KiwiSDR-FreeDV/0.1.34`
-- decoder dashboard assets: `0.1.35`
-- decoder-guest snapshot: `pre-decoder-v0-1-35`
+- decoder dashboard assets: management and public `0.1.36`
+- decoder-guest snapshot: `pre-decoder-v0-1-36`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Decoder v0.1.36 sanitized spectator surface
+
+Decoder v0.1.36 adds a second read-only listener for a future public signal
+monitor. It reuses the existing FFT frame and does not add another audio tap or
+transform. The active reference configuration binds it only to
+`127.0.0.1:8077`; connection attempts to the decoder guest's private address
+on 8077 are refused and the Proxmox firewall contains no matching allow rule.
+
+The public status object contains exactly `version`, `release`,
+`kiwi_connected` and `session`. Session fields are allowlisted to active, mode,
+frequency, input rate, test/live state, sync, SNR and frequency offset. Public
+history contains only timestamp, sync, SNR and offset. Capture, service
+counters, backend, callsign/text, Reporter, authentication and control data are
+absent, and `/api/v1/capture.wav` returns 404. A configurable WebSocket ceiling
+defaults to 16; request-rate and per-address connection limits are specified at
+the HTTPS reverse proxy where the actual client address is visible.
+
+All four C++ tests passed, including public-route isolation and the viewer
+ceiling. RADEV1 remained byte-identical to the official C decoder at real-time
+factor 0.0200 with no cadence underruns. Real-browser acceptance displayed a
+synchronized RADEV1 reference at 14.236 MHz with the public automatic range at
+-88.5 to -18.5 dBFS. It exposed only the intended session fields and returned
+cleanly to idle with zero public clients.
+
+The public-specific stability gate passed 41/41 samples over ten minutes. Each
+sample verified the exact JSON allowlists, capture 404, loopback bind, capped
+600-entry history, zero decoder drops and zero critical log matches. Daemon RSS
+settled at about 17.6 MB and CPU at 0.1 percent. Snapshot cleanup retained only
+`clean-debian12`, architectural checkpoint `pre-radev1-v0-1-15`, and immediate
+rollback `pre-decoder-v0-1-36`; superseded v0.1.35 candidate/assets and its
+snapshot were removed.
+
+Internet ingress is not active. No DNS, TLS certificate, tunnel, router
+forward or public firewall rule was added. Publication awaits an owner-selected
+hostname and HTTPS ingress path; the repository includes a rate-limited Nginx
+template and acceptance procedure.
 
 ## Decoder v0.1.35 automatic diagnostic levels
 
@@ -61,10 +98,8 @@ zero. Snapshot cleanup retained only `clean-debian12`,
 `pre-radev1-v0-1-15` and immediate rollback `pre-decoder-v0-1-35`; the
 superseded v0.1.34 candidate and dashboard assets were removed.
 
-Port 8076 remains management-LAN-only. Public exposure was deliberately not
-enabled because the current surface also includes internal service counters
-and a bounded modem-audio download. The documented public-view design uses a
-separate sanitized listener behind HTTPS and rate limiting.
+Port 8076 remains management-LAN-only. Its internal service counters and
+bounded modem-audio download were not added to the later public listener.
 
 ## Decoder v0.1.33 return-audio pacing
 
