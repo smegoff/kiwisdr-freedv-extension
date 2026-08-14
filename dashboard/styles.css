@@ -20,6 +20,7 @@ button, input, select { border: 1px solid var(--border); border-radius: 5px; bac
 button { min-height: 2.25rem; padding: .45rem .8rem; cursor: pointer; }
 button:hover { border-color: #536173; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+input:disabled { opacity: .68; cursor: not-allowed; }
 .shell { width: min(1500px, 100%); margin: 0 auto; padding: 1.25rem; }
 .topbar h1 { margin: .15rem 0 .35rem; font-size: 1.45rem; font-weight: 650; }
 .error { min-height: 1.2rem; margin: 0; color: var(--red); }
@@ -40,6 +41,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .toolbar input[type="number"] { width: 5.4rem; }
 .toolbar label span { margin-left: .2rem; }
 .toolbar .check { display: flex; flex-direction: row; align-items: center; min-height: 2.15rem; gap: .4rem; }
+.level-readout { align-self: center; margin-left: auto; color: var(--blue); font-size: .78rem; white-space: nowrap; }
 .primary-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, .8fr); gap: 1rem; }
 .history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
 .panel { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 1rem; }
@@ -76,6 +78,7 @@ canvas { display: block; width: 100%; height: 100%; }
   .shell { padding: .65rem; }
   .toolbar { align-items: stretch; }
   .toolbar label { flex: 1 1 42%; }
+  .level-readout { width: 100%; margin-left: 0; }
   .stats-grid { grid-template-columns: 1fr; }
   .plot-wrap { height: 245px; }
 }

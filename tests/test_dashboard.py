@@ -30,6 +30,15 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn("Math.min(devicePixelRatio||1,2)", js)
         self.assertIn("Control response age (s)", js)
         self.assertIn("Control stalls", js)
+        self.assertIn('id="auto-levels"', html)
+        self.assertIn('id="level-readout"', html)
+        self.assertIn('autoLevels:true', js)
+        self.assertIn("function updateAutoLevels", js)
+        self.assertIn("percentile(sorted,.20)", js)
+        self.assertIn("percentile(sorted,.995)", js)
+        self.assertIn("wantedFloor+30", js)
+        self.assertIn("wantedCeiling-wantedFloor>70", js)
+        self.assertIn("effectiveFloor()", js)
 
     def test_openwebrx_palettes_match_built_in_schemes(self):
         js = (ROOT / "dashboard" / "app.js").read_text(encoding="utf-8")
