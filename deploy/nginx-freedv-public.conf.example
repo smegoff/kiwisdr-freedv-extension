@@ -1,0 +1,44 @@
+# Install in /etc/nginx/conf.d/ after replacing the hostname and certificate
+# paths. These directives belong in nginx's http context.
+map $http_upgrade $freedv_connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+limit_req_zone $binary_remote_addr zone=freedv_public_rate:10m rate=10r/s;
+limit_conn_zone $binary_remote_addr zone=freedv_public_connections:10m;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name freedv.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name freedv.example.com;
+    server_tokens off;
+
+    ssl_certificate /etc/letsencrypt/live/freedv.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/freedv.example.com/privkey.pem;
+
+    client_max_body_size 1k;
+    limit_req zone=freedv_public_rate burst=20 nodelay;
+    limit_conn freedv_public_connections 4;
+
+    location / {
+        limit_except GET { deny all; }
+        proxy_pass http://127.0.0.1:8077;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $freedv_connection_upgrade;
+        proxy_buffering off;
+        proxy_read_timeout 75s;
+        proxy_send_timeout 10s;
+    }
+}

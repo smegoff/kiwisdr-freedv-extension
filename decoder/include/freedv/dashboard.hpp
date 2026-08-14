@@ -22,6 +22,11 @@ struct DashboardConfig {
   unsigned waterfall_fps = 10;
   unsigned websocket_heartbeat_seconds = 1;
   unsigned capture_seconds = 60;
+  bool public_enabled = false;
+  std::string public_bind_address = "127.0.0.1";
+  uint16_t public_port = 8077;
+  std::string public_asset_directory = "/usr/local/share/freedv-public-dashboard/current";
+  unsigned public_max_clients = 16;
 };
 
 DashboardConfig dashboard_config_from_environment();

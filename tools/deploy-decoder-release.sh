@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-candidate=${1:-/opt/kiwi-freedv-v0-1-35}
-release=${2:-v0.1.35}
+candidate=${1:-/opt/kiwi-freedv-v0-1-36}
+release=${2:-v0.1.36}
 health_release=${release#v}
 decoder_health_release=${3:-$health_release}
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
@@ -26,6 +26,9 @@ cp -a /etc/freedv-decoder "$rollback/config"
 if [[ -d /usr/local/share/freedv-dashboard ]]; then
   cp -a /usr/local/share/freedv-dashboard "$rollback/dashboard-assets"
 fi
+if [[ -d /usr/local/share/freedv-public-dashboard ]]; then
+  cp -a /usr/local/share/freedv-public-dashboard "$rollback/public-dashboard-assets"
+fi
 /opt/freedv-reporter/venv/bin/pip freeze > "$rollback/reporter-requirements.txt"
 
 # Prepare all dependencies and files before interrupting the running decoder.
@@ -45,6 +48,15 @@ rm -rf "$dashboard_release"
 mv -T "$dashboard_release.new" "$dashboard_release"
 ln -sfn "$decoder_health_release" "$dashboard_root/.current-new"
 mv -Tf "$dashboard_root/.current-new" "$dashboard_root/current"
+public_dashboard_root=/usr/local/share/freedv-public-dashboard
+public_dashboard_release=$public_dashboard_root/$decoder_health_release
+install -d -m 0755 "$public_dashboard_release.new"
+install -m 0644 "$candidate/public-dashboard/index.html" "$candidate/public-dashboard/app.js" \
+  "$candidate/public-dashboard/styles.css" "$public_dashboard_release.new/"
+rm -rf "$public_dashboard_release"
+mv -T "$public_dashboard_release.new" "$public_dashboard_release"
+ln -sfn "$decoder_health_release" "$public_dashboard_root/.current-new"
+mv -Tf "$public_dashboard_root/.current-new" "$public_dashboard_root/current"
 
 decoder_env=/etc/freedv-decoder/decoder.env
 ensure_env() { grep -q "^$1=" "$decoder_env" || printf '%s=%s\n' "$1" "$2" >> "$decoder_env"; }
@@ -55,6 +67,11 @@ ensure_env FREEDV_DASHBOARD_PORT 8076
 ensure_env FREEDV_DASHBOARD_ASSET_DIR /usr/local/share/freedv-dashboard/current
 ensure_env FREEDV_DASHBOARD_HISTORY_SECONDS 600
 ensure_env FREEDV_DASHBOARD_WATERFALL_FPS 10
+ensure_env FREEDV_PUBLIC_DASHBOARD_ENABLED 0
+ensure_env FREEDV_PUBLIC_DASHBOARD_BIND 127.0.0.1
+ensure_env FREEDV_PUBLIC_DASHBOARD_PORT 8077
+ensure_env FREEDV_PUBLIC_DASHBOARD_ASSET_DIR /usr/local/share/freedv-public-dashboard/current
+ensure_env FREEDV_PUBLIC_DASHBOARD_MAX_CLIENTS 16
 ensure_env FREEDV_DIAGNOSTIC_CAPTURE_SECONDS 60
 sed -i 's/^FREEDV_RETURN_AUDIO_TARGET_MS=.*/FREEDV_RETURN_AUDIO_TARGET_MS=280/' "$decoder_env"
 ensure_env FREEDV_RETURN_AUDIO_TARGET_MS 280
@@ -72,6 +89,7 @@ systemctl daemon-reload
 
 healthy=0
 dashboard_required=$(awk -F= '$1 == "FREEDV_DASHBOARD_ENABLED" {print $2}' "$decoder_env" | tail -n 1)
+public_dashboard_required=$(awk -F= '$1 == "FREEDV_PUBLIC_DASHBOARD_ENABLED" {print $2}' "$decoder_env" | tail -n 1)
 if systemctl restart freedv-reporter.service freedv-decoder.service; then
   for _ in $(seq 1 30); do
     health=$(/usr/bin/wget -qO- http://127.0.0.1:8074/healthz 2>/dev/null || true)
@@ -79,6 +97,10 @@ if systemctl restart freedv-reporter.service freedv-decoder.service; then
     if [[ $dashboard_required == 1 ]]; then
       dashboard_page=$(/usr/bin/wget -qO- http://127.0.0.1:8076/ 2>/dev/null || true)
       [[ $dashboard_page == *'FreeDV Decoder Diagnostics'* ]] || dashboard_ok=0
+    fi
+    if [[ $public_dashboard_required == 1 ]]; then
+      public_dashboard_page=$(/usr/bin/wget -qO- http://127.0.0.1:8077/ 2>/dev/null || true)
+      [[ $public_dashboard_page == *'FreeDV Live Signal Monitor'* ]] || dashboard_ok=0
     fi
     if [[ $health == *"\"release\":\"$decoder_health_release\""* && $health == *'"kiwi_connected":true'* &&
           $(systemctl is-active freedv-decoder.service) == active &&
@@ -101,6 +123,10 @@ if [[ $healthy -ne 1 ]]; then
   rm -rf /usr/local/share/freedv-dashboard
   if [[ -d $rollback/dashboard-assets ]]; then
     cp -a "$rollback/dashboard-assets" /usr/local/share/freedv-dashboard
+  fi
+  rm -rf /usr/local/share/freedv-public-dashboard
+  if [[ -d $rollback/public-dashboard-assets ]]; then
+    cp -a "$rollback/public-dashboard-assets" /usr/local/share/freedv-public-dashboard
   fi
   systemctl daemon-reload
   systemctl restart freedv-reporter.service freedv-decoder.service

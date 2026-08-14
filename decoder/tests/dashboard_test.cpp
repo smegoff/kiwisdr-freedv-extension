@@ -99,6 +99,11 @@ int main() {
   std::ofstream(root / "index.html") << "<!doctype html><title>FreeDV Decoder Diagnostics</title>";
   std::ofstream(root / "app.js") << "'use strict';";
   std::ofstream(root / "styles.css") << "body{color:white}";
+  const auto public_root = root / "public";
+  std::filesystem::create_directories(public_root);
+  std::ofstream(public_root / "index.html") << "<!doctype html><title>FreeDV Live Signal Monitor</title>";
+  std::ofstream(public_root / "app.js") << "'use strict';";
+  std::ofstream(public_root / "styles.css") << "body{color:white}";
 
   kfd::DashboardConfig config;
   config.bind_address = "127.0.0.1";
@@ -108,6 +113,11 @@ int main() {
   config.waterfall_fps = 10;
   config.websocket_heartbeat_seconds = 1;
   config.capture_seconds = 1;
+  config.public_enabled = true;
+  config.public_bind_address = "127.0.0.1";
+  config.public_port = static_cast<uint16_t>(config.port + 1);
+  config.public_asset_directory = public_root.string();
+  config.public_max_clients = 1;
   kfd::Dashboard dashboard(config, [] {
     return nlohmann::json{{"release", "test"}, {"kiwi_connected", true},
                           {"decode_seconds_total", 1.25}};
@@ -134,6 +144,7 @@ int main() {
   assert(current_json["dashboard"]["waterfall_frames"].get<uint64_t>() > 0);
   assert(current_json["dashboard"]["capture"]["available"] == true);
   assert(current_json["dashboard"]["capture"]["sample_rate"] == 8000);
+  assert(current_json["dashboard"]["public_enabled"] == true);
   auto capture = request(config.port, http::verb::get, "/api/v1/capture.wav");
   assert(capture.result() == http::status::ok);
   assert(capture[http::field::content_type] == "audio/wav");
@@ -153,6 +164,62 @@ int main() {
                                "{\"token\":\"unused\"}");
   assert(removed_login.result() == http::status::not_found);
 
+  auto public_root_page = request(config.public_port, http::verb::get, "/");
+  assert(public_root_page.result() == http::status::ok);
+  assert(public_root_page.body().find("FreeDV Live Signal Monitor") != std::string::npos);
+  auto public_current = request(config.public_port, http::verb::get, "/api/v1/status");
+  assert(public_current.result() == http::status::ok);
+  const auto public_json = nlohmann::json::parse(public_current.body());
+  assert(public_json.size() == 4);
+  assert(public_json["version"] == 1);
+  assert(public_json["kiwi_connected"] == true);
+  assert(public_json["session"]["mode"] == "700D");
+  assert(public_json["session"]["sync"] == true);
+  assert(!public_json.contains("dashboard"));
+  assert(!public_json.contains("decode_seconds_total"));
+  assert(!public_json["session"].contains("backend"));
+  assert(!public_json["session"].contains("callsign"));
+  assert(!public_json["session"].contains("text"));
+  auto public_history = request(config.public_port, http::verb::get, "/api/v1/history");
+  assert(public_history.result() == http::status::ok);
+  for (const auto& sample : nlohmann::json::parse(public_history.body())) {
+    assert(sample.size() <= 4);
+    assert(!sample.contains("audio_queue_ms"));
+    assert(!sample.contains("decode_seconds_total"));
+    assert(!sample.contains("dropped_frames_total"));
+  }
+  auto public_capture = request(config.public_port, http::verb::get, "/api/v1/capture.wav");
+  assert(public_capture.result() == http::status::not_found);
+  auto public_post = request(config.public_port, http::verb::post, "/");
+  assert(public_post.result() == http::status::not_found);
+  auto public_traversal = request(config.public_port, http::verb::get, "/../../etc/passwd");
+  assert(public_traversal.result() == http::status::not_found);
+
+  asio::io_context public_ws_ioc;
+  websocket::stream<tcp::socket> public_ws(public_ws_ioc);
+  public_ws.next_layer().connect({asio::ip::make_address("127.0.0.1"), config.public_port});
+  public_ws.handshake("127.0.0.1", "/api/v1/stream");
+  beast::flat_buffer public_ws_buffer;
+  public_ws.read(public_ws_buffer);
+  assert(public_ws.got_binary());
+  public_ws.text(true);
+  public_ws.write(asio::buffer(std::string("ack")));
+
+  tcp::socket excess_socket(public_ws_ioc);
+  excess_socket.connect({asio::ip::make_address("127.0.0.1"), config.public_port});
+  http::request<http::empty_body> excess_request{http::verb::get, "/api/v1/stream", 11};
+  excess_request.set(http::field::host, "127.0.0.1");
+  excess_request.set(http::field::upgrade, "websocket");
+  excess_request.set(http::field::connection, "upgrade");
+  excess_request.set(http::field::sec_websocket_version, "13");
+  excess_request.set(http::field::sec_websocket_key, "dGhlIHNhbXBsZSBub25jZQ==");
+  http::write(excess_socket, excess_request);
+  beast::flat_buffer excess_buffer;
+  http::response<http::string_body> excess_response;
+  http::read(excess_socket, excess_buffer, excess_response);
+  assert(excess_response.result() == http::status::too_many_requests);
+  beast::get_lowest_layer(public_ws).close();
+
   asio::io_context ws_ioc;
   websocket::stream<tcp::socket> ws(ws_ioc);
   ws.next_layer().connect({asio::ip::make_address("127.0.0.1"), config.port});
@@ -167,6 +234,7 @@ int main() {
   std::this_thread::sleep_for(std::chrono::milliseconds(1200));
   auto after_disconnect = request(config.port, http::verb::get, "/api/v1/status");
   assert(nlohmann::json::parse(after_disconnect.body())["dashboard"]["clients"] == 0);
+  assert(nlohmann::json::parse(after_disconnect.body())["dashboard"]["public_clients"] == 0);
   dashboard.stop();
   std::filesystem::remove_all(root);
   return 0;

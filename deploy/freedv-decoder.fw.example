@@ -8,5 +8,7 @@ dhcp: 1
 # Replace the documentation-only TEST-NET CIDR before installing this file.
 IN ACCEPT -source 192.0.2.0/24 -p tcp -dport 22 -log nolog
 IN ACCEPT -source 192.0.2.0/24 -p tcp -dport 8076 -log nolog
+# Port 8077 is deliberately absent: the sanitized spectator listener binds
+# loopback and is reached only by a same-guest HTTPS reverse proxy.
 IN ACCEPT -source 192.0.2.0/24 -p udp -dport 5353 -log nolog
 IN ACCEPT -source 192.0.2.0/24 -p icmp -log nolog

@@ -41,6 +41,8 @@ the optional diagnostics page connects to its management-only web port.
 - Optional, independently gated RADEV1 decoder.
 - Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
+- A separate, sanitized public signal monitor with a loopback-only listener,
+  allowlisted status/history fields and no audio download or controls.
 - A compact **Decoder diagnostics (LAN)** link in the FreeDV panel when the
   receiver itself is opened from loopback, an RFC1918 address or a `.local`
   hostname. The link is omitted for public reverse-proxy listeners.
@@ -55,7 +57,7 @@ the optional diagnostics page connects to its management-only web port.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.38 | Compact LAN-only diagnostics link plus the overflow-safe frequency and Reporter layout |
-| Decoder service | 0.1.35 | Stable return-audio pacing plus browser-side automatic waterfall levels |
+| Decoder service | 0.1.36 | Automatic management waterfall levels plus a sanitized public spectator listener |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
@@ -96,9 +98,10 @@ sidecar.
 
 For remote owner diagnostics, use a private VPN into the management LAN. Do
 not publish the existing port 8076 listener: it includes a bounded audio
-download and internal service counters. A public spectator dashboard requires
-a separate sanitized, read-only listener behind HTTPS and rate limiting; see
-[Remote and public viewing](docs/dashboard.md#remote-and-public-viewing).
+download and internal service counters. Decoder v0.1.36 includes a separate
+sanitized spectator listener on loopback port 8077. It still requires an
+owner-controlled HTTPS hostname and rate-limited reverse proxy before internet
+publication; see [Public FreeDV signal monitor](docs/public-dashboard.md).
 
 External decoding is intentional: the Kiwi's single-core processor already
 handles RF processing, receiver channels, waterfalls, audio and networking.
@@ -254,7 +257,7 @@ reconnects automatically.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.35 installs a lightweight read-only dashboard at
+Decoder service 0.1.36 installs a lightweight read-only management dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.
