@@ -64,6 +64,7 @@ canvas { display: block; width: 100%; height: 100%; }
 .history { height: 190px; }
 .details-panel { margin-top: 1rem; padding: 0; }
 .details-panel summary { padding: .9rem 1rem; cursor: pointer; font-weight: 650; }
+.stats-note { margin: 0; padding: 0 1rem .9rem; font-size: .82rem; }
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 1px; background: var(--border); border-top: 1px solid var(--border); }
 .stat { min-height: 4.2rem; padding: .75rem 1rem; background: var(--surface); }
 .stat span { display: block; color: var(--muted); font-size: .76rem; }

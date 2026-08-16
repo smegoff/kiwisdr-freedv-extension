@@ -1,6 +1,6 @@
 # Public FreeDV signal monitor
 
-Decoder service 0.1.36 includes an optional spectator page for internet users.
+Decoder service 0.1.37 includes an optional spectator page for internet users.
 It is a separate surface from the management diagnostics dashboard and is
 disabled by default for new installations.
 

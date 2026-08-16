@@ -26,14 +26,14 @@ cmake --build "$src/build" --parallel
 cmake --install "$src/build" --prefix /usr/local
 
 install -d -m 0750 -o root -g freedv /etc/freedv-decoder
-install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.36
+install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.37
 install -m 0644 "$src/dashboard/index.html" "$src/dashboard/app.js" \
-  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.36/
-ln -sfn 0.1.36 /usr/local/share/freedv-dashboard/current
-install -d -m 0755 /usr/local/share/freedv-public-dashboard/0.1.36
+  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.37/
+ln -sfn 0.1.37 /usr/local/share/freedv-dashboard/current
+install -d -m 0755 /usr/local/share/freedv-public-dashboard/0.1.37
 install -m 0644 "$src/public-dashboard/index.html" "$src/public-dashboard/app.js" \
-  "$src/public-dashboard/styles.css" /usr/local/share/freedv-public-dashboard/0.1.36/
-ln -sfn 0.1.36 /usr/local/share/freedv-public-dashboard/current
+  "$src/public-dashboard/styles.css" /usr/local/share/freedv-public-dashboard/0.1.37/
+ln -sfn 0.1.37 /usr/local/share/freedv-public-dashboard/current
 install -d -m 0755 /opt/freedv-reporter
 install -m 0755 "$src/reporter/reporter.py" /opt/freedv-reporter/reporter.py
 python3 -m venv /opt/freedv-reporter/venv

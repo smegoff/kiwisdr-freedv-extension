@@ -3,7 +3,7 @@ set -euo pipefail
 
 samples=${1:-41}
 interval=${2:-15}
-expected_release=${3:-0.1.26}
+expected_release=${3:-0.1.37}
 expected_sessions=${4:-0}
 start_epoch=$(date +%s)
 
@@ -31,20 +31,28 @@ import sys
 sample, health_raw, status_raw, history_count, service, rss, cpu, critical, release, sessions = sys.argv[1:]
 health = json.loads(health_raw)
 status = json.loads(status_raw)
-sessions = int(sessions)
 assert service == "active"
 assert health["status"] == "ok" and health["release"] == release
 assert status["release"] == release and status["kiwi_connected"] is True
-assert int(status["sessions"]) == sessions
+if sessions != "any":
+    assert int(status["sessions"]) == int(sessions)
 assert int(status["dropped_frames_total"]) == 0
 assert int(critical) == 0
 assert int(history_count) <= 600
 dashboard = status["dashboard"]
-if sessions:
+session = status.get("session", {})
+if session.get("active"):
+    modem = session.get("modem", {})
+    assert modem.get("resyncs") is not None
+    if session.get("mode") != "RADEV1":
+        for field in ("bits", "bit_errors", "packets", "packet_errors",
+                      "clock_offset_ppm", "timing_offset", "sync_metric"):
+            assert modem.get(field) is not None
+if sessions != "any" and int(sessions):
     assert int(dashboard["clients"]) >= 1
     assert int(dashboard["waterfall_frames"]) > 0
 print(
-    f"DASHBOARD sample={sample} release={release} sessions={sessions} "
+    f"DASHBOARD sample={sample} release={release} sessions={status['sessions']} "
     f"clients={dashboard['clients']} wf={dashboard['waterfall_frames']} "
     f"viz_drops={dashboard['spectrum_drops']} history={history_count} "
     f"rss_kb={rss} cpu={cpu} critical={critical}"

@@ -39,6 +39,11 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn("wantedFloor+30", js)
         self.assertIn("wantedCeiling-wantedFloor>70", js)
         self.assertIn("effectiveFloor()", js)
+        self.assertIn('id="modem-stats-note"', html)
+        self.assertIn('session.mode === "RADEV1"', js)
+        self.assertIn("Decoded speech frames", js)
+        self.assertIn("not supplied by the modem library", js)
+        self.assertNotIn('["codec_variance","Codec variance"]', js)
 
     def test_openwebrx_palettes_match_built_in_schemes(self):
         js = (ROOT / "dashboard" / "app.js").read_text(encoding="utf-8")

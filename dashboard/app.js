@@ -63,10 +63,7 @@ function updateStatus(data) {
   setText("offset", session.active ? `${number(session.frequency_offset_hz,1)} Hz` : null);
   setText("reporter", data.reporter); setText("decoded-text", [session.callsign,session.text].filter(Boolean).join(" "));
   setText("axis", `0–${session.input_rate ? number(session.input_rate/2000,1) : "6"} kHz`);
-  renderStats("modem-stats", session.modem || {}, [
-    ["bits","Bits"],["bit_errors","Errors"],["packets","Packets"],["packet_errors","Packet errors"],
-    ["resyncs","Resyncs"],["clock_offset_ppm","Clock offset (ppm)"],["timing_offset","Timing delta"],
-    ["sync_metric","Sync metric"],["codec_variance","Codec variance"]]);
+  renderModemStats(session);
   renderStats("service-stats", data, [
     ["snd_frames_total","Input frames"],["decoded_frames_total","Decoded frames"],["dropped_frames_total","Dropped frames"],
     ["reconnects_total","Reconnects"],["auth_successes_total","Control auth successes"],["auth_failures_total","Control auth failures"],
@@ -89,6 +86,38 @@ function updateStatus(data) {
 
 function renderStats(id, source, fields) { const target=$(id); target.textContent=""; for(const [key,label] of fields) addStat(id,label,source[key]); }
 function addStat(id,label,value) { const item=document.createElement("div"); item.className="stat"; const name=document.createElement("span"); name.textContent=label; const val=document.createElement("strong"); val.textContent=value == null ? "Not available" : typeof value === "number" && !Number.isInteger(value) ? value.toFixed(2) : value; item.append(name,val); $(id).append(item); }
+
+function renderModemStats(session) {
+  const note=$("modem-stats-note"), modem=session.modem || {};
+  if (!session.active) {
+    note.textContent="Start a FreeDV decoder session to view mode-specific statistics.";
+    renderStats("modem-stats", {}, []);
+    return;
+  }
+  if (session.mode === "RADEV1") {
+    note.textContent="RADEv1 currently exposes sync, SNR and frequency offset through its public C API. Bit, packet, clock and timing counters are not supplied by the modem library.";
+    renderStats("modem-stats", {
+      sync_state:session.sync ? "Synchronized" : "No sync",
+      snr_db:session.snr_db,
+      frequency_offset_hz:session.frequency_offset_hz,
+      decoded_speech_frames:session.decoded_frames,
+      resyncs:modem.resyncs
+    }, [
+      ["sync_state","Sync state"],["snr_db","SNR (dB)"],
+      ["frequency_offset_hz","Frequency offset (Hz)"],
+      ["decoded_speech_frames","Decoded speech frames"],["resyncs","Resyncs"]
+    ]);
+    return;
+  }
+  note.textContent="Codec2 modem counters are supplied by libcodec2. A field remains unavailable only when the selected mode or installed library does not provide it.";
+  const values=Object.assign({decoded_speech_frames:session.decoded_frames},modem);
+  renderStats("modem-stats", values, [
+    ["bits","Bits"],["bit_errors","Bit errors"],["packets","Packets"],
+    ["packet_errors","Packet errors"],["decoded_speech_frames","Decoded speech frames"],
+    ["resyncs","Resyncs"],["clock_offset_ppm","Clock offset (ppm)"],
+    ["timing_offset","Timing delta"],["sync_metric","Sync metric"]
+  ]);
+}
 
 async function refresh() {
   try { const [status,history] = await Promise.all([api("/api/v1/status"),api("/api/v1/history")]); updateStatus(status); historyData=history; drawHistory(); }
