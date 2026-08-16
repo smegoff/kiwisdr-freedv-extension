@@ -1,6 +1,6 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.36 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.37 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
@@ -26,16 +26,20 @@ The main view provides:
 - Current session, backend, sync, SNR, frequency offset, callsign/text and
   Reporter state.
 - One-, five- or ten-minute SNR and frequency-offset history.
-- Codec2 bits, errors, packet counts, resyncs, clock offset, timing delta and
-  sync metric where libcodec2 supplies them.
+- Mode-aware modem statistics: Codec2 bits, errors, packet counts, resyncs,
+  clock offset, timing delta and sync metric where libcodec2 supplies them;
+  RADEV1 sync, SNR, frequency offset, decoded speech frames and locally tracked
+  resynchronizations.
 - Service counters for input, decoded and dropped frames, reconnects, control
   authentication and decoder CPU time.
 - A bounded in-memory WAV download of the latest post-resampler modem audio,
   useful for separating marginal RF from transport or decoder faults.
 
-Unavailable RADEV1 or mode-specific diagnostics are displayed as **Not
-available**. The service returns JSON `null`; it does not invent substitute
-values. The terminology follows the
+The RADEV1 public C API does not currently supply bit, packet, clock or timing
+counters. The dashboard explains this and omits those rows for RADEV1 instead
+of presenting a grid of unavailable values. Codec2 fields remain explicitly
+**Not available** only when the selected mode or installed libcodec2 does not
+supply them. The service does not invent substitute values. The terminology follows the
 [FreeDV GUI statistics window](https://github.com/drowe67/freedv-gui/blob/master/USER_MANUAL.md#stats-window),
 and the overlay follows the [FreeDV signal specifications](https://freedv.org/freedv-specification/).
 
@@ -70,7 +74,7 @@ management LAN. It preserves the existing dashboard without publishing port
 
 The management dashboard must not be placed directly behind a public reverse
 proxy. In addition to the waterfall, it exposes internal service counters and
-the latest bounded modem-audio WAV. Decoder v0.1.36 provides a separate,
+the latest bounded modem-audio WAV. Decoder v0.1.37 provides a separate,
 disabled-by-default spectator listener with an allowlisted API and no WAV or
 controls. See [Public FreeDV signal monitor](public-dashboard.md). John's
 KiwiSDR reverse proxy forwards the Kiwi receiver; it does not route the
@@ -156,5 +160,5 @@ decoder guest. Pass `1` as the final argument for an active session or `0` for
 idle cleanup:
 
 ```bash
-sudo ./tools/soak-dashboard.sh 41 15 0.1.36 1
+sudo ./tools/soak-dashboard.sh 41 15 0.1.37 1
 ```

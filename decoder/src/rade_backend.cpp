@@ -77,6 +77,11 @@ class RadeBackend final : public DecoderBackend {
       }
       consumed += needed;
       last_status_.synced = output.synced != 0;
+      if (last_status_.synced && !was_synced_) {
+        if (had_sync_) resyncs_++;
+        had_sync_ = true;
+      }
+      was_synced_ = last_status_.synced;
       last_status_.snr_db = output.snr_db;
       last_status_.frequency_offset_hz = output.frequency_offset_hz;
       if (valid_eoo_callsign(output.eoo_callsign)) callsign_ = output.eoo_callsign;
@@ -86,6 +91,7 @@ class RadeBackend final : public DecoderBackend {
     if (consumed) iq_.erase(iq_.begin(), iq_.begin() + consumed);
     if (!last_status_.synced) callsign_.clear();
     last_status_.callsign = callsign_;
+    last_status_.resyncs = resyncs_;
     result.status = last_status_;
     // A valid final speech frame can coincide with the modem dropping sync at
     // End of Over. Allow that decoded frame through the Kiwi audio gate.
@@ -97,6 +103,9 @@ class RadeBackend final : public DecoderBackend {
     iq_.clear();
     callsign_.clear();
     last_status_ = {};
+    was_synced_ = false;
+    had_sync_ = false;
+    resyncs_ = 0;
     char error[160] = {0};
     if (decoder_ && kfd_rade_reset(decoder_, error, sizeof(error)) != 0)
       throw std::runtime_error(error[0] ? error : "unable to reset RADEv1");
@@ -108,6 +117,9 @@ class RadeBackend final : public DecoderBackend {
   std::vector<int16_t> pcm_scratch_;
   std::string callsign_;
   DecodeStatus last_status_;
+  bool was_synced_ = false;
+  bool had_sync_ = false;
+  uint64_t resyncs_ = 0;
 };
 
 }  // namespace

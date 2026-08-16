@@ -150,6 +150,7 @@ int main(int argc, char** argv) {
     const auto result = backend->push(samples.data() + offset, count);
     assert(result.sample_rate == 16000);
     assert(result.status.error.empty());
+    assert(result.status.resyncs.has_value());
     sync_seen = sync_seen || result.status.synced;
     if (result.status.synced && !streaming_state_checked) {
       const auto between_frames = backend->push(nullptr, 0);
@@ -166,6 +167,8 @@ int main(int argc, char** argv) {
   const double realtime_factor = elapsed / signal_seconds;
   assert(sync_seen);
   assert(streaming_state_checked);
+  const auto final_state = backend->push(nullptr, 0);
+  assert(final_state.status.resyncs.has_value());
   assert(pcm_samples >= 16000);
   if (argc == 3) write_pcm16_mono_16k(argv[2], pcm_output);
   backend->reset();

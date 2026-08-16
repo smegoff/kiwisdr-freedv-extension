@@ -90,7 +90,7 @@ http::response<http::string_body> response(http::status status, unsigned version
                                            const std::string& content_type,
                                            std::string body) {
   http::response<http::string_body> result{status, version};
-  result.set(http::field::server, "freedv-dashboard/0.1.36");
+  result.set(http::field::server, "freedv-dashboard/0.1.37");
   result.set(http::field::content_type, content_type);
   result.set(http::field::cache_control, "no-store");
   result.set("X-Content-Type-Options", "nosniff");
@@ -255,7 +255,7 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
                         {"samples", samples},
                         {"seconds", capture_rate ? samples / static_cast<double>(capture_rate) : 0.0}};
     }
-    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.36"},
+    output["dashboard"] = {{"enabled", config.enabled}, {"release", "0.1.37"},
                             {"clients", dashboard_clients.load()},
                             {"public_enabled", config.public_enabled},
                             {"public_clients", public_clients.load()},

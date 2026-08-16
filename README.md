@@ -57,7 +57,7 @@ the optional diagnostics page connects to its management-only web port.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.38 | Compact LAN-only diagnostics link plus the overflow-safe frequency and Reporter layout |
-| Decoder service | 0.1.36 | Automatic management waterfall levels plus a sanitized public spectator listener |
+| Decoder service | 0.1.37 | Mode-aware Codec2/RADEV1 statistics plus management and sanitized spectator dashboards |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
@@ -98,7 +98,7 @@ sidecar.
 
 For remote owner diagnostics, use a private VPN into the management LAN. Do
 not publish the existing port 8076 listener: it includes a bounded audio
-download and internal service counters. Decoder v0.1.36 includes a separate
+download and internal service counters. Decoder v0.1.37 includes a separate
 sanitized spectator listener on loopback port 8077. It still requires an
 owner-controlled HTTPS hostname and rate-limited reverse proxy before internet
 publication; see [Public FreeDV signal monitor](docs/public-dashboard.md).
@@ -257,7 +257,7 @@ reconnects automatically.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.36 installs a lightweight read-only management dashboard at
+Decoder service 0.1.37 installs a lightweight read-only management dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.

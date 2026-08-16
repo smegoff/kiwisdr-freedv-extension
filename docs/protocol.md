@@ -135,7 +135,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.36 includes a separate read-only management surface on
+Decoder service 0.1.37 includes a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open
@@ -150,7 +150,7 @@ after Kiwi sound decoding. An overloaded dashboard drops its own samples and
 cannot back-pressure the modem. See [dashboard.md](dashboard.md) for the exact
 frame layout and security boundary.
 
-Decoder v0.1.36 can also serve the same FFT frames through an independently
+Decoder v0.1.37 can also serve the same FFT frames through an independently
 configured loopback spectator listener. Its version-1 status and history APIs
 are newly constructed from explicit field allowlists and cannot access the WAV
 capture or any control route. The reference configuration uses
