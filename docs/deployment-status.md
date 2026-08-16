@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-14 22:00 UTC (2026-08-15 10:00 NZST)
+Last verified: 2026-08-16 08:11 UTC (2026-08-16 20:11 NZST)
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -20,18 +20,49 @@ and no AI-64 local-decoder service is enabled.
 - Kiwi BuildID: `446cd0f180915cb171524377a8fa2a36c063aff2`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.36`
+- decoder-guest release: `0.1.37`
 - decoder binary SHA-256:
-  `7e96da4fd204cbf58c204511b8eaa4d655e211bd5f41ad6811ebfbf5f60a92ed`
+  `f5c5bf63addbec65021f3dbcfc6bec9a01fb477dc9fd28f7a9aee791a2aec45b`
 - Reporter sidecar SHA-256:
   `6aec6f93ef444589acf6205a6240141dd8e65c1668077e37f77c652625f48c8d`
 - Reporter client: `KiwiSDR-FreeDV/0.1.34`
-- decoder dashboard assets: management and public `0.1.36`
-- decoder-guest snapshot: `pre-decoder-v0-1-36`
+- decoder dashboard assets: management and public `0.1.37`
+- decoder-guest snapshot: `pre-decoder-v0-1-37`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Decoder v0.1.37 mode-aware modem statistics
+
+Decoder v0.1.37 replaces the misleading all-`Not available` RADEV1 grid with
+mode-specific diagnostics. RADEV1 now shows sync, SNR, frequency offset,
+decoded speech frames and a decoder-local resynchronization counter. The
+dashboard explains that the public RADE C API does not supply Codec2-style bit,
+packet, clock or timing counters. Codec2 modes retain bits, bit errors, packets,
+packet errors, resyncs, clock offset, timing delta and sync metric. The unused
+Codec variance tile is hidden until a trustworthy backend supplies it.
+
+The candidate passed all four CTest targets. Additional backend assertions
+confirmed that every production Codec2 mode populates its documented modem
+fields. The official RADEV1 reference synchronized, returned 150,880 speech
+samples with no cadence underruns and ran at real-time factor 0.0230. Wrapper
+and official decoder output remained byte-identical at SHA-256
+`7997f3cb6c3b573e6f5e8272cb151b8fe1983fcd7955320bed5c67e67d2f2aeb`.
+
+The live RADEV1 API published `decoded_frames` and a non-null `resyncs` value;
+normal session transitions advanced the latter from zero to one. A final
+transition-aware 41-sample, ten-minute soak covered 30 active samples, five
+idle samples and six further active samples. Every sample reported release
+0.1.37, a healthy Kiwi control path, zero decoder and visualization drops, zero
+critical journal matches and a history ring capped at 600 entries. With one
+management dashboard client and active RADEV1, daemon RSS settled near 19.6 MB
+and CPU remained about 4.8--5.9 percent of one guest core.
+
+The atomic deployment retained the previous binary, dashboard assets,
+configuration and service files beneath
+`/root/freedv-rollbacks/pre-v0.1.37-20260816T075301Z`. The immediate Proxmox
+rollback snapshot is `pre-decoder-v0-1-37`.
 
 ## Decoder v0.1.36 sanitized spectator surface
 

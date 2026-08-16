@@ -18,6 +18,14 @@ int main() {
     assert(backend->modem_sample_rate() == 8000);
     const auto result = backend->push(silence.data(), silence.size());
     assert(result.sample_rate == 8000);
+    assert(result.status.bits.has_value());
+    assert(result.status.bit_errors.has_value());
+    assert(result.status.packets.has_value());
+    assert(result.status.packet_errors.has_value());
+    assert(result.status.resyncs.has_value());
+    assert(result.status.clock_offset_ppm.has_value());
+    assert(result.status.timing_offset.has_value());
+    assert(result.status.sync_metric.has_value());
     backend->reset();
     std::cout << mode << ": ok\n";
   }
