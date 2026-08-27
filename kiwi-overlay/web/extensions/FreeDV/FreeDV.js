@@ -195,6 +195,20 @@ function freedv_reporter_identity_valid()
    return call_re.test(callsign) && grid_re.test(grid);
 }
 
+function freedv_reporter_commit_identity()
+{
+   var call_element = w3_el('freedv.reporter_callsign');
+   var grid_element = w3_el('freedv.reporter_grid');
+   if (call_element)
+      freedv.reporter_callsign = String(call_element.value || '').trim().toUpperCase();
+   if (grid_element)
+      freedv.reporter_grid = String(grid_element.value || '').trim().toUpperCase();
+   if (call_element) call_element.value = freedv.reporter_callsign;
+   if (grid_element) grid_element.value = freedv.reporter_grid;
+   kiwi_storeWrite('freedv_reporter_callsign', freedv.reporter_callsign);
+   kiwi_storeWrite('freedv_reporter_grid', freedv.reporter_grid);
+}
+
 function freedv_reporter_requested()
 {
    return freedv.reporter_enabled && freedv.reporter_opt_in &&
@@ -203,6 +217,9 @@ function freedv_reporter_requested()
 
 function freedv_start_command()
 {
+   // Re-read the DOM so a listener who types and immediately presses Start
+   // cannot race the Kiwi input helper's deferred change callback.
+   freedv_reporter_commit_identity();
    var requested = freedv_reporter_requested();
    return 'SET freedv_start=1 mode='+ freedv.mode +
       ' reporter='+ (requested? 1:0) +
@@ -236,6 +253,7 @@ function freedv_reporter_grid_cb(path, value)
 
 function freedv_reporter_opt_in_cb(path, checked, first)
 {
+   freedv_reporter_commit_identity();
    freedv.reporter_opt_in = !!checked;
    if (!first) freedv_reporter_restart_if_running();
    else freedv_update_reporter_state();
@@ -506,7 +524,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.39 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.40 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -521,7 +539,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.39 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.40 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),

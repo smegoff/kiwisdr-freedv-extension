@@ -38,7 +38,7 @@ MSG freedv_job=<encoded-json>
 
 Running jobs contain `protocol`, `generation`, `running`, `rx_chan`, `mode`,
 `input_rate`, `frequency_hz`, `test`, `test_ready`, and disabled-by-default
-Reporter fields. Kiwi extension 0.1.39 fills those fields only when the active
+Reporter fields. Kiwi extension 0.1.40 fills those fields only when the active
 browser explicitly opts in with a valid callsign and Maidenhead locator. The
 identity is held in that receiver channel's in-memory job state; it is not read
 from the Kiwi owner's configuration. A cached older browser command remains

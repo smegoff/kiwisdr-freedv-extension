@@ -57,7 +57,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.39 | Per-listener Reporter identity and explicit session opt-in |
+| Kiwi extension | 0.1.40 | Per-listener Reporter identity and race-free explicit session opt-in |
 | Decoder service | 0.1.38 | Listener-identity reconnect plus mode-aware management and spectator dashboards |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.35 | Per-listener opt-in reporting plus an independent read-only live-frequency feed |
