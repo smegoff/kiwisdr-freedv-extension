@@ -43,9 +43,6 @@ def main():
         freedv["rade_enabled"] = True
     elif args.disable_rade:
         freedv["rade_enabled"] = False
-    freedv.setdefault("reporter_callsign", "")
-    freedv.setdefault("reporter_grid", "")
-    freedv.setdefault("reporter_message", "")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup = f"{config_path}.pre-freedv-{stamp}"

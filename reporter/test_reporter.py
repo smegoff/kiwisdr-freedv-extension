@@ -12,6 +12,7 @@ from reporter.reporter import (
     connect_and_wait_for_acceptance,
     mode_activity_due,
     publish_rx_selection,
+    reporter_identity,
     rx_mode_activity,
     write_active_frequencies,
 )
@@ -121,7 +122,7 @@ class ReporterTests(unittest.TestCase):
         self.assertTrue(state.reportable("ZL2ABC", "700D", 7177000))
         self.assertFalse(state.reportable("ZL2ABC", "700D", 7177000))
 
-    def test_authenticated_kiwi_station_config_replaces_defaults(self):
+    def test_authenticated_kiwi_listener_config_replaces_defaults(self):
         state = ReporterState()
         state.update({"type": "start", "session_id": 1, "sync": False,
                       "enabled": True, "station_callsign": "zl2abc",
@@ -129,6 +130,12 @@ class ReporterTests(unittest.TestCase):
         self.assertEqual(state.config["callsign"], "ZL2ABC")
         self.assertEqual(state.config["grid_square"], "RF80AA")
         self.assertNotIn("listener", state.config)
+
+    def test_reporter_identity_tracks_the_selected_listener(self):
+        first = {"callsign": "zl2abc", "grid_square": "rf80aa"}
+        second = {"callsign": "zl1xyz", "grid_square": "rf72"}
+        self.assertEqual(reporter_identity(first), ("ZL2ABC", "RF80AA"))
+        self.assertNotEqual(reporter_identity(first), reporter_identity(second))
 
     def test_periodic_status_reconstructs_config_after_sidecar_restart(self):
         state = ReporterState()
@@ -156,7 +163,7 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
         self.assertEqual(auth["version"], CLIENT_VERSION)
-        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.34")
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.35")
 
     def test_selected_codec_activity_has_no_transmitter_identity(self):
         payload = rx_mode_activity("700D")

@@ -2,7 +2,8 @@
 """RX-only FreeDV Reporter bridge.
 
 The decoder daemon sends newline-delimited JSON events to UDP localhost:8075.
-No listener identity is accepted or forwarded.
+The selected Kiwi job supplies the listener's explicit callsign/grid opt-in;
+browser names, addresses and other listener metadata are never accepted.
 """
 
 import asyncio
@@ -17,7 +18,7 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.34"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.35"
 MODE_ACTIVITY_INTERVAL_SECONDS = 10.0
 SESSION_TIMEOUT_SECONDS = 15.0
 MAX_ACTIVE_FREQUENCIES = 64
@@ -36,6 +37,12 @@ def build_auth(config):
         "os": "linux",
         "protocol_version": 2,
     }
+
+
+def reporter_identity(config):
+    """Return the immutable identity bound to one Reporter connection."""
+    return (str(config.get("callsign", "")).upper(),
+            str(config.get("grid_square", "")).upper())
 
 
 def rx_mode_activity(mode, snr=0.0):
@@ -303,6 +310,7 @@ async def main():
     state = ReporterState(initial)
     sio = socketio.AsyncClient(reconnection=False, logger=False)
     retry_delay, next_retry = 1.0, 0.0
+    connected_identity = None
     last_freq = last_mode = last_message = None
     last_rade_activity = 0.0
     last_mode_activity = None
@@ -310,9 +318,10 @@ async def main():
     frequency_task = asyncio.create_task(reporter_frequency_view(url, frequencies_path))
 
     async def disconnect(new_state="disabled"):
-        nonlocal last_freq, last_mode, last_message, last_mode_activity
+        nonlocal connected_identity, last_freq, last_mode, last_message, last_mode_activity
         if sio.connected:
             await sio.disconnect()
+        connected_identity = None
         last_freq = last_mode = last_message = None
         last_mode_activity = None
         write_state(new_state)
@@ -340,10 +349,17 @@ async def main():
             await disconnect("error")
             continue
 
+        identity = reporter_identity(cfg)
+        if sio.connected and connected_identity != identity:
+            logging.info("Reporter listener identity changed; reconnecting")
+            await disconnect("connecting")
+            retry_delay, next_retry = 1.0, 0.0
+
         if not sio.connected and time.monotonic() >= next_retry:
             write_state("connecting")
             try:
                 await connect_and_wait_for_acceptance(sio, url, build_auth(cfg), timeout=10)
+                connected_identity = identity
                 retry_delay, next_retry = 1.0, 0.0
                 last_freq = last_mode = last_message = None
                 last_mode_activity = None
