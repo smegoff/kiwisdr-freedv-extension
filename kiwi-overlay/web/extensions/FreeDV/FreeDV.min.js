@@ -17,6 +17,7 @@ var freedv = {
    reporter_opt_in: false,
    reporter_callsign: '',
    reporter_grid: '',
+   reporter_message: '',
    rade_enabled: false,
    mode: 'RADEV1',
    calling_index: 0,
@@ -181,6 +182,8 @@ function freedv_reporter_load_identity()
       trim().toUpperCase();
    freedv.reporter_grid = String(kiwi_storeRead('freedv_reporter_grid') || '').
       trim().toUpperCase();
+   freedv.reporter_message = String(kiwi_storeRead('freedv_reporter_message') || '').
+      trim().slice(0, 128);
    // Consent is deliberately per page visit. A saved identity never silently
    // publishes a listener on FreeDV Reporter.
    freedv.reporter_opt_in = false;
@@ -199,14 +202,19 @@ function freedv_reporter_commit_identity()
 {
    var call_element = w3_el('freedv.reporter_callsign');
    var grid_element = w3_el('freedv.reporter_grid');
+   var message_element = w3_el('freedv.reporter_message');
    if (call_element)
       freedv.reporter_callsign = String(call_element.value || '').trim().toUpperCase();
    if (grid_element)
       freedv.reporter_grid = String(grid_element.value || '').trim().toUpperCase();
+   if (message_element)
+      freedv.reporter_message = String(message_element.value || '').trim().slice(0, 128);
    if (call_element) call_element.value = freedv.reporter_callsign;
    if (grid_element) grid_element.value = freedv.reporter_grid;
+   if (message_element) message_element.value = freedv.reporter_message;
    kiwi_storeWrite('freedv_reporter_callsign', freedv.reporter_callsign);
    kiwi_storeWrite('freedv_reporter_grid', freedv.reporter_grid);
+   kiwi_storeWrite('freedv_reporter_message', freedv.reporter_message);
 }
 
 function freedv_reporter_requested()
@@ -224,7 +232,9 @@ function freedv_start_command()
    return 'SET freedv_start=1 mode='+ freedv.mode +
       ' reporter='+ (requested? 1:0) +
       ' call='+ (requested? freedv.reporter_callsign:'-') +
-      ' grid='+ (requested? freedv.reporter_grid:'-');
+      ' grid='+ (requested? freedv.reporter_grid:'-') +
+      ' msg='+ (requested && freedv.reporter_message?
+         encodeURIComponent(freedv.reporter_message):'-');
 }
 
 function freedv_reporter_restart_if_running()
@@ -248,6 +258,15 @@ function freedv_reporter_grid_cb(path, value)
    kiwi_storeWrite('freedv_reporter_grid', freedv.reporter_grid);
    var element = w3_el(path);
    if (element) element.value = freedv.reporter_grid;
+   freedv_reporter_restart_if_running();
+}
+
+function freedv_reporter_message_cb(path, value)
+{
+   freedv.reporter_message = String(value || '').trim().slice(0, 128);
+   kiwi_storeWrite('freedv_reporter_message', freedv.reporter_message);
+   var element = w3_el(path);
+   if (element) element.value = freedv.reporter_message;
    freedv_reporter_restart_if_running();
 }
 
@@ -524,7 +543,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.40 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.41 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -539,7 +558,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.40 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.41 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -576,8 +595,12 @@ function freedv_controls_setup()
                w3_checkbox('id-freedv-reporter-opt/w3-label-inline w3-label-not-bold/',
                   'Report this receive session', 'freedv.reporter_opt_in', false,
                   'freedv_reporter_opt_in_cb')),
+            w3_input('id-freedv-reporter-message/w3-label-not-bold/|size=42 maxlength=128',
+               'Reporter message (optional)', 'freedv.reporter_message',
+               freedv.reporter_message, 'freedv_reporter_message_cb',
+               'e.g. Listening via KiwiSDR'),
             w3_div('id-freedv-reporter-privacy w3-small w3-text-light-grey',
-               'Identity is saved only in this browser; opt-in resets when the page closes.'))),
+               'Identity and message are saved only in this browser; opt-in resets when the page closes.'))),
       w3_div('id-freedv-detail-grid',
          w3_div('id-freedv-radio-info',
             w3_div('w3-small', 'Reference: ',
@@ -602,7 +625,7 @@ function freedv_controls_setup()
             freedv_diagnostics_link_html()),
          w3_div('id-freedv-error w3-small w3-text-red')));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(560, 650);
+   ext_set_controls_width_height(560, 700);
    freedv_update_test_button();
    w3_disable('freedv.reporter_opt_in', !freedv.reporter_enabled);
    freedv_force_noise_filter_off();
@@ -988,8 +1011,10 @@ function FreeDV_help(show)
          'Enter your identity, select <b>Report this receive session</b>, then press Start. ' +
          'Your callsign and locator are saved only in this browser; the opt-in resets ' +
          'when the page closes and the identity is not copied into Kiwi configuration. ' +
-         'When enabled, the callsign and locator are sent to FreeDV Reporter and become ' +
-         'publicly visible. Only use an identity you are entitled to use. Empty or invalid ' +
+         'The optional Reporter message is saved in the same browser and published with ' +
+         'your receiving presence. When enabled, the callsign, locator and message are sent ' +
+         'to FreeDV Reporter and become publicly visible. Only use an identity you are ' +
+         'entitled to use and do not put private information in the message. Empty or invalid ' +
          'details leave decoding available but reporting off. The Kiwi owner\'s identity ' +
          'is never used as a fallback, public listener IP addresses are never reported, ' +
          'and Test sessions are deliberately excluded. During a normal Start the panel ' +

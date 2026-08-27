@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.40`, decoder service `0.1.38`, and KiwiSDR
+written for Kiwi extension `0.1.41`, decoder service `0.1.38`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]
@@ -384,11 +384,12 @@ Admin page requests it. The Admin switch is only a global permission gate; the
 Kiwi owner does not configure the identity used by listeners.
 
 Each listener then enters their own valid amateur callsign and four- or
-six-character Maidenhead locator in the receiver panel, selects **Report this
-receive session**, and presses **Start** (not **Test**). Callsign and locator
-are stored only in that browser. Consent is not persisted: it resets when the
-page or extension is reopened. The Kiwi owner's old Reporter configuration is
-ignored and is never used as a fallback.
+six-character Maidenhead locator in the receiver panel. They may also enter an
+optional Reporter message of up to 128 bytes, such as `Listening via KiwiSDR`.
+They select **Report this receive session** and press **Start** (not **Test**).
+Callsign, locator and message are stored only in that browser. Consent is not
+persisted: it resets when the page or extension is reopened. The Kiwi owner's
+old Reporter configuration is ignored and is never used as a fallback.
 
 The sidecar creates an RX-only presence only while a normal opted-in FreeDV
 session is running. The panel shows `disabled by owner` when the Admin gate is
@@ -401,16 +402,17 @@ to `disabled` and remove the presence.
 
 Open [FreeDV Reporter](https://qso.freedv.org/) and find the exact station
 callsign entered by the listener. The row should say **Receive Only**, show the
-listener's locator and display the Kiwi's current tuned frequency even
+listener's locator and optional public message, and display the Kiwi's current tuned frequency even
 before a modem synchronizes. **RX Mode** should show the selected codec within
 ten seconds; **TX Mode** remains `N/A` because the integration never publishes
 transmit events. The client version belongs to the Reporter sidecar, so it can
 be newer than the version shown in the Kiwi extension heading.
 
-Reporter makes the supplied callsign and locator public. The browser UI warns
+Reporter makes the supplied callsign, locator and optional message public. The browser UI warns
 listeners to use only an identity they are entitled to use. The Kiwi validates
 format and the Reporter service validates again, but neither can prove license
-ownership. Browser names and IP addresses are not included in Reporter events.
+ownership. Listeners should not put private information in the message. Browser
+names and IP addresses are not included in Reporter events.
 
 Start a FreeDV session and check the panel plus:
 
