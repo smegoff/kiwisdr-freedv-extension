@@ -38,11 +38,14 @@ MSG freedv_job=<encoded-json>
 
 Running jobs contain `protocol`, `generation`, `running`, `rx_chan`, `mode`,
 `input_rate`, `frequency_hz`, `test`, `test_ready`, and disabled-by-default
-Reporter fields. Kiwi extension 0.1.40 fills those fields only when the active
-browser explicitly opts in with a valid callsign and Maidenhead locator. The
-identity is held in that receiver channel's in-memory job state; it is not read
-from the Kiwi owner's configuration. A cached older browser command remains
-decode-compatible but produces a Reporter-disabled job.
+Reporter fields. Kiwi extension 0.1.41 fills those fields only when the active
+browser explicitly opts in with a valid callsign and Maidenhead locator. An
+optional message of up to 128 bytes is URI-encoded in the browser command and
+validated before being copied into the job. The identity and message are held
+in that receiver channel's in-memory job state; they are not read from the Kiwi
+owner's configuration. A cached older browser command remains decode-compatible;
+the pre-message command produces an empty message and the pre-identity command
+produces a Reporter-disabled job.
 Only a higher generation changes the decoder state. Older jobs are discarded and a
 same-generation conflict is rejected. There is no job queue.
 

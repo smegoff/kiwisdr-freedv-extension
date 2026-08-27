@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.40"
+#define FREEDV_RELEASE "0.1.41"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -43,6 +43,7 @@ typedef struct {
     char mode[16];
     char reporter_callsign[32];
     char reporter_grid[16];
+    char reporter_message[129];
     u4_t input_rate;
     u64_t frequency_hz;
     u4_t generation;
@@ -382,6 +383,15 @@ static bool freedv_reporter_grid_valid(const char *value)
         (value[4] >= 'A' && value[4] <= 'X' && value[5] >= 'A' && value[5] <= 'X');
 }
 
+static bool freedv_reporter_message_valid(const char *value)
+{
+    if (!value || strlen(value) >= sizeof(freedv[0].reporter_message)) return false;
+    for (const unsigned char *p = (const unsigned char *) value; *p; p++) {
+        if (*p < 0x20 || *p == 0x7f) return false;
+    }
+    return true;
+}
+
 static void freedv_ensure_setup(int rx_chan)
 {
     if (rx_chan < 0 || rx_chan >= rx_chans) return;
@@ -414,6 +424,7 @@ static void freedv_stop(int rx_chan)
     e->reporter_requested = false;
     e->reporter_callsign[0] = 0;
     e->reporter_grid[0] = 0;
+    e->reporter_message[0] = 0;
     e->last_status = 0;
     freedv_set_return_audio(rx_chan, false);
     if (active_rx == rx_chan) active_rx = -1;
@@ -531,14 +542,16 @@ bool freedv_msgs(char *msg, int rx_chan)
     }
 
     int start, reporter_requested = 0;
-    char mode[16], reporter_callsign[32] = {0}, reporter_grid[16] = {0}, extra[2] = {0};
+    char mode[16], reporter_callsign[32] = {0}, reporter_grid[16] = {0};
+    char reporter_message_encoded[385] = {0}, extra[2] = {0};
     int start_fields = sscanf(msg,
-        "SET freedv_start=%d mode=%15s reporter=%d call=%31s grid=%15s %1s",
-        &start, mode, &reporter_requested, reporter_callsign, reporter_grid, extra);
-    if (start_fields == 2 || start_fields == 5 || start_fields == 6) {
+        "SET freedv_start=%d mode=%15s reporter=%d call=%31s grid=%15s msg=%384s %1s",
+        &start, mode, &reporter_requested, reporter_callsign, reporter_grid,
+        reporter_message_encoded, extra);
+    if (start_fields == 2 || start_fields == 5 || start_fields == 6 || start_fields == 7) {
         // A cached pre-v0.1.39 browser sends only the first two fields. Keep
         // decoding compatible, but never fall back to the Kiwi owner's identity.
-        if (start_fields == 6 || (start_fields != 2 && reporter_requested != 0 && reporter_requested != 1)) {
+        if (start_fields == 7 || (start_fields != 2 && reporter_requested != 0 && reporter_requested != 1)) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error", "invalid FreeDV start request");
             return true;
         }
@@ -556,18 +569,25 @@ bool freedv_msgs(char *msg, int rx_chan)
             return true;
         }
         if (start_fields == 5 && reporter_requested) {
+            reporter_message_encoded[0] = 0;
+        }
+        if ((start_fields == 5 || start_fields == 6) && reporter_requested) {
             freedv_uppercase(reporter_callsign);
             freedv_uppercase(reporter_grid);
+            if (strcmp(reporter_message_encoded, "-") == 0) reporter_message_encoded[0] = 0;
+            kiwi_str_decode_inplace(reporter_message_encoded);
             if (!freedv_reporter_callsign_valid(reporter_callsign) ||
-                !freedv_reporter_grid_valid(reporter_grid)) {
+                !freedv_reporter_grid_valid(reporter_grid) ||
+                !freedv_reporter_message_valid(reporter_message_encoded)) {
                 ext_send_msg_encoded(rx_chan, false, "EXT", "error",
-                    "invalid Reporter callsign or Maidenhead locator");
+                    "invalid Reporter callsign, Maidenhead locator or message");
                 return true;
             }
         } else {
             reporter_requested = 0;
             reporter_callsign[0] = 0;
             reporter_grid[0] = 0;
+            reporter_message_encoded[0] = 0;
         }
         freedv_ensure_setup(rx_chan);
         if (active_rx != -1 && active_rx != rx_chan && freedv[active_rx].running) {
@@ -587,6 +607,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         e->reporter_requested = reporter_requested != 0;
         kiwi_strncpy(e->reporter_callsign, reporter_callsign, sizeof(e->reporter_callsign));
         kiwi_strncpy(e->reporter_grid, reporter_grid, sizeof(e->reporter_grid));
+        kiwi_strncpy(e->reporter_message, reporter_message_encoded, sizeof(e->reporter_message));
         e->last_status = 0;
         e->generation = next_generation++;
         kiwi_strncpy(e->mode, mode, sizeof(e->mode));
@@ -639,6 +660,7 @@ bool freedv_msgs(char *msg, int rx_chan)
         e->reporter_requested = false;
         e->reporter_callsign[0] = 0;
         e->reporter_grid[0] = 0;
+        e->reporter_message[0] = 0;
         e->last_status = 0;
         e->generation = next_generation++;
         kiwi_strncpy(e->mode, mode, sizeof(e->mode));
@@ -737,20 +759,21 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
         // the MON-to-SND transition.
         arm_test_after_response = e->test && e->test_job_seen && !e->test_sample;
         bool test_ready = !e->test || e->test_sample || arm_test_after_response;
-        char call_j[64], grid_j[32];
+        char call_j[64], grid_j[32], message_j[260];
         freedv_json_escape(call_j, sizeof(call_j), e->reporter_callsign);
         freedv_json_escape(grid_j, sizeof(grid_j), e->reporter_grid);
+        freedv_json_escape(message_j, sizeof(message_j), e->reporter_message);
         kiwi_snprintf_buf(job,
             "{\"protocol\":%d,\"generation\":%u,\"running\":true,\"rx_chan\":%d,"
             "\"mode\":\"%s\",\"input_rate\":%u,\"frequency_hz\":%llu,\"test\":%s,\"test_ready\":%s,"
-            "\"reporter\":{\"enabled\":%s,\"callsign\":\"%s\",\"grid\":\"%s\",\"message\":\"\"}}",
+            "\"reporter\":{\"enabled\":%s,\"callsign\":\"%s\",\"grid\":\"%s\",\"message\":\"%s\"}}",
             FREEDV_PROTOCOL, e->generation, active_rx, e->mode,
             e->input_rate, (unsigned long long) e->frequency_hz,
             e->test? "true":"false",
             test_ready? "true":"false",
             cfg_true("freedv.reporter_enabled") && e->reporter_requested && !e->test?
                 "true":"false",
-            call_j, grid_j);
+            call_j, grid_j, message_j);
     } else {
         kiwi_snprintf_buf(job, "{\"protocol\":%d,\"generation\":%u,\"running\":false}",
             FREEDV_PROTOCOL, next_generation? next_generation - 1 : 0);

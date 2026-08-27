@@ -57,7 +57,7 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.40 | Per-listener Reporter identity and race-free explicit session opt-in |
+| Kiwi extension | 0.1.41 | Per-listener Reporter identity, optional public message and explicit session opt-in |
 | Decoder service | 0.1.38 | Listener-identity reconnect plus mode-aware management and spectator dashboards |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.35 | Per-listener opt-in reporting plus an independent read-only live-frequency feed |
@@ -283,16 +283,18 @@ network security, display options, API framing and troubleshooting.
 Reporter is disabled by default and is strictly RX-only. The Kiwi owner enables
 or disables the feature globally in Admin, but does not supply the identity
 used by listeners. Each listener enters their own valid amateur callsign and
-four- or six-character Maidenhead locator in the FreeDV panel, selects
+four- or six-character Maidenhead locator and an optional short public message
+in the FreeDV panel, selects
 **Report this receive session**, and then presses **Start**.
 
-The callsign and locator are stored only in that browser. The reporting opt-in
+The callsign, locator and optional message are stored only in that browser. The reporting opt-in
 is deliberately not saved and resets when the page or extension is reopened.
 There is no fallback to the Kiwi owner's callsign, and browser names and IP
 addresses are never put into Reporter events. Invalid or empty details leave
-decoding available with reporting off. A reporting listener's callsign and
-locator are sent to `qso.freedv.org` and are publicly visible there, so users
-must enter only an identity they are entitled to use.
+decoding available with reporting off. A reporting listener's callsign,
+locator and message are sent to `qso.freedv.org` and are publicly visible
+there, so users must enter only an identity they are entitled to use and must
+not include private information in the message.
 
 The panel shows `disabled by owner` when the master switch is off,
 `off (listener opt-in)` before consent, `off (test excluded)` during a local
