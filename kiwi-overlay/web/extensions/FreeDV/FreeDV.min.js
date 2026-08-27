@@ -14,6 +14,9 @@ var freedv = {
    test_progress_timer: null,
    last_test_result: '',
    reporter_enabled: false,
+   reporter_opt_in: false,
+   reporter_callsign: '',
+   reporter_grid: '',
    rade_enabled: false,
    mode: 'RADEV1',
    calling_index: 0,
@@ -170,6 +173,90 @@ function freedv_update_reporter_frequencies(value)
 function freedv_refresh_reporter_frequencies()
 {
    ext_send('SET freedv_reporter_refresh');
+}
+
+function freedv_reporter_load_identity()
+{
+   freedv.reporter_callsign = String(kiwi_storeRead('freedv_reporter_callsign') || '').
+      trim().toUpperCase();
+   freedv.reporter_grid = String(kiwi_storeRead('freedv_reporter_grid') || '').
+      trim().toUpperCase();
+   // Consent is deliberately per page visit. A saved identity never silently
+   // publishes a listener on FreeDV Reporter.
+   freedv.reporter_opt_in = false;
+}
+
+function freedv_reporter_identity_valid()
+{
+   var callsign = String(freedv.reporter_callsign || '').trim().toUpperCase();
+   var grid = String(freedv.reporter_grid || '').trim().toUpperCase();
+   var call_re = /^(([A-Z0-9]+\/)?[A-Z0-9]{1,3}[0-9][A-Z0-9]*[A-Z](\/[A-Z0-9]+)?)$/;
+   var grid_re = /^[A-R]{2}[0-9]{2}([A-X]{2})?$/;
+   return call_re.test(callsign) && grid_re.test(grid);
+}
+
+function freedv_reporter_commit_identity()
+{
+   var call_element = w3_el('freedv.reporter_callsign');
+   var grid_element = w3_el('freedv.reporter_grid');
+   if (call_element)
+      freedv.reporter_callsign = String(call_element.value || '').trim().toUpperCase();
+   if (grid_element)
+      freedv.reporter_grid = String(grid_element.value || '').trim().toUpperCase();
+   if (call_element) call_element.value = freedv.reporter_callsign;
+   if (grid_element) grid_element.value = freedv.reporter_grid;
+   kiwi_storeWrite('freedv_reporter_callsign', freedv.reporter_callsign);
+   kiwi_storeWrite('freedv_reporter_grid', freedv.reporter_grid);
+}
+
+function freedv_reporter_requested()
+{
+   return freedv.reporter_enabled && freedv.reporter_opt_in &&
+      freedv_reporter_identity_valid() && !freedv.testing;
+}
+
+function freedv_start_command()
+{
+   // Re-read the DOM so a listener who types and immediately presses Start
+   // cannot race the Kiwi input helper's deferred change callback.
+   freedv_reporter_commit_identity();
+   var requested = freedv_reporter_requested();
+   return 'SET freedv_start=1 mode='+ freedv.mode +
+      ' reporter='+ (requested? 1:0) +
+      ' call='+ (requested? freedv.reporter_callsign:'-') +
+      ' grid='+ (requested? freedv.reporter_grid:'-');
+}
+
+function freedv_reporter_restart_if_running()
+{
+   if (freedv.running && !freedv.testing) ext_send(freedv_start_command());
+   freedv_update_reporter_state();
+}
+
+function freedv_reporter_callsign_cb(path, value)
+{
+   freedv.reporter_callsign = String(value || '').trim().toUpperCase();
+   kiwi_storeWrite('freedv_reporter_callsign', freedv.reporter_callsign);
+   var element = w3_el(path);
+   if (element) element.value = freedv.reporter_callsign;
+   freedv_reporter_restart_if_running();
+}
+
+function freedv_reporter_grid_cb(path, value)
+{
+   freedv.reporter_grid = String(value || '').trim().toUpperCase();
+   kiwi_storeWrite('freedv_reporter_grid', freedv.reporter_grid);
+   var element = w3_el(path);
+   if (element) element.value = freedv.reporter_grid;
+   freedv_reporter_restart_if_running();
+}
+
+function freedv_reporter_opt_in_cb(path, checked, first)
+{
+   freedv_reporter_commit_identity();
+   freedv.reporter_opt_in = !!checked;
+   if (!first) freedv_reporter_restart_if_running();
+   else freedv_update_reporter_state();
 }
 
 function freedv_filter_key()
@@ -354,6 +441,7 @@ function freedv_recv(data)
             break;
          case 'reporter_enabled':
             freedv.reporter_enabled = (+value != 0);
+            w3_disable('freedv.reporter_opt_in', !freedv.reporter_enabled);
             freedv_update_reporter_state();
             break;
          case 'reporter_freqs':
@@ -436,7 +524,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.38 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.40 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -445,12 +533,13 @@ function freedv_controls_setup()
    if (!freedv.saved_setup) {
       freedv.saved_setup = ext_save_setup();
       freedv.saved_passband = ext_get_passband();
+      freedv_reporter_load_identity();
    }
    var initial_profile = freedv_receiver_profile(freedv.mode, +ext_get_freq_kHz(),
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.38 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.40 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -475,7 +564,20 @@ function freedv_controls_setup()
             'freedv.filter_index', freedv.filter_index, freedv.filter_modes,
             'freedv_filter_cb'),
          w3_div('id-freedv-filter-note w3-small w3-text-light-grey',
-            'Flat is recommended; overrides narrow the modem passband. See Help.')),
+            'Flat is recommended; overrides narrow the modem passband. See Help.'),
+         w3_div('id-freedv-reporter-identity',
+            w3_inline('id-freedv-reporter-inputs/w3-margin-between-8',
+               w3_input('id-freedv-reporter-call/w3-label-not-bold/|size=12',
+                  'Your callsign', 'freedv.reporter_callsign', freedv.reporter_callsign,
+                  'freedv_reporter_callsign_cb', 'ZL2ABC'),
+               w3_input('id-freedv-reporter-grid/w3-label-not-bold/|size=8',
+                  'Your locator', 'freedv.reporter_grid', freedv.reporter_grid,
+                  'freedv_reporter_grid_cb', 'RF80AA'),
+               w3_checkbox('id-freedv-reporter-opt/w3-label-inline w3-label-not-bold/',
+                  'Report this receive session', 'freedv.reporter_opt_in', false,
+                  'freedv_reporter_opt_in_cb')),
+            w3_div('id-freedv-reporter-privacy w3-small w3-text-light-grey',
+               'Identity is saved only in this browser; opt-in resets when the page closes.'))),
       w3_div('id-freedv-detail-grid',
          w3_div('id-freedv-radio-info',
             w3_div('w3-small', 'Reference: ',
@@ -493,15 +595,16 @@ function freedv_controls_setup()
             w3_div('', 'Callsign/text: ', w3_div('id-freedv-text w3-show-inline', '')),
             w3_div('id-freedv-reporter-row', 'Reporter: ',
                w3_div('id-freedv-reporter w3-show-inline',
-                  freedv.reporter_enabled? 'enabled (idle)':'disabled')))),
+                  freedv.reporter_enabled? 'off (listener opt-in)':'disabled by owner')))),
       w3_div('id-freedv-footer',
          w3_div('w3-small', 'Dropped frames: ',
             w3_div('id-freedv-dropped w3-show-inline', '0'),
             freedv_diagnostics_link_html()),
          w3_div('id-freedv-error w3-small w3-text-red')));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(560, 570);
+   ext_set_controls_width_height(560, 650);
    freedv_update_test_button();
+   w3_disable('freedv.reporter_opt_in', !freedv.reporter_enabled);
    freedv_force_noise_filter_off();
    freedv_apply_receiver_profile();
    ext_send('SET freedv_setup');
@@ -584,7 +687,7 @@ function freedv_mode_cb(path, index, first)
    freedv.mode = freedv.modes[+index];
    freedv_filter_reset();
    freedv_update_test_button();
-   if (freedv.running) ext_send('SET freedv_start=1 mode='+ freedv.mode);
+   if (freedv.running) ext_send(freedv_start_command());
 }
 
 function freedv_filter_cb(path, index, first)
@@ -640,8 +743,10 @@ function freedv_start_ui(testing)
    freedv_update_reporter_state();
    freedv_force_uncompressed_audio();
    freedv_apply_receiver_profile();
-   ext_send(testing? 'SET freedv_test=1 mode='+ freedv.mode :
-      'SET freedv_start=1 mode='+ freedv.mode);
+   if (!testing && freedv.reporter_opt_in && !freedv_reporter_identity_valid())
+      w3_innerHTML('id-freedv-error',
+         'Decoding started without Reporter. Enter a valid amateur callsign and 4- or 6-character Maidenhead locator.');
+   ext_send(testing? 'SET freedv_test=1 mode='+ freedv.mode : freedv_start_command());
    if (testing) {
       freedv_clear_test_timers();
       freedv.test_arm_timer = setTimeout(function() {
@@ -688,12 +793,14 @@ function freedv_clear_test_timers()
 
 function freedv_update_reporter_state(status)
 {
-   var value = 'disabled';
-   if (freedv.reporter_enabled) {
-      if (freedv.testing) value = 'enabled (test excluded)';
-      else if (!freedv.running) value = 'enabled (idle)';
-      else value = (!status || status == 'disabled')? 'connecting':status;
-   }
+   var value;
+   if (!freedv.reporter_enabled) value = 'disabled by owner';
+   else if (freedv.testing) value = 'off (test excluded)';
+   else if (!freedv.reporter_opt_in) value = 'off (listener opt-in)';
+   else if (!freedv_reporter_identity_valid()) value = 'off (enter callsign/locator)';
+   else if (!freedv.running)
+      value = 'ready as '+ freedv.reporter_callsign +' ('+ freedv.reporter_grid +')';
+   else value = (!status || status == 'disabled')? 'connecting':status;
    if (w3_el('id-freedv-reporter')) w3_innerHTML('id-freedv-reporter', value);
 }
 
@@ -876,11 +983,19 @@ function FreeDV_help(show)
          'external decoder health and Kiwi connection shown in the diagnostics dashboard.<br><br>' +
 
          '<b>FreeDV Reporter</b><br>' +
-         'Reporter is an optional RX-only station presence configured by the Kiwi ' +
-         'administrator. Test sessions are deliberately excluded. During a normal ' +
-         'Start the panel should move from connecting to online. Open the public ' +
+         'Reporter is optional and RX-only. The Kiwi administrator can allow it, but ' +
+         '<b>each listener reports under their own callsign and Maidenhead locator</b>. ' +
+         'Enter your identity, select <b>Report this receive session</b>, then press Start. ' +
+         'Your callsign and locator are saved only in this browser; the opt-in resets ' +
+         'when the page closes and the identity is not copied into Kiwi configuration. ' +
+         'When enabled, the callsign and locator are sent to FreeDV Reporter and become ' +
+         'publicly visible. Only use an identity you are entitled to use. Empty or invalid ' +
+         'details leave decoding available but reporting off. The Kiwi owner\'s identity ' +
+         'is never used as a fallback, public listener IP addresses are never reported, ' +
+         'and Test sessions are deliberately excluded. During a normal Start the panel ' +
+         'should move from connecting to online. Open the public ' +
          '<a href="https://qso.freedv.org/" target="_blank">FreeDV Reporter</a> ' +
-         'to view the receiving station and its selected RX mode.<br><br>' +
+         'to view your receiving presence and selected RX mode.<br><br>' +
 
          '<b>Decoder diagnostics</b><br>' +
          'When the Kiwi receiver is opened from the local network, the panel footer ' +
@@ -907,18 +1022,15 @@ function FreeDV_help(show)
 function FreeDV_config_html()
 {
    var decoder_ip = ext_get_cfg_param('freedv.decoder_ip', '192.168.10.145');
-   var callsign = ext_get_cfg_param('freedv.reporter_callsign', '');
-   var grid = ext_get_cfg_param('freedv.reporter_grid', '');
-   var message = ext_get_cfg_param('freedv.reporter_message', '');
    var body = w3_divs('w3-container/w3-tspace-8',
       w3_input('', 'Decoder LAN address', 'freedv.decoder_ip', decoder_ip, 'w3_string_set_cfg_cb'),
       w3_switch_get_param('', 'RADEV1 off', 'RADEV1 on', 'freedv.rade_enabled', 0, 0,
          'w3_bool_set_cfg_cb'),
-      w3_switch_get_param('', 'Reporter off', 'Reporter on', 'freedv.reporter_enabled', 0, 0,
+      w3_switch_get_param('', 'Listener Reporter off', 'Allow listener Reporter opt-in',
+         'freedv.reporter_enabled', 0, 0,
          'w3_bool_set_cfg_cb'),
-      w3_input('', 'Station callsign', 'freedv.reporter_callsign', callsign, 'w3_string_set_cfg_cb'),
-      w3_input('', 'Maidenhead locator', 'freedv.reporter_grid', grid, 'w3_string_set_cfg_cb'),
-      w3_input('', 'Reporter message', 'freedv.reporter_message', message, 'w3_string_set_cfg_cb'),
+      w3_div('w3-small', 'Listeners enter their own callsign and Maidenhead locator in the receiver panel. '
+         + 'The owner identity is not used as a fallback; reporting is off unless each browser explicitly opts in.'),
       w3_div('w3-small', 'The shared decoder secret is stored root-only and is never sent to browsers.'));
    ext_config_html(freedv, 'freedv', 'FreeDV', 'External FreeDV decoder', body);
 }

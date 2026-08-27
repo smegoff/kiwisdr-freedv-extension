@@ -37,7 +37,8 @@ the optional diagnostics page connects to its management-only web port.
   augmented with frequencies currently advertised by FreeDV Reporter stations.
 - Built-in deterministic **Test 700D** and **Test RADE** references generated
   from the BSD-licensed FreeDV RADE C speech sample.
-- Optional RX-only [FreeDV Reporter](https://qso.freedv.org/) presence.
+- Optional per-listener, RX-only [FreeDV Reporter](https://qso.freedv.org/)
+  presence with explicit browser-session consent.
 - Optional, independently gated RADEV1 decoder.
 - Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
@@ -56,10 +57,10 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.38 | Compact LAN-only diagnostics link plus the overflow-safe frequency and Reporter layout |
-| Decoder service | 0.1.37 | Mode-aware Codec2/RADEV1 statistics plus management and sanitized spectator dashboards |
+| Kiwi extension | 0.1.40 | Per-listener Reporter identity and race-free explicit session opt-in |
+| Decoder service | 0.1.38 | Listener-identity reconnect plus mode-aware management and spectator dashboards |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
-| FreeDV Reporter | RX-only client 0.1.34 | Opt-in station reporting plus an independent read-only live-frequency feed |
+| FreeDV Reporter | RX-only client 0.1.35 | Per-listener opt-in reporting plus an independent read-only live-frequency feed |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
 | AI-64 local decoder | Separate experiment | Source-compatible tooling only; not used by or enabled on the reference deployment |
 
@@ -98,7 +99,7 @@ sidecar.
 
 For remote owner diagnostics, use a private VPN into the management LAN. Do
 not publish the existing port 8076 listener: it includes a bounded audio
-download and internal service counters. Decoder v0.1.37 includes a separate
+download and internal service counters. Decoder v0.1.38 includes a separate
 sanitized spectator listener on loopback port 8077. It still requires an
 owner-controlled HTTPS hostname and rate-limited reverse proxy before internet
 publication; see [Public FreeDV signal monitor](docs/public-dashboard.md).
@@ -257,7 +258,7 @@ reconnects automatically.
 
 ## Decoder diagnostics
 
-Decoder service 0.1.37 installs a lightweight read-only management dashboard at
+Decoder service 0.1.38 installs a lightweight read-only management dashboard at
 `http://freedv-decoder.local:8076/`. It visualizes the selected receiver's
 post-detector audio, not the Kiwi wideband RF waterfall. No application login
 is required: every host allowed through the management firewall can view it.
@@ -279,18 +280,26 @@ network security, display options, API framing and troubleshooting.
 
 ## FreeDV Reporter
 
-Reporter is disabled by default and operates strictly as the Kiwi owner's
-RX-only station identity. It never publishes a public listener's browser name,
-IP address or identity.
+Reporter is disabled by default and is strictly RX-only. The Kiwi owner enables
+or disables the feature globally in Admin, but does not supply the identity
+used by listeners. Each listener enters their own valid amateur callsign and
+four- or six-character Maidenhead locator in the FreeDV panel, selects
+**Report this receive session**, and then presses **Start**.
 
-To enable it, configure a valid station callsign and Maidenhead locator in
-Kiwi Admin, enable Reporter, and start a normal FreeDV session. The panel shows
-`enabled (idle)` while no session is active, `enabled (test excluded)` during
-the local reference Test, and `connecting` then `online` during a normal Start.
-The decoder
-guest's Reporter sidecar connects outbound to `qso.freedv.org`; no inbound
-firewall rule is required. Full setup and troubleshooting are in
-[Optional FreeDV Reporter](docs/installation.md#8-optional-freedv-reporter).
+The callsign and locator are stored only in that browser. The reporting opt-in
+is deliberately not saved and resets when the page or extension is reopened.
+There is no fallback to the Kiwi owner's callsign, and browser names and IP
+addresses are never put into Reporter events. Invalid or empty details leave
+decoding available with reporting off. A reporting listener's callsign and
+locator are sent to `qso.freedv.org` and are publicly visible there, so users
+must enter only an identity they are entitled to use.
+
+The panel shows `disabled by owner` when the master switch is off,
+`off (listener opt-in)` before consent, `off (test excluded)` during a local
+reference Test, and `connecting` then `online` during a normal opted-in Start.
+The decoder guest's Reporter sidecar connects outbound; no inbound firewall
+rule is required. Full setup and troubleshooting are in [Optional FreeDV
+Reporter](docs/installation.md#8-optional-freedv-reporter).
 While a normal session is running, the public station row reports the selected
 codec in **RX Mode**. It never sends a TX event, so **TX Mode** correctly remains
 `N/A` for this receive-only integration.

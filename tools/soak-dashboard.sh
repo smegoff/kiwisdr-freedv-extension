@@ -3,7 +3,7 @@ set -euo pipefail
 
 samples=${1:-41}
 interval=${2:-15}
-expected_release=${3:-0.1.37}
+expected_release=${3:-0.1.38}
 expected_sessions=${4:-0}
 start_epoch=$(date +%s)
 

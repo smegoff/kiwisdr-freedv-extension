@@ -1110,6 +1110,43 @@ is available; the codec itself has passed the generated reference waveform.
 
 ## Stability evidence
 
+From 2026-08-27 09:36:31 UTC through 09:46:45 UTC, the per-listener Reporter
+release completed parallel 41-sample soaks at 15-second intervals:
+
+- Kiwi: 41/41 samples passed with `freedv-v0-1-40` active on firmware 1.902,
+  healthy service/status/root HTML, the complete 212,988-byte browser bundle,
+  no deployment wrappers and zero critical journal matches. A normal public
+  listener joined for the final five samples without affecting health.
+- Decoder guest: 41/41 samples passed with decoder 0.1.38 connected, both
+  services active, zero sessions, no camper, Reporter disabled and zero
+  critical matches.
+- A real browser confirmed that listener callsign and locator are normalized
+  immediately, saved only in that browser, and shown as Reporter-ready without
+  publishing. Consent reset after page reload while the saved identity
+  remained. An unreported RADEV1 session reached the external backend with
+  zero dropped frames and returned cleanly to zero sessions on Stop.
+- Kiwi binary SHA-256:
+  `7d7297417c413a486415836aefd889e5c83b15384fd64c6b1c78a78c7430c646`.
+- Kiwi BuildID: `f90b0492ace04acc4964689c1bbe7343c4c7179b`.
+- Pre-change streamed configuration archive SHA-256:
+  `2ba92a0f172f2df1227d7e1f195ecbc8fb96290ba12a1125ffb77be2e5f10847`.
+- Kiwi soak log SHA-256:
+  `621c9f605a64c92bfd6d0b3aefa3f2f4ea157d936d0e4cd3728185d5f15c0560`.
+- Decoder soak log SHA-256:
+  `7be8543f05c9058c7573c87dcc0604a04dcc435ee7220d5c661fb7bd03b04d60`.
+- Ignored evidence directory:
+  `backups/listener-reporter-v0-1-40-20260827T094645Z/`.
+- Post-acceptance cleanup retained Kiwi v0.1.39 as the immediate rollback,
+  both stock firmware baselines, decoder snapshot `pre-decoder-v0-1-38`, the
+  clean Debian baseline and the intentional RADEV1 checkpoint. Superseded Kiwi
+  releases v0.1.37/v0.1.38, build staging and snapshot
+  `pre-decoder-v0-1-37` were removed, leaving 497 MB free on the Kiwi.
+
+No fabricated or owner identity was submitted to the live Reporter during
+acceptance. The Reporter protocol and identity switching are covered by the
+automated mock-server suite; final live publication is deliberately left to a
+listener using their own valid identity and explicit opt-in.
+
 From 2026-07-15 19:48:41 UTC through 19:58:32 UTC, the Test-race fix completed
 fresh, parallel 41-sample soaks at 15-second intervals:
 

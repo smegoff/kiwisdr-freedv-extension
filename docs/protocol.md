@@ -38,7 +38,11 @@ MSG freedv_job=<encoded-json>
 
 Running jobs contain `protocol`, `generation`, `running`, `rx_chan`, `mode`,
 `input_rate`, `frequency_hz`, `test`, `test_ready`, and disabled-by-default
-Reporter station fields.
+Reporter fields. Kiwi extension 0.1.40 fills those fields only when the active
+browser explicitly opts in with a valid callsign and Maidenhead locator. The
+identity is held in that receiver channel's in-memory job state; it is not read
+from the Kiwi owner's configuration. A cached older browser command remains
+decode-compatible but produces a Reporter-disabled job.
 Only a higher generation changes the decoder state. Older jobs are discarded and a
 same-generation conflict is rejected. There is no job queue.
 
@@ -125,9 +129,11 @@ seconds. The camper reconnects a stale control socket using its bounded
 backoff. The in-process watchdog exits after 15 seconds without main-loop
 progress, allowing systemd to replace a fully wedged process; the
 systemd service watchdog remains a second failure boundary. Reporter events use
-UDP loopback port 8075. The periodic event repeats the administrator-owned
-Reporter opt-in identity so the sidecar can recover after an independent
-restart. The sidecar reports `online` only after FreeDV Reporter sends
+UDP loopback port 8075. The periodic event repeats the active listener's
+explicit Reporter identity so the sidecar can recover after an independent
+restart. Changing listener identity forces a new Reporter connection because
+callsign and locator are part of the Socket.IO authentication payload. The
+sidecar reports `online` only after FreeDV Reporter sends
 `connection_successful`; the lower-level Socket.IO connect event is not an
 acceptance signal. An active unsynchronized session publishes its tuned
 frequency immediately, while a synchronized session takes precedence if more
@@ -135,7 +141,7 @@ than one session is supported in the future.
 
 ## Read-only diagnostics surface
 
-Decoder service 0.1.37 includes a separate read-only management surface on
+Decoder service 0.1.38 includes a separate read-only management surface on
 TCP 8076. It does not change protocol v2, create a second Kiwi connection or
 accept decoder jobs. `/api/v1/status`, `/api/v1/history`,
 `/api/v1/capture.wav` and WebSocket `/api/v1/stream` are intentionally open
@@ -150,7 +156,7 @@ after Kiwi sound decoding. An overloaded dashboard drops its own samples and
 cannot back-pressure the modem. See [dashboard.md](dashboard.md) for the exact
 frame layout and security boundary.
 
-Decoder v0.1.37 can also serve the same FFT frames through an independently
+Decoder v0.1.38 can also serve the same FFT frames through an independently
 configured loopback spectator listener. Its version-1 status and history APIs
 are newly constructed from explicit field allowlists and cannot access the WAV
 capture or any control route. The reference configuration uses

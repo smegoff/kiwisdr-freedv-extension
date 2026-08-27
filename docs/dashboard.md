@@ -1,6 +1,6 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.37 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.38 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
@@ -74,7 +74,7 @@ management LAN. It preserves the existing dashboard without publishing port
 
 The management dashboard must not be placed directly behind a public reverse
 proxy. In addition to the waterfall, it exposes internal service counters and
-the latest bounded modem-audio WAV. Decoder v0.1.37 provides a separate,
+the latest bounded modem-audio WAV. Decoder v0.1.38 provides a separate,
 disabled-by-default spectator listener with an allowlisted API and no WAV or
 controls. See [Public FreeDV signal monitor](public-dashboard.md). John's
 KiwiSDR reverse proxy forwards the Kiwi receiver; it does not route the
@@ -160,5 +160,5 @@ decoder guest. Pass `1` as the final argument for an active session or `0` for
 idle cleanup:
 
 ```bash
-sudo ./tools/soak-dashboard.sh 41 15 0.1.37 1
+sudo ./tools/soak-dashboard.sh 41 15 0.1.38 1
 ```

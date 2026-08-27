@@ -13,6 +13,12 @@
 .id-freedv-filter { margin:0; }
 .id-freedv-live-note { margin-top:-3px; line-height:1.3; }
 .id-freedv-filter-note { margin-top:-3px; line-height:1.3; }
+.id-freedv-reporter-identity { margin-top:2px; padding-top:8px; border-top:1px solid #777; }
+.id-freedv-reporter-inputs { display:flex; align-items:flex-end; flex-wrap:wrap; gap:8px; }
+.id-freedv-reporter-call input { width:120px; box-sizing:border-box; }
+.id-freedv-reporter-grid input { width:90px; box-sizing:border-box; }
+.id-freedv-reporter-opt { margin-bottom:5px; }
+.id-freedv-reporter-privacy { margin-top:3px; line-height:1.3; }
 .id-freedv-detail-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; margin-top:10px; }
 .id-freedv-radio-info,
 .id-freedv-status { min-width:0; padding:8px 10px; border:1px solid #777; border-radius:3px; line-height:1.35; }

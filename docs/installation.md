@@ -2,7 +2,7 @@
 
 This manual guide installs the receive-only FreeDV framework as two components:
 a private Debian 11 or Debian 12 decoder guest and a versioned KiwiSDR firmware overlay. It is
-written for Kiwi extension `0.1.38`, decoder service `0.1.37`, and KiwiSDR
+written for Kiwi extension `0.1.40`, decoder service `0.1.38`, and KiwiSDR
 upstream commit `c40ecb471dced33689e335689f8ffd35a54f47fa`.
 
 > [!IMPORTANT]
@@ -147,7 +147,7 @@ For an in-place upgrade, `tools/deploy-decoder-release.sh` records the previous
 decoder, Reporter client, units, configuration and Python package set, then
 restores them automatically if health checks fail. A Reporter-only release can
 retain the existing decoder health version using the optional third argument,
-for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-37 v0.1.37 0.1.37`.
+for example `deploy-decoder-release.sh /opt/kiwi-freedv-v0-1-38 v0.1.38 0.1.38`.
 
 Generate one 256-bit shared secret. Store the same 64 hexadecimal characters on
 the guest and Kiwi, but never commit, paste into an issue, or print the value in
@@ -190,9 +190,6 @@ Leave `/etc/freedv-decoder/reporter.env` disabled for initial acceptance:
 
 ```dotenv
 FREEDV_REPORTER_ENABLED=0
-FREEDV_REPORTER_CALLSIGN=
-FREEDV_REPORTER_GRID=
-FREEDV_REPORTER_MESSAGE=
 FREEDV_REPORTER_URL=https://qso.freedv.org
 ```
 
@@ -341,7 +338,7 @@ cache expires.
    **Mode +350 Hz**, **Mode +200 Hz** and **Mode +50 Hz** overrides immediately
    apply their documented fixed passbands.
 8. Require sessions and camper state to return to zero and Reporter to read
-   `enabled (idle)` when opted in.
+   `ready as <callsign> (<locator>)` when the listener remains opted in.
 9. Confirm the Kiwi root receiver and Admin pages still load.
 10. Open the decoder dashboard from the management LAN and verify direct access, a late
    connection to the running session, waterfall sequence growth, current
@@ -362,7 +359,7 @@ when the Admin flag is off. Start a no-signal RADEV1 session and require
 `State: running`, backend `rade-v1`, one decoder session/camper and zero drops. With
 no modem sync the Kiwi audio gate must remain silent. Stop and require the decoder
 session/camper and Reporter presence to return to zero; the panel returns to
-`enabled (idle)` when opted in. A live RF
+`ready as <callsign> (<locator>)` when the listener remains opted in. A live RF
 speech check follows when a suitable RADE transmission is available.
 
 Inspect both journals for authentication, watchdog, sequence or crash errors:
@@ -382,28 +379,38 @@ known transmissions. The per-mode RF readiness and limitations are recorded in
 ## 8. Optional FreeDV Reporter
 
 Only enable Reporter after decoding is stable. In **Admin > Extensions >
-FreeDV**, enter the station owner's valid callsign and four- or six-character
-Maidenhead locator, optionally add a public message, then switch Reporter on
-and save/restart if the Admin page requests it. The Kiwi job overrides the
-disabled sidecar defaults for that receiving session. It never uses a public
-listener's identity.
+FreeDV**, switch on **Allow listener Reporter opt-in** and save/restart if the
+Admin page requests it. The Admin switch is only a global permission gate; the
+Kiwi owner does not configure the identity used by listeners.
 
-`Reporter: enabled (idle)` confirms that the Admin opt-in is saved while no
-decoder session is active. The sidecar creates an RX-only presence only while a
-normal FreeDV session is running. Test mode shows `enabled (test excluded)` and
-deliberately never reports. Press **Start** (not **Test**) and expect
-`connecting`, then `online`. `online` means the Reporter
+Each listener then enters their own valid amateur callsign and four- or
+six-character Maidenhead locator in the receiver panel, selects **Report this
+receive session**, and presses **Start** (not **Test**). Callsign and locator
+are stored only in that browser. Consent is not persisted: it resets when the
+page or extension is reopened. The Kiwi owner's old Reporter configuration is
+ignored and is never used as a fallback.
+
+The sidecar creates an RX-only presence only while a normal opted-in FreeDV
+session is running. The panel shows `disabled by owner` when the Admin gate is
+off, `off (listener opt-in)` before the listener checks the box,
+`off (test excluded)` in Test mode, and `connecting` then `online` during an
+opted-in Start. `online` means the Reporter
 server has sent its application-level acceptance event, not merely that a
 Socket.IO transport opened. Stop or Close must return the panel and `/healthz`
 to `disabled` and remove the presence.
 
 Open [FreeDV Reporter](https://qso.freedv.org/) and find the exact station
-callsign entered in Admin. The row should say **Receive Only**, show the
-configured locator/message and display the Kiwi's current tuned frequency even
+callsign entered by the listener. The row should say **Receive Only**, show the
+listener's locator and display the Kiwi's current tuned frequency even
 before a modem synchronizes. **RX Mode** should show the selected codec within
 ten seconds; **TX Mode** remains `N/A` because the integration never publishes
 transmit events. The client version belongs to the Reporter sidecar, so it can
 be newer than the version shown in the Kiwi extension heading.
+
+Reporter makes the supplied callsign and locator public. The browser UI warns
+listeners to use only an identity they are entitled to use. The Kiwi validates
+format and the Reporter service validates again, but neither can prove license
+ownership. Browser names and IP addresses are not included in Reporter events.
 
 Start a FreeDV session and check the panel plus:
 
@@ -414,8 +421,9 @@ journalctl -u freedv-reporter.service --since '-10 min' --no-pager
 
 The Reporter virtual environment requires the asyncio-capable Socket.IO stack
 from `reporter/requirements.txt` (`python-socketio` plus `aiohttp`). If the
-panel remains `disabled` during a normal running session, first confirm that
-the callsign and locator validate and that the Admin setting was saved. If it
+panel remains off during a normal running session, first confirm that the Admin
+gate is enabled, the listener checkbox is selected and the callsign/locator
+validate. If it
 reports `error`, inspect the sidecar journal and Python dependencies; turning
 Reporter off does not interrupt decoding. Decoder v0.1.19 repeats the opt-in
 identity in its private loopback status event, allowing a restarted Reporter
