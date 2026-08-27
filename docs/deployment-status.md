@@ -1110,6 +1110,42 @@ is available; the codec itself has passed the generated reference waveform.
 
 ## Stability evidence
 
+From 2026-08-27 10:11:13 UTC through 10:21:18 UTC, the optional per-listener
+Reporter-message release completed parallel 41-sample soaks at 15-second
+intervals:
+
+- Kiwi: 41/41 samples passed with `freedv-v0-1-41` active on firmware 1.902,
+  healthy service/status/root HTML, the complete 212,988-byte browser bundle,
+  no deployment wrappers and zero critical journal matches. A brief normal
+  public connection did not affect health or create a FreeDV job.
+- Decoder guest: 41/41 samples passed with decoder 0.1.38 connected, both
+  services active, zero sessions, no camper, Reporter disabled and zero
+  critical matches.
+- A real browser confirmed the optional message renders without clipping,
+  persists only in that browser and leaves per-page Reporter consent off after
+  reload. A non-reporting RADEV1 smoke session reached the external backend
+  with zero dropped frames and returned to zero sessions on Stop.
+- Kiwi binary SHA-256:
+  `4cb6f4bd47b418d92fa8e0153a0c1443098cd7fc19bc16c93dff5a5f3fab0c98`.
+- Kiwi BuildID: `3a09354442c0cb2aa025c2effe0fd6eca12dc84a`.
+- Pre-change streamed configuration archive SHA-256:
+  `a21dbc8751f8d8538798a00e75d4caab75bb4b181018a46e2ab07a0ed020a9c0`.
+- Kiwi soak log SHA-256:
+  `bc8fe701cb8be829da00f15f5a87f2442fb9ecd4af264ee452c0c9e8ff05763a`.
+- Decoder soak log SHA-256:
+  `074639ce9f605c7d9b6dce441ace51f0df9a6523f8665698e06259a3f0c30ff9`.
+- Ignored evidence directory:
+  `backups/listener-reporter-message-v0-1-41-20260827T102118Z/`.
+- Post-acceptance cleanup retained v0.1.40 as the immediate Kiwi rollback and
+  both stock baselines. Superseded v0.1.39 and v0.1.41 build staging were
+  removed, leaving 496 MB free. No decoder snapshot was added or removed
+  because the deployed decoder and Reporter sidecar were unchanged.
+
+No test identity or message was submitted to the public Reporter during
+acceptance. The existing Reporter mock suite verifies `message_update`; final
+public rendering is left to a listener using their own identity, optional
+message and explicit opt-in.
+
 From 2026-08-27 09:36:31 UTC through 09:46:45 UTC, the per-listener Reporter
 release completed parallel 41-sample soaks at 15-second intervals:
 
