@@ -3,6 +3,7 @@
 
 #include "ext.h"
 #include "freedv.h"
+#include "freedv_poll_wire.h"
 
 #include "kiwi.h"
 #include "misc.h"
@@ -25,7 +26,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.42"
+#define FREEDV_RELEASE "0.1.43"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -708,8 +709,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
     char supplied_hmac[65] = {0};
     char supplied_frequencies[768] = {0};
     char extra = 0;
-    int fields = sscanf(arguments,
-        "%d,%lld,%16[0-9a-fA-F],%64[0-9a-fA-F],%767[0-9;-]%c",
+    int fields = freedv_parse_poll_arguments(arguments,
         &protocol, &timestamp, nonce, supplied_hmac, supplied_frequencies, &extra);
     if ((fields != 4 && fields != 5) || protocol != FREEDV_PROTOCOL) {
         send_msg(conn_mon, false, "MSG freedv_auth=format");

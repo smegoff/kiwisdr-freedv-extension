@@ -569,7 +569,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.42 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.43 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -584,7 +584,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.42 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.43 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),

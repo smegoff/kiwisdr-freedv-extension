@@ -64,6 +64,10 @@ enable_radev1(freedv-decoder)
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(freedv-kiwi-poll-wire-test ../tests/kiwi_poll_wire_test.cpp)
+  target_include_directories(freedv-kiwi-poll-wire-test PRIVATE ../kiwi-overlay/extensions/FreeDV)
+  target_compile_options(freedv-kiwi-poll-wire-test PRIVATE -UNDEBUG)
+  add_test(NAME freedv-kiwi-poll-wire-test COMMAND freedv-kiwi-poll-wire-test)
   add_executable(freedv-protocol-test
     tests/protocol_test.cpp
     src/kiwi_protocol.cpp
