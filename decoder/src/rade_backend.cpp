@@ -64,6 +64,7 @@ class RadeBackend final : public DecoderBackend {
     }
 
     std::size_t consumed = 0;
+    std::string end_of_over_callsign;
     while (true) {
       const std::size_t needed = kfd_rade_input_needed(decoder_);
       if (!needed || iq_.size() - consumed < needed) break;
@@ -84,13 +85,14 @@ class RadeBackend final : public DecoderBackend {
       was_synced_ = last_status_.synced;
       last_status_.snr_db = output.snr_db;
       last_status_.frequency_offset_hz = output.frequency_offset_hz;
-      if (valid_eoo_callsign(output.eoo_callsign)) callsign_ = output.eoo_callsign;
+      if (valid_eoo_callsign(output.eoo_callsign))
+        end_of_over_callsign = output.eoo_callsign;
       result.pcm.insert(result.pcm.end(), pcm_scratch_.begin(),
                         pcm_scratch_.begin() + output.pcm_samples);
     }
     if (consumed) iq_.erase(iq_.begin(), iq_.begin() + consumed);
     if (!last_status_.synced) callsign_.clear();
-    last_status_.callsign = callsign_;
+    last_status_.callsign = end_of_over_callsign.empty() ? callsign_ : end_of_over_callsign;
     last_status_.resyncs = resyncs_;
     result.status = last_status_;
     // A valid final speech frame can coincide with the modem dropping sync at

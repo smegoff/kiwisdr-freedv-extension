@@ -173,7 +173,7 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
         self.assertEqual(auth["version"], CLIENT_VERSION)
-        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.35")
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.36")
 
     def test_selected_codec_activity_has_no_transmitter_identity(self):
         payload = rx_mode_activity("700D")

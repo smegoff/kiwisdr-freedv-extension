@@ -94,7 +94,7 @@ function renderModemStats(session) {
     renderStats("modem-stats", {}, []);
     return;
   }
-  if (session.mode === "RADEV1") {
+  if (session.mode === "RADEV1" || session.mode === "RADEV2") {
     note.textContent="RADEv1 currently exposes sync, SNR and frequency offset through its public C API. Bit, packet, clock and timing counters are not supplied by the modem library.";
     renderStats("modem-stats", {
       sync_state:session.sync ? "Synchronized" : "No sync",

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# FreeDV-maintained portable C implementation. Production selects V1 only;
-# the presence of experimental V2 code in this pinned library does not expose
-# a V2 mode through the Kiwi extension.
+# FreeDV-maintained portable C implementation. V2 has a separate default-off
+# gate in the decoder and Kiwi; installing this library does not enable it.
 pin=c8a3dc156045cae2cd251e1a4be0c304c9ddf2f9
 opus_pin=940d4e5af64351ca8ba8390df3f555484c567fbb
 src=/opt/rade_c
@@ -51,7 +50,7 @@ find "$opus_src" -maxdepth 1 -type f -name '*.h' -exec install -m 0644 {} "$incl
 install -m 0644 "$opus_src/.libs/libopus.a" "$library_root/libopus-fargan.a"
 install -m 0755 "$build/src/rade_rx_wav" /usr/local/bin/rade_rx_wav
 install -m 0755 "$build/src/rade_tx_wav" /usr/local/bin/rade_tx_wav
-install -m 0644 "$src/input_sample.wav" /usr/local/share/freedv-rade/input_sample.wav
+install -m 0644 "$src/wav/david_vk5dgr.wav" /usr/local/share/freedv-rade/input_sample.wav
 install -m 0644 "$src/FDV_offair.wav" /usr/local/share/freedv-rade/FDV_offair.wav
 
 rade_library=$(find "$build/src" -maxdepth 1 -type f -name 'librade.so.*' -print | sort | tail -1)
@@ -64,4 +63,4 @@ printf '%s\n' "$pin" > /usr/local/share/freedv-rade/rade_c.commit
 printf '%s\n' "$opus_pin" > /usr/local/share/freedv-rade/opus-fargan.commit
 /usr/local/bin/rade_rx_wav --help >/dev/null
 /usr/local/bin/rade_tx_wav --help >/dev/null
-echo "FreeDV rade_c library installed at $pin; production remains V1-only and feature-gated"
+echo "FreeDV rade_c library installed at $pin; V2 remains separately feature-gated"
