@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-10-14 (NZDT); exact deployment and soak evidence is retained privately.
+Last verified: 2026-10-15 (NZDT); exact deployment and soak evidence is retained privately.
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -20,20 +20,56 @@ and no AI-64 local-decoder service is enabled.
 - Kiwi BuildID: `fbd7edd4821b88eb6e7fbe94f231bef5c2353615`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.39`
+- decoder-guest release: `0.1.40`
 - decoder binary SHA-256:
-  `06136f3473206157dba69de7d06546ee7f6adacc56a3007bbd1c7ba0d31d5e80`
+  `07f822a09e1c47a9fe4d38170c451d6557b1156f4ae916c6bfad00faccb8ecac`
 - Reporter sidecar SHA-256:
-  `3d243e17a886316bf790114b28a059b613306613c65b2e9b20ccf6ca587fdd01`
-- Reporter client: `KiwiSDR-FreeDV/0.1.36`
-- decoder dashboard assets: management and public `0.1.39`
-- decoder-guest snapshot: `pre-decoder-v0-1-39`
+  `722885f2b193b20d1f9b79bebd9c3fa9839958b6f9bb3a08d2300e9aa645d8f7`
+- Reporter client: `KiwiSDR-FreeDV/0.1.37`
+- decoder dashboard assets: management and public `0.1.40`
+- decoder-guest snapshot: `pre-decoder-v0-1-40`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - RADEV2: experimental recorded-reference option enabled on this installation;
   independently off by default for new installations; RADEV1 remains default
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Diagnostics v0.1.40 and Reporter reception acceptance
+
+The management dashboard refresh was accepted on 2026-10-15 NZDT without a
+Kiwi rebuild or restart. It separates local synchronized modem SNR from public
+Reporter reception SNR, identifying both heard and receiving callsigns. The
+live browser displayed VK3YSA hearing VK5AG at 18 dB on RADEV1 while the local
+recorded reference showed about 35 dB. Transmitter chips, frequency filtering,
+unknown-field display and expiry were exercised against live public activity.
+Publication of a test Reporter identity remained disabled.
+
+All 67 tracked Python tests, JavaScript source-separation/frequency/history
+checks and five C++ test groups passed. C++ tests also confirm transient decoded
+callsign retention and that the spectator API excludes both retained callsigns
+and the new Reporter data. The final RADEV1 browser reference passed with zero
+dropped frames and no console warnings/errors.
+
+Separate 41-sample active-session soaks covered 11:13:19–11:23:19 UTC for the
+dashboard and 11:13:29–11:23:29 UTC for the decoder on 2026-10-14. The dashboard
+remained connected at 10 fps; its feed stayed online, receptions updated, and
+visualization drops remained zero. Decoder input/return drops, underruns,
+reconnects, critical journal matches and restarts remained zero. A sampling
+point showed about 17 MB daemon RSS and 5% total CPU of one guest core; this is
+not a formal baseline-versus-client CPU overhead measurement.
+
+Stop/Close left zero sessions, zero dashboard/public clients, no camper and
+healthy control connectivity. The immediate snapshot `pre-decoder-v0-1-40`
+retains the accepted v0.1.39 service/assets; the superseded pre-v0.1.39 snapshot
+was removed after acceptance. OS and RADEV1 architectural checkpoints remain.
+Original v0.1.39 file rollback is also preserved at
+`/root/freedv-rollbacks/pre-v0.1.40-20261014T110152Z`.
+
+Desktop browser validation used the app's default Chromium viewport. An
+explicit narrow viewport override did not apply, so a narrow-device browser
+check and Firefox/Edge acceptance remain unclaimed. Responsive CSS is retained.
+See [dashboard documentation](dashboard.md) for data semantics and access.
 
 ## October 2026 RADEV2 and station-selector acceptance
 

@@ -12,6 +12,8 @@ class DashboardAssetTest(unittest.TestCase):
         css = (ROOT / "dashboard" / "styles.css").read_text(encoding="utf-8")
         js = (ROOT / "dashboard" / "app.js").read_text(encoding="utf-8")
         combined = "\n".join((html, css, js)).lower()
+        ids = re.findall(r'\bid="([^"]+)"', html)
+        self.assertEqual(len(ids), len(set(ids)))
         self.assertNotRegex(html, r'<(?:script|link)[^>]+(?:src|href)="https?://')
         self.assertNotIn("@import", combined)
         self.assertNotIn("gradient(", combined)

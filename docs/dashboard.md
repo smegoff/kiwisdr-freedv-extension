@@ -4,7 +4,7 @@ Decoder service 0.1.40 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
-![Live 700D decoder diagnostics](images/dashboard-live.png)
+![Refreshed diagnostics with public Reporter reception data](images/diagnostics-v0.1.40.png)
 
 ## What it shows
 
@@ -14,6 +14,8 @@ receptions name both the heard station and the receiving station that measured
 the SNR, plus codec, receiver-advertised frequency and report age. An unknown
 callsign, SNR or frequency is explicitly unavailable, never inferred from another
 station. Reporter activity is advisory and does not prove reception at this Kiwi.
+The local SNR/offset charts also leave unsynchronized periods as gaps and show
+numeric value scales; they do not draw an invented zero measurement.
 
 The default **This frequency** view includes known receiver frequencies within
 ±2.5 kHz of the current session. **All activity**, or an idle decoder, shows the

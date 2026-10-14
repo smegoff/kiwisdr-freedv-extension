@@ -62,9 +62,9 @@ the optional diagnostics page connects to its management-only web port.
 | Component | Tested version | Status |
 | --- | --- | --- |
 | Kiwi extension | 0.1.46 | Compact, scroll-safe panel and live transmitting-station selector |
-| Decoder service | 0.1.39 | Official C RADE V1/V2 adapters, capability-negotiated station feed and non-blocking Reporter IPC |
+| Decoder service | 0.1.40 | Quality-first diagnostics with attributed Reporter receptions, local SNR history and official C RADE V1/V2 adapters |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
-| FreeDV Reporter | RX-only client 0.1.36 | Per-listener opt-in reporting plus an independent read-only station/frequency feed |
+| FreeDV Reporter | RX-only client 0.1.37 | Per-listener opt-in plus an independent read-only TX/reception feed; receiving-station SNR is labelled separately |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
 | RADEV2 | Experimental, off by default | Separate feature gates and dedicated reference waveform; upstream development codec |
 | AI-64 local decoder | Separate experiment | Source-compatible tooling only; not used by or enabled on the reference deployment |
