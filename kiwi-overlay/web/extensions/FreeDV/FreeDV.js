@@ -28,7 +28,7 @@ var freedv = {
    reporter_frequency_value: null,
    reporter_frequency_timer: null,
    calling_frequencies: [
-      { label: 'Select a calling frequency', kHz: 0, sideband: '' },
+      { label: 'Select a station or frequency', kHz: 0, sideband: '' },
       { label: '160 m - 1.870 MHz LSB', kHz: 1870, sideband: 'lsb' },
       { label: '80 m - 3.625 MHz LSB', kHz: 3625, sideband: 'lsb' },
       { label: '80 m - 3.643 MHz LSB', kHz: 3643, sideband: 'lsb' },
@@ -108,9 +108,9 @@ function freedv_calling_select_html()
 
 function freedv_reporter_frequency_note()
 {
+   var tx_count = freedv.reporter_frequencies.filter(function(e) { return e.transmitting; }).length;
    var text = freedv.reporter_frequencies.length?
-      freedv.reporter_frequencies.length +' live Reporter frequenc'+
-         (freedv.reporter_frequencies.length == 1? 'y':'ies') +' marked [Reporter live].':
+      tx_count +' transmitting &middot; '+ (freedv.reporter_frequencies.length - tx_count) +' advertised frequencies':
       'No live Reporter frequencies; static list remains available.';
    return text +' &middot; '+ w3_link('id-freedv-reporter-link w3-small',
       'https://qso.freedv.org/', 'Open Reporter');
@@ -569,7 +569,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.43 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.44 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -584,7 +584,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.43 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.44 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
