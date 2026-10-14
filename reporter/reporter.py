@@ -191,9 +191,12 @@ async def reporter_frequency_view(url, path):
             await sio.connect(url, auth={"role": "view", "protocol_version": 2}, wait_timeout=10)
             await asyncio.wait_for(accepted.wait(), timeout=10)
             retry_delay = 1.0
+            last_snapshot_refresh = time.monotonic()
             while sio.connected:
                 await asyncio.sleep(1)
-                write_active_frequencies(cache, path)
+                if time.monotonic() - last_snapshot_refresh >= 30:
+                    write_active_frequencies(cache, path)
+                    last_snapshot_refresh = time.monotonic()
         except asyncio.CancelledError:
             if sio.connected:
                 await sio.disconnect()
