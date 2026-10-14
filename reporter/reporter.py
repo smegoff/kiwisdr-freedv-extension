@@ -118,6 +118,8 @@ class ActiveFrequencyCache:
                 if timestamp > now + 30 or now - timestamp > 600:
                     return
                 snr = data.get("snr")
+                if isinstance(snr, bool):
+                    return
                 snr = None if snr is None else float(snr)
                 if snr is not None and (not math.isfinite(snr) or not -50 <= snr <= 100):
                     return

@@ -77,7 +77,7 @@ class ReporterTests(unittest.TestCase):
 
     def test_receptions_reject_malformed_stale_future_and_infinite_values(self):
         cache = ActiveFrequencyCache()
-        for changes in ({"snr":float("inf")}, {"callsign":"<script>"},
+        for changes in ({"snr":float("inf")}, {"snr":True}, {"callsign":"<script>"},
                         {"mode":"<html>"}, {"last_update":"bad"},
                         {"last_update":datetime.fromtimestamp(time.time()-700, timezone.utc).isoformat()},
                         {"last_update":datetime.fromtimestamp(time.time()+90, timezone.utc).isoformat()}):

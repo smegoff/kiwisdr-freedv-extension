@@ -20,4 +20,5 @@ assert.equal(elements.get('reporter-receptions').children[0].children[3].textCon
 context.updateStatus({kiwi_connected:true,session:{...session,sync:false},reporter_activity:activity});
 assert.equal(elements.get('snr').textContent,'—');
 assert.equal(context.reporterRows(activity,{active:false},'current',now).receptions.length,2);
+assert.deepEqual(Array.from(context.historyValues([{sync:true,snr_db:0},{sync:false,snr_db:0},{sync:true,snr_db:5}],'snr_db')),[0,null,5]);
 console.log('dashboard source separation, freshness and frequency filtering passed');

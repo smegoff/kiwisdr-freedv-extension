@@ -90,8 +90,8 @@
       </section>
 
       <div class="history-grid">
-        <section class="panel"><div class="panel-heading"><h2>SNR history</h2><label>Window<select id="history-window"><option value="60">1 min</option><option value="300">5 min</option><option value="600">10 min</option></select></label></div><canvas id="snr-chart" class="history" aria-label="SNR history"></canvas></section>
-        <section class="panel"><div class="panel-heading"><h2>Frequency offset</h2><span class="muted">Hz</span></div><canvas id="offset-chart" class="history" aria-label="Frequency offset history"></canvas></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Local SNR history</h2><span class="caption">dB · synchronized samples</span></div><label>Window<select id="history-window"><option value="60">1 min</option><option value="300">5 min</option><option value="600">10 min</option></select></label></div><canvas id="snr-chart" class="history" aria-label="Local synchronized SNR history"></canvas></section>
+        <section class="panel"><div class="panel-heading"><h2>Frequency offset</h2><span class="muted caption">Hz · synchronized samples</span></div><canvas id="offset-chart" class="history" aria-label="Frequency offset history"></canvas></section>
       </div>
 
       <details class="panel details-panel">

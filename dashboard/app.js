@@ -251,8 +251,19 @@ function drawSpectrum(bins,rate) {
 }
 function drawOverlay(ctx,w,h,dpr,rate=(statusData?.session?.input_rate||12000)) { if(!settings.overlay)return; const nyquist=rate/2, mode=statusData?.session?.mode, width=modeWidths[mode]||0, low=(1500-width/2)/nyquist*w, high=(1500+width/2)/nyquist*w, center=1500/nyquist*w; ctx.save();ctx.strokeStyle="rgba(231,235,239,.32)";ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);ctx.strokeRect(low,0,Math.max(1,high-low),h);ctx.setLineDash([]);ctx.strokeStyle="rgba(208,167,95,.8)";ctx.beginPath();ctx.moveTo(center,0);ctx.lineTo(center,h);ctx.stroke();ctx.restore(); }
 
-function drawHistory() { if(!historyData.length)return; const cutoff=Date.now()-settings.history*1000, points=historyData.filter(p=>p.timestamp_ms>=cutoff); drawLine($("snr-chart"),points.map(p=>p.snr_db),"#68b889"); drawLine($("offset-chart"),points.map(p=>p.frequency_offset_hz),"#76a9d4"); }
-function drawLine(canvas,values,stroke) { const {w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#151a21";ctx.fillRect(0,0,w,h);if(values.length<2)return;let min=Math.min(...values),max=Math.max(...values);if(min===max){min-=1;max+=1;}ctx.strokeStyle="#35404d";ctx.lineWidth=dpr;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.strokeStyle=stroke;ctx.beginPath();values.forEach((v,i)=>{const x=i*w/(values.length-1),y=h-(v-min)/(max-min)*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); }
+function historyValues(points,key) { return points.map(p=>p.sync&&Number.isFinite(p[key])?p[key]:null); }
+function drawHistory() { const cutoff=Date.now()-settings.history*1000, points=historyData.filter(p=>p.timestamp_ms>=cutoff); drawLine($("snr-chart"),historyValues(points,"snr_db"),"#68b889"); drawLine($("offset-chart"),historyValues(points,"frequency_offset_hz"),"#76a9d4"); }
+function drawLine(canvas,values,stroke) {
+  const {w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#151a21";ctx.fillRect(0,0,w,h);
+  const valid=values.filter(Number.isFinite);ctx.font=`${11*dpr}px system-ui`;ctx.fillStyle="#9da8b4";
+  if(valid.length<2){ctx.fillText("No synchronized samples in this window",12*dpr,24*dpr);return;}
+  let min=Math.min(...valid),max=Math.max(...valid);if(min===max){min-=1;max+=1;}
+  const left=42*dpr,top=12*dpr,height=Math.max(1,h-24*dpr),width=Math.max(1,w-left-8*dpr);
+  ctx.fillText(max.toFixed(1),5*dpr,14*dpr);ctx.fillText(min.toFixed(1),5*dpr,h-7*dpr);
+  ctx.strokeStyle="#35404d";ctx.lineWidth=dpr;ctx.beginPath();ctx.moveTo(left,h/2);ctx.lineTo(w,h/2);ctx.stroke();
+  ctx.strokeStyle=stroke;ctx.beginPath();let connected=false;
+  values.forEach((v,i)=>{if(!Number.isFinite(v)){connected=false;return;}const x=left+i*width/(values.length-1),y=top+height-(v-min)/(max-min)*height;connected?ctx.lineTo(x,y):ctx.moveTo(x,y);connected=true;});ctx.stroke();
+}
 function clearPlots() { for(const id of ["waterfall","spectrum","snr-chart","offset-chart"]){const c=$(id),ctx=c.getContext("2d");ctx.fillStyle="#0c0f13";ctx.fillRect(0,0,c.width,c.height);} averageBins=null; resetAutoLevels(); }
 
 for(const key of ["view","palette","floor","ceiling","averaging","fps"]){$(key).value=settings[key];$(key).addEventListener("change",e=>{settings[key]=key==="floor"||key==="ceiling"||key==="averaging"||key==="fps"?+e.target.value:e.target.value;saveSettings();});}
