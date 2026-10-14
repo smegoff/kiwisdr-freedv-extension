@@ -224,6 +224,7 @@ DecoderJob parse_decoder_job(const std::string& encoded_json) {
   job.protocol = value.at("protocol").get<uint32_t>();
   job.generation = value.at("generation").get<uint64_t>();
   job.running = value.at("running").get<bool>();
+  job.station_feed = value.value("station_feed", false);
   if (job.protocol != 2) throw std::runtime_error("unsupported job protocol");
   if (job.running) {
     job.rx_channel = value.at("rx_chan").get<int>();

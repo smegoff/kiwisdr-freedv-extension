@@ -27,6 +27,7 @@ struct DecoderJob {
   uint32_t protocol = 2;
   uint64_t generation = 0;
   bool running = false;
+  bool station_feed = false;
   int rx_channel = -1;
   std::string mode;
   uint32_t input_rate = 12000;

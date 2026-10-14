@@ -473,7 +473,6 @@ function freedv_recv(data)
             freedv.rade_enabled = (+value != 0);
             freedv.modes = freedv.legacy_modes.slice();
             if (freedv.rade_enabled) freedv.modes.push('RADEV1');
-            if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
             freedv_update_test_button();
             break;
          case 'reporter_enabled':
@@ -493,6 +492,7 @@ function freedv_recv(data)
             freedv_update_reporter_frequencies(value);
             break;
          case 'ready':
+            if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
             freedv_controls_setup();
             break;
          case 'test_available':

@@ -271,6 +271,8 @@ static bool freedv_store_reporter_frequencies(const char *value)
         if (!end || (*end && *end != ':') || frequency < 100000ULL || frequency > 100000000000ULL)
             return false;
         if (*end) {
+            const char *separator = strchr(end + 1, ':');
+            if (!separator || strchr(separator + 1, ':')) return false;
             char call[32], mode[16], extra;
             if (sscanf(end, ":%31[^:]:%15s%c", call, mode, &extra) != 2) return false;
             for (const char *p = end + 1; *p; p++)
@@ -774,7 +776,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
         freedv_json_escape(grid_j, sizeof(grid_j), e->reporter_grid);
         freedv_json_escape(message_j, sizeof(message_j), e->reporter_message);
         kiwi_snprintf_buf(job,
-            "{\"protocol\":%d,\"generation\":%u,\"running\":true,\"rx_chan\":%d,"
+            "{\"protocol\":%d,\"generation\":%u,\"station_feed\":true,\"running\":true,\"rx_chan\":%d,"
             "\"mode\":\"%s\",\"input_rate\":%u,\"frequency_hz\":%llu,\"test\":%s,\"test_ready\":%s,"
             "\"reporter\":{\"enabled\":%s,\"callsign\":\"%s\",\"grid\":\"%s\",\"message\":\"%s\"}}",
             FREEDV_PROTOCOL, e->generation, active_rx, e->mode,
@@ -785,7 +787,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
                 "true":"false",
             call_j, grid_j, message_j);
     } else {
-        kiwi_snprintf_buf(job, "{\"protocol\":%d,\"generation\":%u,\"running\":false}",
+        kiwi_snprintf_buf(job, "{\"protocol\":%d,\"generation\":%u,\"station_feed\":true,\"running\":false}",
             FREEDV_PROTOCOL, next_generation? next_generation - 1 : 0);
     }
     char *encoded = kiwi_str_encode(job);

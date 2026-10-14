@@ -129,7 +129,7 @@ std::string reporter_state() {
   return "disabled";
 }
 
-std::string reporter_frequencies() {
+std::string reporter_frequencies(bool station_feed) {
   try {
     std::ifstream input(env_or("FREEDV_REPORTER_FREQUENCIES_FILE",
                                "/tmp/freedv-reporter-frequencies.json"));
@@ -151,7 +151,7 @@ std::string reporter_frequencies() {
     std::sort(frequencies.begin(), frequencies.end());
     frequencies.erase(std::unique(frequencies.begin(), frequencies.end()), frequencies.end());
     std::ostringstream output;
-    if (value.contains("transmitters") && value["transmitters"].is_array()) {
+    if (station_feed && value.contains("transmitters") && value["transmitters"].is_array()) {
       for (const auto& station : value["transmitters"]) {
         if (!station.is_object()) continue;
         const auto call = station.value("callsign", std::string{});
@@ -422,7 +422,7 @@ class KiwiCamper {
     const auto unix_seconds = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     send_text(kfd::make_poll_command(secret_, unix_seconds, random_nonce(),
-                                     reporter_frequencies()));
+                                     reporter_frequencies(station_feed_)));
     next_poll_ = now + (job_.test && !job_.test_ready ?
         std::chrono::milliseconds(100) : std::chrono::milliseconds(1000));
   }
@@ -458,7 +458,9 @@ class KiwiCamper {
     if (kfd::parse_message_pair(message, "freedv_job", value)) {
       mark_control_response();
       try {
-        apply_job(kfd::parse_decoder_job(value));
+        const auto incoming = kfd::parse_decoder_job(value);
+        station_feed_ = incoming.station_feed;
+        apply_job(incoming);
         metrics.auth_successes++;
       } catch (...) {
         metrics.malformed_jobs++;
@@ -735,6 +737,7 @@ class KiwiCamper {
   std::string password_;
   std::string secret_;
   bool rade_enabled_ = false;
+  bool station_feed_ = false;
   kfd::Dashboard& dashboard_;
   asio::io_context ioc_;
   tcp::resolver resolver_;

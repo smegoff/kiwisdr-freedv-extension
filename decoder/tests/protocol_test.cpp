@@ -49,6 +49,9 @@ int main() {
          job.reporter_grid == "RF80AA" &&
          job.reporter_message == "Listening via KiwiSDR");
   assert(kfd::url_decode(kfd::url_encode(raw)) == raw);
+  const auto capable = kfd::parse_decoder_job(kfd::url_encode(
+      R"({"protocol":2,"generation":10,"running":false,"station_feed":true})"));
+  assert(capable.station_feed && !job.station_feed);
   const auto stopped = kfd::parse_decoder_job(kfd::url_encode(
       R"({"protocol":2,"generation":10,"running":false})"));
   assert(!stopped.running && stopped.generation == 10);
