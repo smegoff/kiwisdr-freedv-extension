@@ -117,12 +117,10 @@ class ActiveFrequencyCache:
                        if "frequency_hz" in s})[:MAX_ACTIVE_FREQUENCIES]
 
     def transmitters(self):
-        now = time.monotonic()
         rows = [{"callsign": s["callsign"], "frequency_hz": s["frequency_hz"],
                  "mode": s.get("mode", "")}
                 for s in self.stations.values()
-                if s.get("transmitting") and s.get("callsign") and s.get("frequency_hz")
-                and now - s.get("tx_seen", 0) < 120]
+                if s.get("transmitting") and s.get("callsign") and s.get("frequency_hz")]
         return sorted(rows, key=lambda s: (s["frequency_hz"], s["callsign"]))[:16]
 
 
