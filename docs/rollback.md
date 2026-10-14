@@ -1,5 +1,11 @@
 # Backup and rollback runbook
 
+For the Kiwi-proxy diagnostics release, the immediate receiver rollback is
+`freedv-v0-1-46` and the decoder guest’s pre-upgrade snapshot retains service
+0.1.40. Use the original pre-upgrade file backup or that snapshot, not an
+intermediate verification-build backup. The relay adds no firewall rules,
+public decoder ports or configuration secrets that need to be removed.
+
 ## Preferred full-recovery gate
 
 The guided installer repeats this risk notice and refuses to continue until
