@@ -130,6 +130,61 @@ function freedv_is_local_page()
    return !!(private_172 && +private_172[1] >= 16 && +private_172[1] <= 31);
 }
 
+function freedv_proxy_frame(value)
+{
+   if (!value || value.version !== 1 || !Number.isInteger(value.sequence) ||
+       value.sequence < 1 || !Number.isInteger(value.sample_rate) ||
+       value.sample_rate < 8000 || value.sample_rate > 192000 ||
+       typeof value.bins != 'string' || !/^[0-9a-f]{512}$/.test(value.bins)) return null;
+   var bins = [];
+   for (var i = 0; i < 512; i += 2) {
+      var v = parseInt(value.bins.slice(i, i+2), 16);
+      if (v > 120) return null;
+      bins.push(v);
+   }
+   return bins;
+}
+
+function freedv_proxy_diagnostics(status)
+{
+   var section = w3_el('id-freedv-proxy-diagnostics');
+   if (!section || !section.open || document.hidden) return;
+   var frame = status.diagnostics, bins = freedv_proxy_frame(frame);
+   if (!bins) return;
+   if (freedv.proxy_generation !== status.generation) {
+      freedv.proxy_generation = status.generation;
+      freedv.proxy_sequence = 0;
+      var reset = w3_el('id-freedv-proxy-canvas');
+      if (reset) reset.getContext('2d').clearRect(0, 0, 512, 200);
+   }
+   if (frame.sequence <= (freedv.proxy_sequence || 0)) return;
+   freedv.proxy_sequence = frame.sequence;
+   var canvas = w3_el('id-freedv-proxy-canvas');
+   if (!canvas) return;
+   var ctx = canvas.getContext('2d');
+   // Fixed-size canvas and latest-only frames: no accumulating render queue.
+   ctx.drawImage(canvas, 0, 80, 512, 119, 0, 81, 512, 119);
+   ctx.fillStyle = '#20262d'; ctx.fillRect(0, 0, 512, 80);
+   var sorted = bins.slice().sort(function(a,b) { return a-b; });
+   var floor = sorted[51], ceiling = Math.max(floor+30, sorted[253]);
+   ctx.strokeStyle = '#9cb5c8'; ctx.beginPath();
+   bins.forEach(function(v, i) {
+      var level = Math.max(0, Math.min(1, (v-floor)/(ceiling-floor)));
+      if (i === 0) ctx.moveTo(0, 75-level*65); else ctx.lineTo(i*2, 75-level*65);
+      ctx.fillStyle = 'rgb('+ Math.round(35+level*200) +','+
+         Math.round(45+level*175) +','+ Math.round(65+level*70) +')';
+      ctx.fillRect(i*2, 80, 2, 1);
+   });
+   ctx.stroke();
+   ctx.fillStyle = '#e0e5ea'; ctx.font = '11px system-ui';
+   ctx.fillText('0 Hz', 4, 13);
+   ctx.fillText((frame.sample_rate/2000).toFixed(1)+' kHz', 460, 13);
+   var snr = Number.isFinite(status.snr)? status.snr.toFixed(1)+' dB':'--';
+   var offset = Number.isFinite(status.frequency_offset)? status.frequency_offset.toFixed(1)+' Hz':'--';
+   w3_el('id-freedv-proxy-readout').textContent = 'Sync: '+ (status.sync? 'yes':'no') +
+      ' · Local SNR: '+ snr +' · Offset: '+ offset;
+}
+
 function freedv_diagnostics_link_html()
 {
    if (!freedv_is_local_page()) return '';
@@ -535,6 +590,7 @@ function freedv_recv(data)
          case 'status_json':
             var status = kiwi_JSON_parse('FreeDV status', decodeURIComponent(value));
             if (!status || status.type != 'status') break;
+            freedv_proxy_diagnostics(status);
             freedv.generation = status.generation || 0;
             if (freedv.testing && status.state == 'running')
                freedv_test_mark_armed();
@@ -569,7 +625,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.46 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.47 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -584,7 +640,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.46 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.47 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -649,6 +705,11 @@ function freedv_controls_setup()
                w3_div('id-freedv-reporter w3-show-inline',
                   freedv.reporter_enabled? 'off (listener opt-in)':'disabled by owner')))),
       w3_div('id-freedv-footer',
+         '<details id="id-freedv-proxy-diagnostics" class="id-freedv-proxy-diagnostics">' +
+         '<summary>Read-only diagnostics (via Kiwi)</summary>' +
+         '<div id="id-freedv-proxy-readout">Start decoding to view signal diagnostics.</div>' +
+         '<canvas id="id-freedv-proxy-canvas" width="512" height="200" aria-label="Receive audio spectrum and waterfall"></canvas>' +
+         '<div class="w3-small">Audio band, not RF/IQ. Local SNR; no recording or station controls.</div></details>',
          w3_div('w3-small', 'Dropped frames: ',
             w3_div('id-freedv-dropped w3-show-inline', '0'),
             freedv_diagnostics_link_html()),
@@ -1074,7 +1135,11 @@ function FreeDV_help(show)
          'shows a <b>Decoder diagnostics (LAN)</b> link to the external decoder\'s ' +
          'read-only status dashboard. The link is intentionally hidden from public ' +
          'Kiwi reverse-proxy listeners because the dashboard is reachable only from ' +
-         'the management LAN.<br><br>' +
+         'the management LAN. The expandable <b>Read-only diagnostics (via Kiwi)</b> ' +
+         'view works for internet listeners through the Kiwi reverse proxy. It shows ' +
+         'the current decoder session\'s spectrum and waterfall, local SNR and offset. ' +
+         'It does not connect your browser to the decoder or expose management controls. ' +
+         'Start decoding to receive measurements; close the section to pause rendering.<br><br>' +
 
          '<b>More information</b><br>' +
          'Installation, architecture, mode notes, rollback guidance and current test ' +

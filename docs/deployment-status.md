@@ -14,26 +14,54 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-46`
+- active Kiwi release: `freedv-v0-1-47`
 - active Kiwi SHA-256:
-  `49d27e542f540a9ec90bb3021be00aeaa0618c77715bbefb156fab5c125516c0`
-- Kiwi BuildID: `fbd7edd4821b88eb6e7fbe94f231bef5c2353615`
+  `79a10e61e80907ba8717fd04e2c2477594230f8f38756a2f0e87d11fe3273109`
+- Kiwi BuildID: `aa07cfec13efa566dcee38843ebbcd850e00f5e4`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.40`
+- decoder-guest release: `0.1.41`
 - decoder binary SHA-256:
-  `07f822a09e1c47a9fe4d38170c451d6557b1156f4ae916c6bfad00faccb8ecac`
+  `e6440ead3226d41e45876bf9df230e0b50b2c785448a5c87e32de3d48911b2d6`
 - Reporter sidecar SHA-256:
   `722885f2b193b20d1f9b79bebd9c3fa9839958b6f9bb3a08d2300e9aa645d8f7`
 - Reporter client: `KiwiSDR-FreeDV/0.1.37`
-- decoder dashboard assets: management and public `0.1.40`
-- decoder-guest snapshot: `pre-decoder-v0-1-40`
+- decoder dashboard assets: management and public `0.1.41`
+- decoder-guest snapshot: `pre-decoder-v0-1-41`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
 - RADEV2: experimental recorded-reference option enabled on this installation;
   independently off by default for new installations; RADEV1 remains default
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## Kiwi-proxy diagnostics v0.1.47 / decoder v0.1.41
+
+The read-only in-extension view was exercised through John’s public Kiwi
+proxy in Chromium. Both 700D and RADEV1 reference tests passed, with local SNR
+around 30.6 dB and 35.4 dB respectively. The bounded spectrum/waterfall rendered,
+collapse paused rendering, and the camper recovered after a controlled decoder
+restart without restarting Kiwi. No browser warnings/errors were recorded.
+
+There are no new decoder listeners or firewall rules. Health and standalone
+spectator listeners remain loopback-only; the full management dashboard remains
+LAN-only. The new view uses the authenticated, generation-checked status path.
+
+Both 41-sample ten-minute active-session soaks passed on 2026-10-15 NZDT
+(2026-10-14 18:20:35–18:30:35 UTC for the decoder, 18:20:50–18:30:50 UTC
+for Kiwi). All audio input/return drop, underrun and reconnect counters stayed
+zero; services, root HTML, `/status`, camper state and version checks stayed
+healthy, with no critical journal matches or orphan deployment wrappers.
+Stop/Close returned the decoder to zero sessions and no camper. The public
+browser had no warnings/errors. The final decoder binary checksum above
+includes restart-safe relay sequences.
+
+Sampled daemon RSS was approximately 10 MB and total process CPU under 2% of
+one core during this 700D session; this is not a formal incremental overhead
+benchmark. Firefox/Edge, mobile widths and multi-user load testing have not
+been claimed for this update. The previous accepted Kiwi and the decoder
+0.1.40 rollback snapshot are retained; the superseded pre-0.1.40 snapshot was
+removed after acceptance.
 
 ## Diagnostics v0.1.40 and Reporter reception acceptance
 

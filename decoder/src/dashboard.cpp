@@ -290,6 +290,11 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
   std::mutex frame_mutex;
   std::vector<uint8_t> latest_frame;
   uint32_t latest_sequence = 0;
+  // Seed the browser relay sequence from wall time so a process restart does
+  // not require a long-running viewer to wait for the old counter to catch up.
+  const uint64_t proxy_sequence_origin = static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::system_clock::now().time_since_epoch()).count());
   std::mutex state_mutex;
   json session = {{"active", false}};
   std::deque<json> history;
@@ -636,9 +641,33 @@ void Dashboard::start() { impl_->start(); }
 void Dashboard::stop() { impl_->stop(); }
 bool Dashboard::enabled() const { return impl_->config.enabled; }
 
+nlohmann::json Dashboard::proxy_spectrum() {
+  std::unique_lock<std::mutex> lock(impl_->frame_mutex, std::try_to_lock);
+  if (!lock.owns_lock() || impl_->latest_frame.size() != 528) return nullptr;
+  const auto& frame = impl_->latest_frame;
+  static const char digits[] = "0123456789abcdef";
+  std::string bins;
+  bins.reserve(512);
+  // Pairwise peak preserves narrow carriers, while halving relay bandwidth.
+  for (std::size_t i = 16; i < frame.size(); i += 2) {
+    const uint8_t value = static_cast<uint8_t>(
+        (static_cast<unsigned>(std::max(frame[i], frame[i + 1])) * 120 + 127) / 255);
+    bins.push_back(digits[value >> 4]);
+    bins.push_back(digits[value & 15]);
+  }
+  uint32_t rate = 0;
+  for (unsigned i = 0; i < 4; ++i) rate |= static_cast<uint32_t>(frame[8 + i]) << (8 * i);
+  return {{"version", 1}, {"sequence", impl_->proxy_sequence_origin + impl_->latest_sequence},
+          {"sample_rate", rate}, {"bins", std::move(bins)}};
+}
+
 void Dashboard::session_started(uint64_t generation, int rx_channel, const std::string& mode,
                                 uint64_t frequency_hz, uint32_t input_rate, bool test,
                                 const std::string& backend) {
+  {
+    std::lock_guard<std::mutex> lock(impl_->frame_mutex);
+    impl_->latest_frame.clear();
+  }
   {
     std::lock_guard<std::mutex> lock(impl_->state_mutex);
     impl_->session = {{"active", true}, {"generation", generation}, {"rx_channel", rx_channel},

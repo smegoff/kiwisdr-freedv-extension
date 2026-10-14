@@ -1,5 +1,12 @@
 # TDoA-style decoder protocol v2
 
+Decoder 0.1.41 optionally includes a `diagnostics` object in the existing
+generation-checked `rev_txt` status JSON. Its exact fields are `version=1`,
+`sequence`, `sample_rate` and `bins` (512 lowercase hex characters representing
+256 unsigned intensities, 0–120 mapping to -120–0 dBFS). It is limited to four
+updates per second and omitted above the existing encoded status size limit.
+No new monitor command, decoder port or receiver connection is required.
+
 ## Connection direction
 
 The private decoder guest opens the standard Kiwi `SND?camp` WebSocket. The

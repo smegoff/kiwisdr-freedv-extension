@@ -46,6 +46,8 @@ the optional diagnostics page connects to its management-only web port.
 - Collapsible receive settings and Reporter details keep the main panel compact.
 - Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
+- Expandable [read-only signal diagnostics through the Kiwi proxy](docs/proxy-diagnostics.md),
+  without connecting internet browsers to the decoder guest or opening new ports.
 - A separate, sanitized public signal monitor with a loopback-only listener,
   allowlisted status/history fields and no audio download or controls.
 - A compact **Decoder diagnostics (LAN)** link in the FreeDV panel when the
@@ -61,8 +63,8 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.46 | Compact, scroll-safe panel and live transmitting-station selector |
-| Decoder service | 0.1.40 | Quality-first diagnostics with attributed Reporter receptions, local SNR history and official C RADE V1/V2 adapters |
+| Kiwi extension | 0.1.47 | Compact panel, live transmitter selector and Kiwi-proxy signal diagnostics |
+| Decoder service | 0.1.41 | Bounded private-to-Kiwi spectrum relay; management diagnostics and official C RADE V1/V2 adapters |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
 | FreeDV Reporter | RX-only client 0.1.37 | Per-listener opt-in plus an independent read-only TX/reception feed; receiving-station SNR is labelled separately |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |

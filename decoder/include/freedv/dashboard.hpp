@@ -50,6 +50,8 @@ class Dashboard {
   void start();
   void stop();
   bool enabled() const;
+  // Bounded, identity-free latest-only telemetry for the existing Kiwi relay.
+  nlohmann::json proxy_spectrum();
 
   void session_started(uint64_t generation, int rx_channel, const std::string& mode,
                        uint64_t frequency_hz, uint32_t input_rate, bool test,
