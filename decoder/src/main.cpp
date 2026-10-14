@@ -184,7 +184,11 @@ void reporter_send(const json& event) {
     // Reuse the loopback socket instead of opening an OS descriptor for each
     // status tick. Thread-local ownership also keeps future callers isolated.
     static thread_local asio::io_context ioc;
-    static thread_local udp::socket socket(ioc, udp::v4());
+    static thread_local udp::socket socket = [] {
+      udp::socket value(ioc, udp::v4());
+      value.non_blocking(true);
+      return value;
+    }();
     const auto payload = event.dump();
     socket.send_to(asio::buffer(payload), {asio::ip::make_address("127.0.0.1"), 8075});
   } catch (...) {
