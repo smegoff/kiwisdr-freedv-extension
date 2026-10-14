@@ -569,7 +569,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.44 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.45 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -584,11 +584,12 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.44 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.45 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
             ' open-source digital voice, Codec2 and RADE.')),
+      w3_div('id-freedv-scroll',
       w3_div('id-freedv-primary',
          w3_inline('id-freedv-actions/w3-margin-right',
             w3_select('w3-text-red', 'Mode', '', 'freedv.mode', freedv.modes.indexOf(freedv.mode),
@@ -651,7 +652,7 @@ function freedv_controls_setup()
          w3_div('w3-small', 'Dropped frames: ',
             w3_div('id-freedv-dropped w3-show-inline', '0'),
             freedv_diagnostics_link_html()),
-         w3_div('id-freedv-error w3-small w3-text-red')));
+         w3_div('id-freedv-error w3-small w3-text-red'))));
    ext_panel_show(controls, null, null);
    ext_set_controls_width_height(540, 620);
    freedv_update_test_button();

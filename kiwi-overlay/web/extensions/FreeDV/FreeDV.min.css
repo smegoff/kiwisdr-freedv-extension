@@ -1,5 +1,6 @@
 /* External FreeDV camper decoder UI */
-.id-freedv-controls { padding:10px 16px; line-height:1.35; box-sizing:border-box; max-height:600px; overflow-y:auto; }
+.id-freedv-controls { padding:10px 16px; line-height:1.35; box-sizing:border-box; }
+.id-freedv-scroll { max-height:520px; overflow-y:auto; }
 .id-freedv-intro { margin-bottom:10px; }
 .id-freedv-intro > div { margin-bottom:3px; }
 .id-freedv-primary { display:grid; gap:8px; }
