@@ -1,12 +1,33 @@
 # Decoder diagnostics dashboard
 
-Decoder service 0.1.38 includes a small read-only web dashboard for diagnosing
+Decoder service 0.1.40 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
 ![Live 700D decoder diagnostics](images/dashboard-live.png)
 
 ## What it shows
+
+The refreshed overview separates **local decoder SNR** from **reported SNR**.
+Local SNR is shown only while the modem is synchronized. Public Reporter
+receptions name both the heard station and the receiving station that measured
+the SNR, plus codec, receiver-advertised frequency and report age. An unknown
+callsign, SNR or frequency is explicitly unavailable, never inferred from another
+station. Reporter activity is advisory and does not prove reception at this Kiwi.
+
+The default **This frequency** view includes known receiver frequencies within
+±2.5 kHz of the current session. **All activity**, or an idle decoder, shows the
+latest public reception per receiving station, up to twelve visible rows.
+Reports expire after ten minutes; a disconnected/stale feed is clearly labelled
+and does not affect decoding. TX chips show current public transmitters.
+Locators, public messages and Reporter session identifiers are not exposed.
+
+The overview puts local quality, frequency, last decoded callsign and audio
+counters first. Display settings and modem/service details are collapsible;
+preferences remain browser-local. It uses the existing slate/charcoal palette,
+system fonts and vanilla Canvas—no frontend framework or external assets.
+The public spectator status/history allowlist is unchanged and does not include
+the new Reporter data.
 
 The dashboard taps the selected receiver channel immediately after Kiwi sound
 packet decoding. It therefore shows post-detector audio from zero hertz to

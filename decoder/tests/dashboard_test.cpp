@@ -96,6 +96,22 @@ int main() {
   const auto root = std::filesystem::temp_directory_path() /
                     ("freedv-dashboard-test-" + std::to_string(getpid()));
   std::filesystem::create_directories(root);
+  const auto feed = root / "reporter.json";
+  nlohmann::json feed_data = {{"version",1},{"updated",1000},{"connected",true},
+    {"transmitters", {{{"callsign","VK5DGR"},{"mode","RADEV1"},{"frequency_hz",14236000},{"secret","omit"}}}},
+    {"receptions", {{{"receiver_callsign","ZL2ABC"},{"heard_callsign","VK5DGR"},
+      {"mode","RADEV1"},{"snr_db",8.5},{"frequency_hz",14236000},{"timestamp",990},{"sid","omit"}}}}};
+  std::ofstream(feed) << feed_data;
+  const auto activity=kfd::dashboard_reporter_activity(feed.string(),1000);
+  assert(activity["state"]=="online" && activity["receptions"].size()==1);
+  assert(activity["transmitters"].size()==1 && activity.dump().find("omit")==std::string::npos);
+  assert(activity["receptions"][0]["snr_db"]==8.5);
+  assert(kfd::dashboard_reporter_activity(feed.string(),1201)["state"]=="stale");
+  feed_data["receptions"][0]["heard_callsign"]="<script>";
+  std::ofstream(feed) << feed_data;
+  assert(kfd::dashboard_reporter_activity(feed.string(),1000)["receptions"].empty());
+  std::ofstream(feed) << std::string(65537,'x');
+  assert(kfd::dashboard_reporter_activity(feed.string(),1000)["state"]=="unavailable");
   std::ofstream(root / "index.html") << "<!doctype html><title>FreeDV Decoder Diagnostics</title>";
   std::ofstream(root / "app.js") << "'use strict';";
   std::ofstream(root / "styles.css") << "body{color:white}";
@@ -131,6 +147,9 @@ int main() {
   status.bits = 100;
   status.bit_errors = 2;
   status.resyncs = 1;
+  status.callsign = "VK5DGR";
+  dashboard.update_status(status, "codec2", 3);
+  status.callsign.clear();
   dashboard.update_status(status, "codec2", 3);
   dashboard.push_audio(tone.data(), tone.size(), sample_rate);
   dashboard.push_modem_audio(tone.data(), tone.size(), 8000);
@@ -140,6 +159,7 @@ int main() {
   assert(current.result() == http::status::ok);
   const auto current_json = nlohmann::json::parse(current.body());
   assert(current_json["session"]["mode"] == "700D");
+  assert(current_json["session"]["last_received_callsign"] == "VK5DGR");
   assert(current_json["session"]["modem"]["bits"] == 100);
   assert(current_json["dashboard"]["waterfall_frames"].get<uint64_t>() > 0);
   assert(current_json["dashboard"]["capture"]["available"] == true);
@@ -176,6 +196,8 @@ int main() {
   assert(public_json["session"]["mode"] == "700D");
   assert(public_json["session"]["sync"] == true);
   assert(!public_json.contains("dashboard"));
+  assert(!public_json.contains("reporter_activity"));
+  assert(!public_json["session"].contains("last_received_callsign"));
   assert(!public_json.contains("decode_seconds_total"));
   assert(!public_json["session"].contains("backend"));
   assert(!public_json["session"].contains("callsign"));

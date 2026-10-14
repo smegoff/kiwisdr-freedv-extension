@@ -18,6 +18,8 @@ from reporter.reporter import (
 )
 import json
 import tempfile
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -53,6 +55,47 @@ class FakeSocketIO:
 
 
 class ReporterTests(unittest.TestCase):
+    def reception(self, **changes):
+        data = {"sid":"one", "receiver_callsign":"ZL2ABC", "callsign":"VK5DGR",
+                "mode":"RADEV1", "snr":8.5,
+                "last_update":datetime.now(timezone.utc).isoformat()}
+        data.update(changes)
+        return data
+
+    def test_receptions_are_receiver_snr_and_privacy_minimal(self):
+        cache = ActiveFrequencyCache()
+        cache.apply("freq_change", {"sid":"one", "freq":14236000})
+        cache.apply("rx_report", self.reception(receiver_grid_square="RF80", message="private"))
+        report = cache.receptions()[0]
+        self.assertEqual(report["receiver_callsign"], "ZL2ABC")
+        self.assertEqual(report["heard_callsign"], "VK5DGR")
+        self.assertEqual(report["snr_db"], 8.5)
+        self.assertEqual(report["frequency_hz"], 14236000)
+        self.assertEqual(set(report), {"receiver_callsign","heard_callsign","snr_db","frequency_hz","mode","timestamp"})
+        cache.apply("freq_change", {"sid":"one", "freq":7177000})
+        self.assertEqual(cache.receptions(), [])
+
+    def test_receptions_reject_malformed_stale_future_and_infinite_values(self):
+        cache = ActiveFrequencyCache()
+        for changes in ({"snr":float("inf")}, {"callsign":"<script>"},
+                        {"mode":"<html>"}, {"last_update":"bad"},
+                        {"last_update":datetime.fromtimestamp(time.time()-700, timezone.utc).isoformat()},
+                        {"last_update":datetime.fromtimestamp(time.time()+90, timezone.utc).isoformat()}):
+            cache.apply("rx_report", self.reception(**changes))
+        self.assertEqual(cache.receptions(), [])
+
+    def test_reception_activity_can_have_unknown_callsign_snr_and_frequency(self):
+        cache = ActiveFrequencyCache()
+        cache.apply("bulk_update", [["rx_report", self.reception(callsign="", snr=None)]])
+        report=cache.receptions()[0]
+        self.assertIsNone(report["heard_callsign"])
+        self.assertIsNone(report["snr_db"])
+        self.assertIsNone(report["frequency_hz"])
+        cache.apply("rx_report", self.reception(mode="", callsign=""))
+        self.assertEqual(cache.receptions(), [])
+        cache.clear()
+        self.assertFalse(cache.connected)
+
     def test_active_frequency_cache_is_deduplicated_and_privacy_minimal(self):
         cache = ActiveFrequencyCache()
         cache.apply("freq_change", {"sid": "one", "freq": 14236000,
@@ -83,7 +126,7 @@ class ReporterTests(unittest.TestCase):
             path = Path(directory) / "frequencies.json"
             write_active_frequencies(cache, str(path))
             payload = json.loads(path.read_text(encoding="ascii"))
-        self.assertEqual(set(payload), {"version", "updated", "frequencies_hz", "transmitters"})
+        self.assertEqual(set(payload), {"version", "updated", "frequencies_hz", "transmitters", "connected", "receptions"})
         self.assertEqual(payload["frequencies_hz"], [7177000])
         self.assertNotIn("secret-sid", json.dumps(payload))
         self.assertNotIn("ZL2ABC", json.dumps(payload))
@@ -173,7 +216,7 @@ class ReporterTests(unittest.TestCase):
         self.assertNotIn("password", auth)
         self.assertNotIn("listener", auth)
         self.assertEqual(auth["version"], CLIENT_VERSION)
-        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.36")
+        self.assertEqual(CLIENT_VERSION, "KiwiSDR-FreeDV/0.1.37")
 
     def test_selected_codec_activity_has_no_transmitter_identity(self):
         payload = rx_mode_activity("700D")

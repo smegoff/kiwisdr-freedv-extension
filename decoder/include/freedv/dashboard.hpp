@@ -30,6 +30,7 @@ struct DashboardConfig {
 };
 
 DashboardConfig dashboard_config_from_environment();
+nlohmann::json dashboard_reporter_activity(const std::string& path, int64_t now);
 
 // Versioned binary frame: "FDWF", version, flags, bin count, sample rate,
 // sequence, then one unsigned -120..0 dBFS value per positive-frequency bin.
