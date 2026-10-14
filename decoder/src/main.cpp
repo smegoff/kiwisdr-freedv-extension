@@ -43,7 +43,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.39";
+constexpr char kRelease[] = FREEDV_RELEASE_STRING;
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;

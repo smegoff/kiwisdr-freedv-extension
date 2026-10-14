@@ -1,7 +1,7 @@
 # FreeDV mode support
 
 The project supports seven libcodec2 modes plus the separately gated RADEV1
-backend. Here,
+backend, plus a separately gated RADEV2 development option. Here,
 "supported" means the mode is present in the Kiwi selector, accepted by the
 authenticated job protocol, mapped to a libcodec2 `FREEDV_MODE_*` identifier,
 and opened by the decoder smoke test. It does not mean every mode has completed
@@ -44,13 +44,25 @@ from reshaping the modem waveform before the external decoder receives it.
 
 ## Common calling frequencies
 
-The panel's **Calling frequency** selector tunes the displayed RF frequency
+The panel's **Stations / calling frequencies** selector tunes the displayed RF frequency
 and applies the listed sideband. Selecting an entry does not start decoding:
 choose the transmitted FreeDV mode and press **Start**. The extension subtracts
 the Kiwi's configured frequency offset when tuning, so the QO-100 entry works
 with a correctly configured downconverter/transverter. On a normal 0-30 MHz
 Kiwi it is rejected with an explanatory message instead of attempting an
 out-of-range tune.
+
+Public Reporter transmitters appear first, marked `[TX]` with callsign and
+codec. Selecting a TX entry also chooses that codec when it is enabled on the
+Kiwi. It does not start a stopped decoder. The remaining live frequencies and
+common calling frequencies are still selectable. TX state comes from Reporter
+and can lag actual RF activity; it does not guarantee reception at this Kiwi.
+
+RADEV2 has a dedicated recorded reference test. It uses the pinned official
+C implementation with 8 kHz modem input and 16 kHz speech output. Keep the
+flat 300–3000 Hz receive profile for this development waveform; no unverified
+mode-shaped bandwidth or minimum-SNR claim is supplied. See
+[experimental RADEv2](radev2.md) for gates, pin and validation details.
 
 | Band | Frequency | Sideband | Note |
 | --- | ---: | --- | --- |
@@ -105,7 +117,7 @@ The first seven rows are the classic all-Codec2 modes selected for a small,
 predictable headless decoder. They are not the entire FreeDV catalogue. The
 LPCNet-based 2020 variants remain outside this milestone. RADEV1 uses the
 official portable C implementation pinned to
-`freedv/rade_c@a36161bce0fb37daf3f4602344b095f6817dddb1`; the
+`freedv/rade_c@c8a3dc156045cae2cd251e1a4be0c304c9ddf2f9`; the
 FARGAN/Opus dependency is pinned to
 `940d4e5af64351ca8ba8390df3f555484c567fbb`.
 

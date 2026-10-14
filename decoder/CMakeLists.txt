@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(kiwi_freedv_decoder VERSION 0.1.39 LANGUAGES C CXX)
+add_compile_definitions(FREEDV_RELEASE_STRING="${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
