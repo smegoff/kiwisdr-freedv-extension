@@ -693,7 +693,10 @@ class KiwiCamper {
     }
 
     const auto now = std::chrono::steady_clock::now();
-    if (now >= next_status_) {
+    const bool new_callsign = !decoded.status.callsign.empty() &&
+        decoded.status.callsign != last_status_callsign_;
+    last_status_callsign_ = decoded.status.callsign;
+    if (now >= next_status_ || new_callsign) {
       send_status(decoded.status);
       if (!job_.test) {
         reporter_send({{"type", "status"}, {"session_id", job_.generation},
@@ -756,6 +759,7 @@ class KiwiCamper {
   bool return_adpcm_valid_ = false;
   bool first_audio_packet_ = true;
   uint64_t job_decoded_frames_ = 0;
+  std::string last_status_callsign_;
   kfd::StreamingResampler input_resampler_;
   kfd::StreamingResampler output_resampler_;
   kfd::AudioPacer output_pacer_;
