@@ -46,3 +46,7 @@
 .id-freedv-reporter,
 .id-freedv-backend { color:aqua; }
 .id-freedv-text { color:white; overflow-wrap:anywhere; }
+.id-freedv-proxy-diagnostics { margin-bottom:8px; }
+.id-freedv-proxy-diagnostics summary { cursor:pointer; padding:4px 0; }
+.id-freedv-proxy-diagnostics canvas { display:block; width:100%; height:auto; background:#20262d; margin:6px 0; }
+.id-freedv-proxy-diagnostics:not([open]) canvas { display:none; }

@@ -1,5 +1,11 @@
 # Public FreeDV signal monitor
 
+For internet listeners using John’s Kiwi reverse proxy, use the
+[in-extension Kiwi-relayed diagnostics](proxy-diagnostics.md). It needs no
+public decoder endpoint, loopback HTTP listener or separate HTTPS edge. The
+standalone spectator listener described below is an optional alternative,
+not a requirement for the Kiwi-relayed view.
+
 Decoder service 0.1.38 includes an optional spectator page for internet users.
 It is a separate surface from the management diagnostics dashboard and is
 disabled by default for new installations.

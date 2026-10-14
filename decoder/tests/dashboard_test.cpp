@@ -154,6 +154,21 @@ int main() {
   dashboard.push_audio(tone.data(), tone.size(), sample_rate);
   dashboard.push_modem_audio(tone.data(), tone.size(), 8000);
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
+  const auto proxy = dashboard.proxy_spectrum();
+  assert(proxy.size() == 4);
+  assert(proxy["version"] == 1);
+  assert(proxy["sample_rate"] == sample_rate);
+  assert(proxy["bins"].get<std::string>().size() == 512);
+  assert(proxy.dump().find("callsign") == std::string::npos);
+  assert(proxy.dump().find("reporter") == std::string::npos);
+  const auto hex = proxy["bins"].get<std::string>();
+  unsigned proxy_peak = 0, peak_value = 0;
+  for (unsigned i = 0; i < 256; ++i) {
+    const unsigned value = std::stoul(hex.substr(i * 2, 2), nullptr, 16);
+    assert(value <= 120);
+    if (value > peak_value) { proxy_peak = i; peak_value = value; }
+  }
+  assert(proxy_peak == 64);  // 1500 Hz / (12000 / 1024), pairwise reduction.
 
   auto current = request(config.port, http::verb::get, "/api/v1/status");
   assert(current.result() == http::status::ok);

@@ -4,6 +4,9 @@ Decoder service 0.1.40 includes a small read-only web dashboard for diagnosing
 the external FreeDV decoder. It is intended for a trusted management LAN and
 is not a public KiwiSDR feature.
 
+A separate, restricted [signal view inside the FreeDV extension](proxy-diagnostics.md)
+is available through the Kiwi proxy. It does not expose this management page.
+
 ![Refreshed diagnostics with public Reporter reception data](images/diagnostics-v0.1.40.png)
 
 ## What it shows

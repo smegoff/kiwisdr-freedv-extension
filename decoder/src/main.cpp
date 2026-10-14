@@ -719,7 +719,7 @@ class KiwiCamper {
   void send_status(const kfd::DecodeStatus& status) {
     dashboard_.update_status(status, backend_ ? backend_->name() : "none",
                              job_decoded_frames_);
-    const json value{{"type", "status"},
+    json value{{"type", "status"},
                      {"release", kRelease},
                      {"generation", job_.generation},
                      {"state", camped_channel_ == job_.rx_channel ? "running" : "connecting"},
@@ -734,6 +734,18 @@ class KiwiCamper {
                      {"decoded_frames", job_decoded_frames_},
                      {"reporter", reporter_state()},
                      {"error", status.error}};
+    // Reuse the authenticated camper status stream: no new network endpoint,
+    // history queue, browser identity or management API is exposed. Limit the
+    // visualization independently of urgent modem status updates.
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= next_proxy_spectrum_) {
+      auto spectrum = dashboard_.proxy_spectrum();
+      if (!spectrum.is_null()) value["diagnostics"] = std::move(spectrum);
+      next_proxy_spectrum_ = now + std::chrono::milliseconds(250);
+    }
+    // Status has an existing 2048-byte monitor transport ceiling. Long text
+    // must never turn optional visualization into loss of decoder status.
+    if (kfd::url_encode(value.dump()).size() > 2048) value.erase("diagnostics");
     send_text("SET rev_txt=" + std::to_string(job_.generation) + "," +
               kfd::url_encode(value.dump()));
     metrics.status_updates++;
@@ -746,6 +758,7 @@ class KiwiCamper {
   bool rade_enabled_ = false;
   bool station_feed_ = false;
   kfd::Dashboard& dashboard_;
+  std::chrono::steady_clock::time_point next_proxy_spectrum_{};
   asio::io_context ioc_;
   tcp::resolver resolver_;
   websocket::stream<tcp::socket> ws_;
