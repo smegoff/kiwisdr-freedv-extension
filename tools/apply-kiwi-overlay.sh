@@ -42,6 +42,7 @@ install -m 0644 "$src/kiwi-overlay/samples/FreeDV.rade.au" \
   "$sample_dir/FreeDV.rade.au"
 install -m 0644 "$src/kiwi-overlay/samples/FreeDV.rade2.au" \
   "$sample_dir/FreeDV.rade2.au"
+install -m 0644 "$src/kiwi-overlay/samples/RADE-LICENSE.txt" "$sample_dir/RADE-LICENSE.txt"
 [[ $(sha256sum "$sample_dir/FreeDV.rade2.au" | awk '{print $1}') == \
   b62acd5ef5cb628429762db355aff234e52aeb76999ee099f6901d5a2ed09ff1 ]] || {
   echo "RADEv2 reference checksum mismatch" >&2; exit 3;

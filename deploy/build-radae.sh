@@ -52,6 +52,7 @@ install -m 0755 "$build/src/rade_rx_wav" /usr/local/bin/rade_rx_wav
 install -m 0755 "$build/src/rade_tx_wav" /usr/local/bin/rade_tx_wav
 install -m 0644 "$src/wav/david_vk5dgr.wav" /usr/local/share/freedv-rade/input_sample.wav
 install -m 0644 "$src/FDV_offair.wav" /usr/local/share/freedv-rade/FDV_offair.wav
+install -m 0644 "$src/LICENSE" /usr/local/share/freedv-rade/LICENSE
 
 rade_library=$(find "$build/src" -maxdepth 1 -type f -name 'librade.so.*' -print | sort | tail -1)
 [[ -n $rade_library ]] || { echo "librade was not produced" >&2; exit 1; }
