@@ -22,4 +22,7 @@ int main() {
     scan(",7177000:<script>:RADEV2", 6);
     scan(",7177000,extra", 6);
     scan(",7177000 bad", 6);
+    scan(",", 6);
+    scan(",bad", 6);
+    scan(" unexpected", 6);
 }
