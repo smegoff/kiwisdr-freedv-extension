@@ -4,7 +4,7 @@ set -euo pipefail
 # FreeDV-maintained portable C implementation. Production selects V1 only;
 # the presence of experimental V2 code in this pinned library does not expose
 # a V2 mode through the Kiwi extension.
-pin=a36161bce0fb37daf3f4602344b095f6817dddb1
+pin=c8a3dc156045cae2cd251e1a4be0c304c9ddf2f9
 opus_pin=940d4e5af64351ca8ba8390df3f555484c567fbb
 src=/opt/rade_c
 build=$src/build-kiwi

@@ -18,6 +18,7 @@ struct kfd_rade_decoder {
   int fargan_ready;
   int continuation_frames;
   int last_sync;
+  int version;
   float continuation[5 * NB_TOTAL_FEATURES];
 };
 
@@ -56,7 +57,16 @@ static void reset_vocoder(kfd_rade_decoder* decoder) {
 
 static int open_modem(kfd_rade_decoder* decoder, char* error, size_t error_size) {
   char model_name[] = "";
-  decoder->modem = rade_open(model_name, RADE_VERBOSE_0);
+  int flags = RADE_VERBOSE_0;
+#ifdef RADE_MODE_V2
+  if (decoder->version == 2) flags |= RADE_MODE_V2;
+#else
+  if (decoder->version == 2) {
+    set_error(error, error_size, "installed RADE library does not support V2");
+    return -1;
+  }
+#endif
+  decoder->modem = rade_open(model_name, flags);
   if (!decoder->modem) {
     set_error(error, error_size, "rade_open failed");
     return -1;
@@ -70,14 +80,14 @@ static int open_modem(kfd_rade_decoder* decoder, char* error, size_t error_size)
   decoder->feature_count = rade_n_features_in_out(decoder->modem);
   decoder->eoo_bit_count = rade_n_eoo_bits(decoder->modem);
   if (decoder->feature_count <= 0 || decoder->feature_count % NB_TOTAL_FEATURES != 0 ||
-      decoder->eoo_bit_count <= 0) {
+      decoder->eoo_bit_count < 0 || (decoder->version == 1 && decoder->eoo_bit_count == 0)) {
     rade_close(decoder->modem);
     decoder->modem = NULL;
     set_error(error, error_size, "invalid RADE buffer dimensions");
     return -1;
   }
   decoder->features = calloc((size_t)decoder->feature_count, sizeof(float));
-  decoder->eoo_bits = calloc((size_t)decoder->eoo_bit_count, sizeof(float));
+  decoder->eoo_bits = calloc((size_t)(decoder->eoo_bit_count ? decoder->eoo_bit_count : 1), sizeof(float));
   if (!decoder->features || !decoder->eoo_bits) {
     free(decoder->features);
     free(decoder->eoo_bits);
@@ -94,12 +104,21 @@ static int open_modem(kfd_rade_decoder* decoder, char* error, size_t error_size)
 }
 
 kfd_rade_decoder* kfd_rade_create(char* error, size_t error_size) {
+  return kfd_rade_create_version(1, error, error_size);
+}
+
+kfd_rade_decoder* kfd_rade_create_version(int version, char* error, size_t error_size) {
+  if (version != 1 && version != 2) {
+    set_error(error, error_size, "unsupported RADE waveform version");
+    return NULL;
+  }
   kfd_rade_decoder* decoder = calloc(1, sizeof(*decoder));
   if (!decoder) {
     set_error(error, error_size, "unable to allocate RADE decoder");
     return NULL;
   }
   rade_initialize();
+  decoder->version = version;
   if (open_modem(decoder, error, error_size) != 0) {
     rade_finalize();
     free(decoder);

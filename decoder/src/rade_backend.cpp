@@ -31,9 +31,9 @@ bool valid_eoo_callsign(const char* value) {
 
 class RadeBackend final : public DecoderBackend {
  public:
-  RadeBackend() {
+  explicit RadeBackend(int version) : version_(version) {
     char error[160] = {0};
-    decoder_ = kfd_rade_create(error, sizeof(error));
+    decoder_ = kfd_rade_create_version(version, error, sizeof(error));
     if (!decoder_) throw std::runtime_error(error[0] ? error : "unable to open RADEv1");
     pcm_scratch_.resize(kfd_rade_pcm_max(decoder_));
     iq_.reserve(kMaxQueuedSamples);
@@ -45,7 +45,7 @@ class RadeBackend final : public DecoderBackend {
   }
 
   ~RadeBackend() override { kfd_rade_destroy(decoder_); }
-  const char* name() const override { return "rade-v1"; }
+  const char* name() const override { return version_ == 2 ? "rade-v2" : "rade-v1"; }
   uint32_t modem_sample_rate() const override { return 8000; }
 
   DecodeResult push(const int16_t* samples, std::size_t count) override {
@@ -112,6 +112,7 @@ class RadeBackend final : public DecoderBackend {
   }
 
  private:
+  int version_;
   kfd_rade_decoder* decoder_ = nullptr;
   std::vector<kfd_rade_complex> iq_;
   std::vector<int16_t> pcm_scratch_;
@@ -125,10 +126,10 @@ class RadeBackend final : public DecoderBackend {
 }  // namespace
 #endif
 
-std::unique_ptr<DecoderBackend> make_rade_backend(bool enabled) {
+std::unique_ptr<DecoderBackend> make_rade_backend(bool enabled, int version) {
   if (!enabled) throw std::runtime_error("RADE backend is disabled");
 #ifdef HAVE_RADE
-  return std::make_unique<RadeBackend>();
+  return std::make_unique<RadeBackend>(version);
 #else
   throw std::runtime_error("RADEv1 adapter is not compiled into this decoder");
 #endif

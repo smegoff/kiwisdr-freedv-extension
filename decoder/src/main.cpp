@@ -15,6 +15,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -42,7 +43,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.38";
+constexpr char kRelease[] = "0.1.39";
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;
@@ -135,6 +136,8 @@ std::string reporter_frequencies() {
     if (!input) return "-";
     json value;
     input >> value;
+    const auto age = std::time(nullptr) - value.value("updated", int64_t{0});
+    if (age < 0 || age > 120) return "-";
     if (value.value("version", 0) != 1 || !value.contains("frequencies_hz") ||
         !value["frequencies_hz"].is_array()) return "-";
     std::vector<uint64_t> frequencies;
@@ -148,8 +151,26 @@ std::string reporter_frequencies() {
     std::sort(frequencies.begin(), frequencies.end());
     frequencies.erase(std::unique(frequencies.begin(), frequencies.end()), frequencies.end());
     std::ostringstream output;
+    if (value.contains("transmitters") && value["transmitters"].is_array()) {
+      for (const auto& station : value["transmitters"]) {
+        if (!station.is_object()) continue;
+        const auto call = station.value("callsign", std::string{});
+        const auto mode = station.value("mode", std::string{});
+        const auto hz = station.value("frequency_hz", int64_t{0});
+        const auto safe = [](const std::string& s) {
+          return !s.empty() && s.size() <= 31 && std::all_of(s.begin(), s.end(),
+              [](unsigned char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '/'; });
+        };
+        if (!safe(call) || !safe(mode) || hz < 100000 || hz > 100000000000LL) continue;
+        const auto token = std::to_string(hz) + ":" + call + ":" + mode;
+        if (output.str().size() + token.size() + 1 > 700) break;
+        if (output.tellp() > 0) output << ';';
+        output << token;
+      }
+    }
     for (std::size_t i = 0; i < frequencies.size(); ++i) {
-      if (i) output << ';';
+      if (output.str().size() + 14 > 750) break;
+      if (output.tellp() > 0) output << ';';
       output << frequencies[i];
     }
     return output.str().empty() ? "-" : output.str();
@@ -517,8 +538,11 @@ class KiwiCamper {
     job_ = incoming;
     metrics.generation = job_.generation;
     input_rate_ = job_.input_rate;
-    backend_ = job_.mode == "RADEV1" ? kfd::make_rade_backend(rade_enabled_)
-                                      : kfd::make_codec2_backend(job_.mode);
+    if (job_.mode == "RADEV2")
+      backend_ = kfd::make_rade_backend(env_or("FREEDV_ENABLE_RADEV2", "0") == "1", 2);
+    else if (job_.mode == "RADEV1")
+      backend_ = kfd::make_rade_backend(rade_enabled_);
+    else backend_ = kfd::make_codec2_backend(job_.mode);
     metrics.sessions = 1;
     expected_sequence_valid_ = false;
     input_resampler_.reset();

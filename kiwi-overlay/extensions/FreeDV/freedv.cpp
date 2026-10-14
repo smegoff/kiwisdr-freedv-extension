@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.41"
+#define FREEDV_RELEASE "0.1.42"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -171,7 +171,7 @@ static void freedv_load_test_signal(freedv_test_t *signal, const char *path,
 
 static bool freedv_mode_valid(const char *mode)
 {
-    static const char *modes[] = { "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1" };
+    static const char *modes[] = { "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1", "RADEV2" };
     for (unsigned i = 0; i < ARRAY_LEN(modes); i++) {
         if (strcmp(mode, modes[i]) == 0) return true;
     }
@@ -180,6 +180,7 @@ static bool freedv_mode_valid(const char *mode)
 
 static bool freedv_mode_enabled(const char *mode)
 {
+    if (strcmp(mode, "RADEV2") == 0) return cfg_true("freedv.radev2_enabled");
     return strcmp(mode, "RADEV1") != 0 || cfg_true("freedv.rade_enabled");
 }
 
@@ -266,11 +267,16 @@ static bool freedv_store_reporter_frequencies(const char *value)
         if (!*token) return false;
         char *end = NULL;
         unsigned long long frequency = strtoull(token, &end, 10);
-        if (!end || *end || frequency < 100000ULL || frequency > 100000000000ULL)
+        if (!end || (*end && *end != ':') || frequency < 100000ULL || frequency > 100000000000ULL)
             return false;
-        char number[32];
-        int length = snprintf(number, sizeof(number), "%s%llu",
-            count? ";":"", frequency);
+        if (*end) {
+            char call[32], mode[16], extra;
+            if (sscanf(end, ":%31[^:]:%15s%c", call, mode, &extra) != 2) return false;
+            for (const char *p = end + 1; *p; p++)
+                if (!((*p >= 'A' && *p <= 'Z') || isdigit((unsigned char)*p) || *p == '/' || *p == ':')) return false;
+        }
+        char number[80];
+        int length = snprintf(number, sizeof(number), "%s%s", count? ";":"", token);
         if (length <= 0 || used + (size_t) length >= sizeof(normalized)) return false;
         memcpy(normalized + used, number, length);
         used += length;
@@ -521,9 +527,10 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
-            "EXT rade_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
+            "EXT rade_enabled=%d radev2_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
             "test_available=%d test_700d_available=%d test_rade_available=%d reporter_freqs=%s",
             cfg_true("freedv.rade_enabled")? 1:0,
+            cfg_true("freedv.radev2_enabled")? 1:0,
             cfg_true("freedv.reporter_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
             test_700d_signal.sample_count? 1:0,
             test_700d_signal.sample_count? 1:0,
@@ -620,6 +627,10 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     int test;
     if (sscanf(msg, "SET freedv_test=%d mode=%15s", &test, mode) == 2) {
+        if (test && strcmp(mode, "RADEV2") == 0) {
+            ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv2 reference test is not installed");
+            return true;
+        }
         if (!test) {
             freedv_stop(rx_chan);
             ext_send_msg(rx_chan, false, "EXT state=stopped");
@@ -802,6 +813,7 @@ bool FreeDV_vars()
     cfg_default_object("freedv", "{}", &update);
     cfg_default_string("freedv.decoder_ip", "192.168.10.145", &update);
     cfg_default_bool("freedv.rade_enabled", false, &update);
+    cfg_default_bool("freedv.radev2_enabled", false, &update);
     cfg_default_bool("freedv.reporter_enabled", false, &update);
     cfg_default_string("freedv.reporter_callsign", "", &update);
     cfg_default_string("freedv.reporter_grid", "", &update);

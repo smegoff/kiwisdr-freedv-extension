@@ -83,10 +83,20 @@ class ReporterTests(unittest.TestCase):
             path = Path(directory) / "frequencies.json"
             write_active_frequencies(cache, str(path))
             payload = json.loads(path.read_text(encoding="ascii"))
-        self.assertEqual(set(payload), {"version", "updated", "frequencies_hz"})
+        self.assertEqual(set(payload), {"version", "updated", "frequencies_hz", "transmitters"})
         self.assertEqual(payload["frequencies_hz"], [7177000])
         self.assertNotIn("secret-sid", json.dumps(payload))
         self.assertNotIn("ZL2ABC", json.dumps(payload))
+
+    def test_transmitters_follow_start_stop_and_disconnect(self):
+        cache = ActiveFrequencyCache()
+        cache.apply("freq_change", {"sid": "one", "freq": 14236000, "callsign": "ZL2ABC"})
+        cache.apply("tx_report", {"sid": "one", "transmitting": True, "mode": "RADEV2"})
+        self.assertEqual(cache.transmitters(), [{"callsign": "ZL2ABC", "frequency_hz": 14236000, "mode": "RADEV2"}])
+        cache.apply("tx_report", {"sid": "one", "transmitting": False, "mode": "RADEV2"})
+        self.assertEqual(cache.transmitters(), [])
+        cache.apply("remove_connection", {"sid": "one"})
+        self.assertEqual(cache.frequencies(), [])
 
     def test_identity_validation(self):
         self.assertTrue(CALLSIGN.fullmatch("ZL2ABC"))

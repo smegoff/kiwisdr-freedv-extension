@@ -18,7 +18,7 @@ import time
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.35"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.36"
 MODE_ACTIVITY_INTERVAL_SECONDS = 10.0
 SESSION_TIMEOUT_SECONDS = 15.0
 MAX_ACTIVE_FREQUENCIES = 64
@@ -64,11 +64,9 @@ def mode_activity_due(last_activity, now):
 
 
 class ActiveFrequencyCache:
-    """Track only the frequencies advertised by current Reporter stations.
+    """Track public frequencies and transmitting station callsigns/modes.
 
-    Callsigns, locators, messages and browser identities are deliberately not
-    retained. The decoder and Kiwi receive only a sorted, de-duplicated list of
-    integer frequencies.
+    Locators, messages and session identifiers never leave this cache.
     """
 
     def __init__(self):
@@ -91,19 +89,41 @@ class ActiveFrequencyCache:
         if event == "remove_connection":
             self.stations.pop(sid, None)
             return
-        if event != "freq_change":
+        if event not in {"new_connection", "freq_change", "tx_report"}:
+            return
+        station = self.stations.setdefault(sid, {})
+        call = str(data.get("callsign", "")).upper()
+        if CALLSIGN.fullmatch(call) and len(call) <= 31:
+            station["callsign"] = call
+        if event == "tx_report":
+            station["transmitting"] = data.get("transmitting") is True
+            mode = str(data.get("mode", "")).upper()
+            station["mode"] = mode if re.fullmatch(r"[A-Z0-9]{1,15}", mode) else ""
+            station["tx_seen"] = time.monotonic()
+            return
+        if event == "new_connection":
             return
         try:
             frequency = int(data.get("freq", 0))
         except (TypeError, ValueError):
             return
         if MIN_ADVERTISED_FREQUENCY_HZ <= frequency <= MAX_ADVERTISED_FREQUENCY_HZ:
-            self.stations[sid] = frequency
+            station["frequency_hz"] = frequency
         else:
             self.stations.pop(sid, None)
 
     def frequencies(self):
-        return sorted(set(self.stations.values()))[:MAX_ACTIVE_FREQUENCIES]
+        return sorted({s["frequency_hz"] for s in self.stations.values()
+                       if "frequency_hz" in s})[:MAX_ACTIVE_FREQUENCIES]
+
+    def transmitters(self):
+        now = time.monotonic()
+        rows = [{"callsign": s["callsign"], "frequency_hz": s["frequency_hz"],
+                 "mode": s.get("mode", "")}
+                for s in self.stations.values()
+                if s.get("transmitting") and s.get("callsign") and s.get("frequency_hz")
+                and now - s.get("tx_seen", 0) < 120]
+        return sorted(rows, key=lambda s: (s["frequency_hz"], s["callsign"]))[:16]
 
 
 def write_active_frequencies(cache, path):
@@ -114,6 +134,7 @@ def write_active_frequencies(cache, path):
         "version": 1,
         "updated": int(time.time()),
         "frequencies_hz": cache.frequencies(),
+        "transmitters": cache.transmitters(),
     }
     fd, temporary = tempfile.mkstemp(prefix=".freedv-frequencies-", dir=directory, text=True)
     try:
@@ -154,6 +175,14 @@ async def reporter_frequency_view(url, path):
         async def freq_change(data):
             update("freq_change", data)
 
+        @sio.on("new_connection")
+        async def new_connection(data):
+            update("new_connection", data)
+
+        @sio.on("tx_report")
+        async def tx_report(data):
+            update("tx_report", data)
+
         @sio.on("remove_connection")
         async def remove_connection(data):
             update("remove_connection", data)
@@ -166,6 +195,7 @@ async def reporter_frequency_view(url, path):
             retry_delay = 1.0
             while sio.connected:
                 await asyncio.sleep(1)
+                write_active_frequencies(cache, path)
         except asyncio.CancelledError:
             if sio.connected:
                 await sio.disconnect()
@@ -399,7 +429,7 @@ async def main():
                 if state.reportable(call, mode, freq):
                     await sio.emit("rx_report", {"callsign": call, "snr": float(event.get("snr", 0)), "mode": mode})
                     last_mode_activity = time.monotonic()
-                elif mode == "RADEV1" and event.get("sync") and time.monotonic() - last_rade_activity >= 1:
+                elif mode in {"RADEV1", "RADEV2"} and event.get("sync") and time.monotonic() - last_rade_activity >= 1:
                     await sio.emit("rx_report", {"callsign": "", "snr": float(event.get("snr", 0)), "mode": mode})
                     last_rade_activity = time.monotonic()
         except Exception as exc:
