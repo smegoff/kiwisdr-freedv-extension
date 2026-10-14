@@ -9,16 +9,18 @@ browser names, addresses and other listener metadata are never accepted.
 import asyncio
 import json
 import logging
+import math
 import os
 import random
 import re
 import signal
 import tempfile
 import time
+from datetime import datetime, timezone
 
 CALLSIGN = re.compile(r"^(([A-Za-z0-9]+/)?[A-Za-z0-9]{1,3}[0-9][A-Za-z0-9]*[A-Za-z](/[A-Za-z0-9]+)?)$")
 GRID = re.compile(r"^[A-Ra-r]{2}[0-9]{2}([A-Xa-x]{2})?$")
-CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.36"
+CLIENT_VERSION = "KiwiSDR-FreeDV/0.1.37"
 MODE_ACTIVITY_INTERVAL_SECONDS = 10.0
 SESSION_TIMEOUT_SECONDS = 15.0
 MAX_ACTIVE_FREQUENCIES = 64
@@ -71,9 +73,11 @@ class ActiveFrequencyCache:
 
     def __init__(self):
         self.stations = {}
+        self.connected = False
 
     def clear(self):
         self.stations.clear()
+        self.connected = False
 
     def apply(self, event, data):
         if event == "bulk_update":
@@ -89,11 +93,46 @@ class ActiveFrequencyCache:
         if event == "remove_connection":
             self.stations.pop(sid, None)
             return
-        if event not in {"new_connection", "freq_change", "tx_report"}:
+        if event not in {"new_connection", "freq_change", "tx_report", "rx_report"}:
             return
         if sid not in self.stations and len(self.stations) >= 2048:
             return
         station = self.stations.setdefault(sid, {})
+        if event == "rx_report":
+            mode = str(data.get("mode", "")).upper()
+            if not mode:
+                station.pop("reception", None)
+                return
+            receiver = str(data.get("receiver_callsign", "")).upper()
+            heard = str(data.get("callsign") or "").upper()
+            if not CALLSIGN.fullmatch(receiver) or len(receiver) > 31:
+                return
+            if heard and (not CALLSIGN.fullmatch(heard) or len(heard) > 31):
+                return
+            if not re.fullmatch(r"[A-Z0-9]{1,15}", mode):
+                return
+            try:
+                timestamp = datetime.fromisoformat(str(data.get("last_update", "")).replace("Z", "+00:00"))
+                timestamp = int(timestamp.replace(tzinfo=timezone.utc).timestamp()) if timestamp.tzinfo is None else int(timestamp.timestamp())
+                now = int(time.time())
+                if timestamp > now + 30 or now - timestamp > 600:
+                    return
+                snr = data.get("snr")
+                if isinstance(snr, bool):
+                    return
+                snr = None if snr is None else float(snr)
+                if snr is not None and (not math.isfinite(snr) or not -50 <= snr <= 100):
+                    return
+            except (TypeError, ValueError, OverflowError):
+                return
+            previous = station.get("reception", {})
+            if timestamp < previous.get("timestamp", 0):
+                return
+            station["reception"] = {"receiver_callsign": receiver,
+                "heard_callsign": heard or None, "mode": mode, "snr_db": snr,
+                "timestamp": min(timestamp, now),
+                "frequency_hz": station.get("frequency_hz")}
+            return
         call = str(data.get("callsign", "")).upper()
         if CALLSIGN.fullmatch(call) and len(call) <= 31:
             station["callsign"] = call
@@ -110,6 +149,8 @@ class ActiveFrequencyCache:
         except (TypeError, ValueError, OverflowError):
             return
         if MIN_ADVERTISED_FREQUENCY_HZ <= frequency <= MAX_ADVERTISED_FREQUENCY_HZ:
+            if frequency != station.get("frequency_hz"):
+                station.pop("reception", None)
             station["frequency_hz"] = frequency
         else:
             self.stations.pop(sid, None)
@@ -125,6 +166,12 @@ class ActiveFrequencyCache:
                 if s.get("transmitting") and s.get("callsign") and s.get("frequency_hz")]
         return sorted(rows, key=lambda s: (s["frequency_hz"], s["callsign"]))[:16]
 
+    def receptions(self):
+        now = int(time.time())
+        rows = [s["reception"] for s in self.stations.values()
+                if "reception" in s and 0 <= now - s["reception"]["timestamp"] <= 600]
+        return sorted(rows, key=lambda row: row["timestamp"], reverse=True)[:32]
+
 
 def write_active_frequencies(cache, path):
     """Atomically publish a privacy-minimal Reporter frequency snapshot."""
@@ -135,6 +182,8 @@ def write_active_frequencies(cache, path):
         "updated": int(time.time()),
         "frequencies_hz": cache.frequencies(),
         "transmitters": cache.transmitters(),
+        "connected": cache.connected,
+        "receptions": cache.receptions(),
     }
     fd, temporary = tempfile.mkstemp(prefix=".freedv-frequencies-", dir=directory, text=True)
     try:
@@ -183,6 +232,10 @@ async def reporter_frequency_view(url, path):
         async def tx_report(data):
             update("tx_report", data)
 
+        @sio.on("rx_report")
+        async def rx_report(data):
+            update("rx_report", data)
+
         @sio.on("remove_connection")
         async def remove_connection(data):
             update("remove_connection", data)
@@ -192,6 +245,8 @@ async def reporter_frequency_view(url, path):
             write_active_frequencies(cache, path)
             await sio.connect(url, auth={"role": "view", "protocol_version": 2}, wait_timeout=10)
             await asyncio.wait_for(accepted.wait(), timeout=10)
+            cache.connected = True
+            write_active_frequencies(cache, path)
             retry_delay = 1.0
             last_snapshot_refresh = time.monotonic()
             while sio.connected:

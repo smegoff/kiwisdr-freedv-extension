@@ -1,12 +1,13 @@
 "use strict";
 
 const $ = id => document.getElementById(id);
-const defaults = { view:"split", palette:"cividis", autoLevels:true, floor:-100, ceiling:-20, averaging:2, fps:10, overlay:true, history:600 };
+const defaults = { view:"split", palette:"cividis", autoLevels:true, floor:-100, ceiling:-20, averaging:2, fps:10, overlay:true, history:600, reporterScope:"current" };
 function loadSettings() { try { return JSON.parse(localStorage.getItem("freedv-dashboard") || "{}"); } catch (_) { return {}; } }
 const settings = Object.assign({}, defaults, loadSettings());
 let statusData = null, historyData = [], socket = null, paused = false, lastRowAt = 0, reconnectDelay = 1000;
 let averageBins = null;
 let autoFloor = null, autoCeiling = null, lastLevelUiAt = 0, autoContext = "";
+let refreshBusy = false, lastHistoryAt = 0;
 
 const modeWidths = {"1600":1125,"700C":1500,"700D":1000,"700E":1500,"2400A":5000,"2400B":5000,"800XA":2000,"RADEV1":1500};
 const paletteStops = {
@@ -35,6 +36,7 @@ function applySettings() {
   $("ceiling").disabled = !!settings.autoLevels;
   $("overlay").checked = !!settings.overlay;
   $("history-window").value = settings.history;
+  $("reporter-scope").value = settings.reporterScope;
   document.querySelector(".signal-panel").dataset.view = settings.view;
   updateLevelUi(true);
   drawHistory();
@@ -59,11 +61,17 @@ function updateStatus(data) {
   setText("release", `v${data.release || "—"}`); setText("last-update", new Date().toLocaleTimeString());
   setText("mode", session.mode); setText("backend", session.backend); setText("frequency", frequency(session.frequency_hz));
   setText("input-rate", session.input_rate ? `${session.input_rate} Hz` : null);
-  setText("snr", session.active ? `${number(session.snr_db,1)} dB` : null);
-  setText("offset", session.active ? `${number(session.frequency_offset_hz,1)} Hz` : null);
-  setText("reporter", data.reporter); setText("decoded-text", [session.callsign,session.text].filter(Boolean).join(" "));
+  setText("snr", session.active && session.sync ? `${number(session.snr_db,1)} dB` : null);
+  setText("offset", session.active && session.sync ? `${number(session.frequency_offset_hz,1)} Hz` : null);
+  setText("reporter", data.reporter); setText("decoded-text", [session.callsign || session.last_received_callsign,session.text].filter(Boolean).join(" "));
+  setText("source-kind", !session.active ? "Idle" : session.test ? "Recorded reference" : "Live receiver audio");
+  const drops=(data.dropped_frames_total||0)+(data.return_dropped_samples_total||0), underruns=data.audio_underruns_total||0;
+  setText("audio-quality", !session.active ? "Idle" : drops || underruns ? "Check counters" : session.sync ? "Decoded audio" : "Waiting for sync");
+  $("audio-quality").className=drops||underruns ? "warn" : session.sync ? "good" : "";
+  setText("audio-detail", `${drops} drops · ${underruns} underruns (service totals)`);
   setText("axis", `0–${session.input_rate ? number(session.input_rate/2000,1) : "6"} kHz`);
   renderModemStats(session);
+  renderReporter(data.reporter_activity, session);
   renderStats("service-stats", data, [
     ["snd_frames_total","Input frames"],["decoded_frames_total","Decoded frames"],["dropped_frames_total","Dropped frames"],
     ["reconnects_total","Reconnects"],["auth_successes_total","Control auth successes"],["auth_failures_total","Control auth failures"],
@@ -82,6 +90,46 @@ function updateStatus(data) {
     captureLink.textContent = `Download latest modem audio (${number(capture.seconds,1)} s at ${capture.sample_rate} Hz)`;
   }
   for (const [key,label] of [["clients","Dashboard clients"],["waterfall_frames","Waterfall frames"],["spectrum_drops","Spectrum drops"],["audio_queue_ms","Audio queue (ms)"]]) addStat("service-stats", label, extra[key]);
+}
+
+function reporterRows(activity, session, scope, now=Date.now()/1000) {
+  if (!activity || activity.state !== "online") return {transmitters:[],receptions:[]};
+  const nearby=row=>scope !== "current" || !session.active || !session.frequency_hz ||
+    (Number.isFinite(row.frequency_hz) && Math.abs(row.frequency_hz-session.frequency_hz)<=2500);
+  return {
+    transmitters:(activity.transmitters||[]).filter(nearby).slice(0,16),
+    receptions:(activity.receptions||[]).filter(row=>nearby(row) &&
+      Number.isFinite(row.timestamp) && now-row.timestamp>=0 && now-row.timestamp<=600)
+      .sort((a,b)=>b.timestamp-a.timestamp).slice(0,12)
+  };
+}
+
+function renderReporter(activity, session) {
+  const state=activity?.state||"unavailable";
+  badge("feed-badge", {online:"Live feed",offline:"Offline",stale:"Stale feed",unavailable:"Unavailable"}[state]||"Unavailable", state==="online"?"good":"neutral");
+  const rows=reporterRows(activity,session,settings.reporterScope), chips=$("transmitting-stations"), body=$("reporter-receptions");
+  chips.replaceChildren(); body.replaceChildren();
+  for(const station of rows.transmitters) {
+    const chip=document.createElement("div");chip.className="station-chip";
+    const tag=document.createElement("span");tag.className="tx-tag";tag.textContent="TX";
+    const call=document.createElement("strong");call.textContent=station.callsign;
+    const detail=document.createElement("span");detail.textContent=`${station.mode} · ${frequency(station.frequency_hz)}`;
+    chip.append(tag,call,detail);chips.append(chip);
+  }
+  for(const report of rows.receptions) {
+    const row=document.createElement("tr"), age=Math.max(0,Math.floor(Date.now()/1000-report.timestamp));
+    for(const value of [report.heard_callsign||"Not decoded",report.receiver_callsign,report.mode,
+      report.snr_db==null?"—":`${number(report.snr_db,1)} dB`,frequency(report.frequency_hz),age<60?`${age}s`:`${Math.floor(age/60)}m`]) {
+      const cell=document.createElement("td");cell.textContent=value;row.append(cell);
+    }
+    body.append(row);
+  }
+  $("reporter-empty").hidden=rows.receptions.length>0;
+  setText("reporter-empty", state!=="online"?"Public Reporter feed is unavailable. Local decoding is unaffected.":
+    rows.transmitters.length?"Transmitters are listed above; no recent reception reports in this view.":"No recent Reporter activity in this view.");
+  setText("reporter-context", settings.reporterScope==="current"&&session.active?
+    "Within ±2.5 kHz of the receiver. Receptions expire after ten minutes; unknown-frequency reports are excluded.":
+    "Showing recent public activity. Each row is the latest reception from that receiving station, not a QSO log.");
 }
 
 function renderStats(id, source, fields) { const target=$(id); target.textContent=""; for(const [key,label] of fields) addStat(id,label,source[key]); }
@@ -120,8 +168,14 @@ function renderModemStats(session) {
 }
 
 async function refresh() {
-  try { const [status,history] = await Promise.all([api("/api/v1/status"),api("/api/v1/history")]); updateStatus(status); historyData=history; drawHistory(); }
+  if(refreshBusy||document.hidden)return;
+  refreshBusy=true;
+  try {
+    updateStatus(await api("/api/v1/status"));
+    if(Date.now()-lastHistoryAt>=5000) { historyData=await api("/api/v1/history");lastHistoryAt=Date.now();drawHistory(); }
+  }
   catch (error) { badge("health-badge","Dashboard unavailable","bad"); }
+  finally { refreshBusy=false; }
 }
 
 function connectStream() {
@@ -197,18 +251,30 @@ function drawSpectrum(bins,rate) {
 }
 function drawOverlay(ctx,w,h,dpr,rate=(statusData?.session?.input_rate||12000)) { if(!settings.overlay)return; const nyquist=rate/2, mode=statusData?.session?.mode, width=modeWidths[mode]||0, low=(1500-width/2)/nyquist*w, high=(1500+width/2)/nyquist*w, center=1500/nyquist*w; ctx.save();ctx.strokeStyle="rgba(231,235,239,.32)";ctx.lineWidth=dpr;ctx.setLineDash([4*dpr,4*dpr]);ctx.strokeRect(low,0,Math.max(1,high-low),h);ctx.setLineDash([]);ctx.strokeStyle="rgba(208,167,95,.8)";ctx.beginPath();ctx.moveTo(center,0);ctx.lineTo(center,h);ctx.stroke();ctx.restore(); }
 
-function drawHistory() { if(!historyData.length)return; const cutoff=Date.now()-settings.history*1000, points=historyData.filter(p=>p.timestamp_ms>=cutoff); drawLine($("snr-chart"),points.map(p=>p.snr_db),"#68b889"); drawLine($("offset-chart"),points.map(p=>p.frequency_offset_hz),"#76a9d4"); }
-function drawLine(canvas,values,stroke) { const {w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#151a21";ctx.fillRect(0,0,w,h);if(values.length<2)return;let min=Math.min(...values),max=Math.max(...values);if(min===max){min-=1;max+=1;}ctx.strokeStyle="#35404d";ctx.lineWidth=dpr;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.strokeStyle=stroke;ctx.beginPath();values.forEach((v,i)=>{const x=i*w/(values.length-1),y=h-(v-min)/(max-min)*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke(); }
+function historyValues(points,key) { return points.map(p=>p.sync&&Number.isFinite(p[key])?p[key]:null); }
+function drawHistory() { const cutoff=Date.now()-settings.history*1000, points=historyData.filter(p=>p.timestamp_ms>=cutoff); drawLine($("snr-chart"),historyValues(points,"snr_db"),"#68b889"); drawLine($("offset-chart"),historyValues(points,"frequency_offset_hz"),"#76a9d4"); }
+function drawLine(canvas,values,stroke) {
+  const {w,h,dpr}=resizeCanvas(canvas),ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#151a21";ctx.fillRect(0,0,w,h);
+  const valid=values.filter(Number.isFinite);ctx.font=`${11*dpr}px system-ui`;ctx.fillStyle="#9da8b4";
+  if(valid.length<2){ctx.fillText("No synchronized samples in this window",12*dpr,24*dpr);return;}
+  let min=Math.min(...valid),max=Math.max(...valid);if(min===max){min-=1;max+=1;}
+  const left=42*dpr,top=12*dpr,height=Math.max(1,h-24*dpr),width=Math.max(1,w-left-8*dpr);
+  ctx.fillText(max.toFixed(1),5*dpr,14*dpr);ctx.fillText(min.toFixed(1),5*dpr,h-7*dpr);
+  ctx.strokeStyle="#35404d";ctx.lineWidth=dpr;ctx.beginPath();ctx.moveTo(left,h/2);ctx.lineTo(w,h/2);ctx.stroke();
+  ctx.strokeStyle=stroke;ctx.beginPath();let connected=false;
+  values.forEach((v,i)=>{if(!Number.isFinite(v)){connected=false;return;}const x=left+i*width/(values.length-1),y=top+height-(v-min)/(max-min)*height;connected?ctx.lineTo(x,y):ctx.moveTo(x,y);connected=true;});ctx.stroke();
+}
 function clearPlots() { for(const id of ["waterfall","spectrum","snr-chart","offset-chart"]){const c=$(id),ctx=c.getContext("2d");ctx.fillStyle="#0c0f13";ctx.fillRect(0,0,c.width,c.height);} averageBins=null; resetAutoLevels(); }
 
 for(const key of ["view","palette","floor","ceiling","averaging","fps"]){$(key).value=settings[key];$(key).addEventListener("change",e=>{settings[key]=key==="floor"||key==="ceiling"||key==="averaging"||key==="fps"?+e.target.value:e.target.value;saveSettings();});}
 $("auto-levels").checked=!!settings.autoLevels;$("auto-levels").addEventListener("change",e=>{settings.autoLevels=e.target.checked;resetAutoLevels();saveSettings();});
 $("overlay").checked=settings.overlay;$("overlay").addEventListener("change",e=>{settings.overlay=e.target.checked;saveSettings();});
 $("history-window").value=settings.history;$("history-window").addEventListener("change",e=>{settings.history=+e.target.value;saveSettings();});
+$("reporter-scope").addEventListener("change",e=>{settings.reporterScope=e.target.value;saveSettings();if(statusData)renderReporter(statusData.reporter_activity,statusData.session||{active:false});});
 $("pause").addEventListener("click",()=>{paused=!paused;$("pause").textContent=paused?"Resume":"Pause";}); $("clear").addEventListener("click",clearPlots);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)drawHistory();}); window.addEventListener("resize",()=>{drawHistory();});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){refresh();drawHistory();}}); window.addEventListener("resize",()=>{drawHistory();});
 
 applySettings();
 connectStream();
 refresh();
-setInterval(refresh,1000);
+setInterval(refresh,2000);

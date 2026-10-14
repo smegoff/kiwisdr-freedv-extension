@@ -12,8 +12,8 @@
     <section id="dashboard" class="dashboard">
       <header class="topbar">
         <div>
-          <p class="eyebrow">KiwiSDR FreeDV</p>
-          <h1>Decoder diagnostics</h1>
+          <p class="eyebrow">KiwiSDR · External decoder</p>
+          <h1>Signal &amp; reception</h1>
         </div>
         <div class="topbar-status">
           <span id="health-badge" class="badge neutral">Connecting</span>
@@ -22,18 +22,27 @@
         </div>
       </header>
 
+      <section class="quality-strip" aria-label="Local decoder summary">
+        <div><span>Local decoder SNR</span><strong id="snr">—</strong><small>Measured here, while synchronized</small></div>
+        <div><span>Receive frequency</span><strong id="frequency">—</strong><small id="mode">No active session</small></div>
+        <div><span>Last decoded callsign</span><strong id="decoded-text">—</strong><small>From the modem, not Reporter</small></div>
+        <div><span>Audio path</span><strong id="audio-quality">Waiting</strong><small id="audio-detail">No active session</small></div>
+      </section>
+
       <section class="toolbar" aria-label="Display options">
         <label>View<select id="view"><option value="split">Split</option><option value="waterfall">Waterfall</option><option value="spectrum">Spectrum</option></select></label>
         <label>Palette<select id="palette"><option value="cividis">Cividis</option><option value="viridis">Viridis</option><option value="grey">Greyscale</option><option value="openwebrx-turbo">OpenWebRX Turbo</option><option value="openwebrx-classic">OpenWebRX Classic</option><option value="openwebrx-ha7ilm">OpenWebRX HA7ILM</option></select></label>
         <label class="check"><input id="auto-levels" type="checkbox"> Auto levels</label>
-        <label>Floor<input id="floor" type="number" min="-120" max="-20" step="5"><span>dBFS</span></label>
-        <label>Ceiling<input id="ceiling" type="number" min="-100" max="0" step="5"><span>dBFS</span></label>
-        <label>Averaging<select id="averaging"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
-        <label>Rate<select id="fps"><option value="10">10 fps</option><option value="5">5 fps</option></select></label>
-        <label class="check"><input id="overlay" type="checkbox"> Modem overlay</label>
         <button id="pause" class="quiet" type="button">Pause</button>
         <button id="clear" class="quiet" type="button">Clear</button>
         <span id="level-readout" class="level-readout mono" aria-live="polite">Auto range waiting for signal</span>
+        <details class="display-options"><summary>Display settings</summary><div class="display-options-body">
+          <label>Floor<input id="floor" type="number" min="-120" max="-20" step="5"><span>dBFS</span></label>
+          <label>Ceiling<input id="ceiling" type="number" min="-100" max="0" step="5"><span>dBFS</span></label>
+          <label>Averaging<select id="averaging"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label>
+          <label>Rate<select id="fps"><option value="10">10 fps</option><option value="5">5 fps</option></select></label>
+          <label class="check"><input id="overlay" type="checkbox"> Modem overlay</label>
+        </div></details>
       </section>
 
       <div class="primary-grid">
@@ -48,28 +57,44 @@
         </section>
 
         <aside class="panel session-panel" aria-labelledby="session-title">
-          <div class="panel-heading"><div><p class="eyebrow">Current decoder job</p><h2 id="session-title">Session</h2></div><span id="sync-badge" class="badge neutral">Idle</span></div>
+          <div class="panel-heading"><div><p class="eyebrow">Local receiver</p><h2 id="session-title">Decoder session</h2></div><span id="sync-badge" class="badge neutral">Idle</span></div>
           <dl class="facts">
-            <div><dt>Mode</dt><dd id="mode">—</dd></div>
             <div><dt>Backend</dt><dd id="backend">—</dd></div>
-            <div><dt>Frequency</dt><dd id="frequency">—</dd></div>
             <div><dt>Input rate</dt><dd id="input-rate">—</dd></div>
-            <div><dt>SNR</dt><dd id="snr">—</dd></div>
             <div><dt>Frequency offset</dt><dd id="offset">—</dd></div>
-            <div><dt>Reporter</dt><dd id="reporter">—</dd></div>
-            <div><dt>Callsign / text</dt><dd id="decoded-text">—</dd></div>
+            <div><dt>Your Reporter presence</dt><dd id="reporter">—</dd></div>
+            <div><dt>Source</dt><dd id="source-kind">—</dd></div>
           </dl>
+          <p class="caption">Tune and start decoding in the Kiwi extension. This dashboard is read-only.</p>
           <a id="capture-download" class="capture-download" href="/api/v1/capture.wav"
              download="freedv-modem-audio.wav" hidden>Download latest modem audio</a>
         </aside>
       </div>
 
+      <section class="panel reporter-panel" aria-labelledby="reporter-title">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Public FreeDV Reporter feed</p><h2 id="reporter-title">Stations &amp; reception reports</h2></div>
+          <div class="reporter-tools"><span id="feed-badge" class="badge neutral">Connecting</span>
+            <label>Show<select id="reporter-scope"><option value="current">This frequency</option><option value="all">All activity</option></select></label>
+            <a href="https://qso.freedv.org/" target="_blank" rel="noopener noreferrer">Open Reporter ↗</a>
+          </div>
+        </div>
+        <div id="transmitting-stations" class="transmitting-stations" aria-label="Currently transmitting stations"></div>
+        <div class="table-wrap"><table class="reception-table">
+          <caption class="caption">Reported SNR is measured at the named receiving station, not at this Kiwi. Frequencies are receiver-advertised; they do not prove a transmitter's exact frequency.</caption>
+          <thead><tr><th>Heard station</th><th>Receiving station</th><th>Codec</th><th>Reported SNR</th><th>Receiver frequency</th><th>Age</th></tr></thead>
+          <tbody id="reporter-receptions"></tbody>
+        </table></div>
+        <p id="reporter-empty" class="empty-state">Waiting for public Reporter activity.</p>
+        <p id="reporter-context" class="caption"></p>
+      </section>
+
       <div class="history-grid">
-        <section class="panel"><div class="panel-heading"><h2>SNR history</h2><label>Window<select id="history-window"><option value="60">1 min</option><option value="300">5 min</option><option value="600">10 min</option></select></label></div><canvas id="snr-chart" class="history" aria-label="SNR history"></canvas></section>
-        <section class="panel"><div class="panel-heading"><h2>Frequency offset</h2><span class="muted">Hz</span></div><canvas id="offset-chart" class="history" aria-label="Frequency offset history"></canvas></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Local SNR history</h2><span class="caption">dB · synchronized samples</span></div><label>Window<select id="history-window"><option value="60">1 min</option><option value="300">5 min</option><option value="600">10 min</option></select></label></div><canvas id="snr-chart" class="history" aria-label="Local synchronized SNR history"></canvas></section>
+        <section class="panel"><div class="panel-heading"><h2>Frequency offset</h2><span class="muted caption">Hz · synchronized samples</span></div><canvas id="offset-chart" class="history" aria-label="Frequency offset history"></canvas></section>
       </div>
 
-      <details class="panel details-panel" open>
+      <details class="panel details-panel">
         <summary>Modem statistics</summary>
         <p id="modem-stats-note" class="stats-note muted"></p>
         <div id="modem-stats" class="stats-grid"></div>

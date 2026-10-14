@@ -22,7 +22,7 @@ button:hover { border-color: #536173; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 input:disabled { opacity: .68; cursor: not-allowed; }
 .shell { width: min(1500px, 100%); margin: 0 auto; padding: 1.25rem; }
-.topbar h1 { margin: .15rem 0 .35rem; font-size: 1.45rem; font-weight: 650; }
+.topbar h1 { margin: .15rem 0 .35rem; font-size: 1.35rem; font-weight: 650; letter-spacing: -.025em; }
 .error { min-height: 1.2rem; margin: 0; color: var(--red); }
 .eyebrow { margin: 0; color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
 .muted { color: var(--muted); }
@@ -35,6 +35,31 @@ input:disabled { opacity: .68; cursor: not-allowed; }
 .badge.warn { color: var(--amber); border-color: #705d3c; background: #292319; }
 .badge.bad { color: var(--red); border-color: #754848; background: #2a1c1c; }
 .badge.neutral { color: var(--muted); }
+.quality-strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border:1px solid var(--border); border-radius:6px; margin-bottom:1rem; background:var(--surface); }
+.quality-strip>div { padding:1rem 1.1rem; border-right:1px solid var(--border); min-width:0; }
+.quality-strip>div:last-child { border-right:0; }
+.quality-strip span,.quality-strip small { display:block; color:var(--muted); font-size:.76rem; }
+.quality-strip strong { display:block; font-size:1.35rem; font-weight:600; margin:.35rem 0; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.quality-strip strong.good { color:var(--green); }
+.quality-strip strong.warn { color:var(--amber); }
+.quality-strip small { font-size:.72rem; line-height:1.45; }
+.display-options { width:100%; border-top:1px solid var(--border); padding-top:.65rem; }
+.display-options summary { cursor:pointer; color:var(--muted); font-size:.8rem; }
+.display-options-body { display:flex; flex-wrap:wrap; gap:1rem; padding-top:.8rem; }
+.reporter-panel { margin-top:1rem; }
+.reporter-tools { display:flex; align-items:center; gap:.8rem; flex-wrap:wrap; }
+.reporter-tools a { color:var(--blue); font-size:.8rem; text-underline-offset:3px; }
+.transmitting-stations { display:flex; flex-wrap:wrap; gap:.45rem; margin-bottom:.75rem; }
+.station-chip { border:1px solid var(--border); border-radius:4px; padding:.45rem .6rem; font-size:.82rem; display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; background:var(--surface-2); }
+.station-chip .tx-tag { color:var(--green); font-size:.7rem; font-weight:700; }
+.table-wrap { overflow-x:auto; }
+.reception-table { border-collapse:collapse; width:100%; min-width:650px; text-align:left; font-size:.84rem; font-variant-numeric:tabular-nums; }
+.reception-table caption { text-align:left; caption-side:bottom; padding-top:.6rem; }
+.reception-table th { color:var(--muted); font-weight:500; font-size:.75rem; }
+.reception-table td,.reception-table th { padding:.65rem .5rem; border-bottom:1px solid var(--border); }
+.reception-table td:first-child { font-weight:600; }
+.empty-state { color:var(--muted); padding:.6rem 0; margin:0; font-size:.88rem; }
+[hidden] { display:none!important; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; margin-bottom: 1rem; padding: .8rem; border: 1px solid var(--border); background: var(--surface); }
 .toolbar label, .panel-heading label { display: grid; gap: .25rem; color: var(--muted); font-size: .75rem; }
 .toolbar select, .toolbar input, .panel-heading select { min-height: 2.15rem; padding: .3rem .45rem; }
@@ -70,6 +95,10 @@ canvas { display: block; width: 100%; height: 100%; }
 .stat span { display: block; color: var(--muted); font-size: .76rem; }
 .stat strong { display: block; margin-top: .25rem; font-size: 1rem; font-weight: 600; }
 @media (max-width: 900px) {
+  .quality-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .quality-strip>div:nth-child(2) { border-right:0; }
+  .quality-strip>div:nth-child(-n+2) { border-bottom:1px solid var(--border); }
+  .reporter-panel .panel-heading { align-items:flex-start; flex-direction:column; }
   .primary-grid, .history-grid { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .topbar { flex-direction: column; }

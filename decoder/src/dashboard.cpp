@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cctype>
+#include <ctime>
 #include <deque>
 #include <fstream>
 #include <iomanip>
@@ -168,6 +169,72 @@ class FftEncoder {
 
 }  // namespace
 
+nlohmann::json dashboard_reporter_activity(const std::string& path, int64_t now) {
+  json output = {{"state", "unavailable"}, {"updated", nullptr},
+                 {"transmitters", json::array()}, {"receptions", json::array()}};
+  try {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input || input.tellg() <= 0 || input.tellg() > 65536) return output;
+    input.seekg(0);
+    const auto source = json::parse(input);
+    const auto updated = source.value("updated", int64_t{0});
+    if (source.value("version", 0) != 1 || updated <= 0 || updated > now + 30 || now - updated > 120) {
+      output["state"] = "stale";
+      return output;
+    }
+    output["updated"] = updated;
+    output["state"] = source.value("connected", false) ? "online" : "offline";
+    if (output["state"] != "online") return output;
+    const auto label = [](const json& row, const char* field, bool empty = false) {
+      if (!row.contains(field) || row[field].is_null()) return empty;
+      if (!row[field].is_string()) return false;
+      const auto& value = row[field].get_ref<const std::string&>();
+      return (empty || !value.empty()) && value.size() <= 31 &&
+          std::all_of(value.begin(), value.end(), [](unsigned char c) {
+            return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '/';
+          });
+    };
+    const auto frequency = [](const json& row) -> json {
+      if (!row.contains("frequency_hz") || !row["frequency_hz"].is_number_integer()) return nullptr;
+      const auto hz = row["frequency_hz"].get<int64_t>();
+      return hz >= 100000 && hz <= 100000000000LL ? json(hz) : json(nullptr);
+    };
+    for (const char* group : {"transmitters", "receptions"}) {
+      if (!source.contains(group) || !source[group].is_array()) continue;
+      unsigned examined = 0;
+      for (const auto& row : source[group]) {
+        if (++examined > 64) break;
+        if (!row.is_object() || !label(row, "mode")) continue;
+        if (std::string(group) == "transmitters") {
+          if (!label(row, "callsign") || frequency(row).is_null()) continue;
+          output[group].push_back({{"callsign", row["callsign"]}, {"mode", row["mode"]},
+                                   {"frequency_hz", frequency(row)}});
+        } else {
+          if (!label(row, "receiver_callsign") || !label(row, "heard_callsign", true)) continue;
+          const auto timestamp = row.value("timestamp", int64_t{0});
+          if (timestamp <= 0 || timestamp > now + 30 || now - timestamp > 600) continue;
+          json snr = nullptr;
+          if (row.contains("snr_db") && !row["snr_db"].is_null()) {
+            if (!row["snr_db"].is_number()) continue;
+            const auto value = row["snr_db"].get<double>();
+            if (!std::isfinite(value) || value < -50 || value > 100) continue;
+            snr = value;
+          }
+          output[group].push_back({{"receiver_callsign", row["receiver_callsign"]},
+              {"heard_callsign", row.value("heard_callsign", json(nullptr))},
+              {"mode", row["mode"]}, {"snr_db", snr}, {"frequency_hz", frequency(row)},
+              {"timestamp", std::min(timestamp, now)}});
+        }
+        if (output[group].size() >= (std::string(group) == "transmitters" ? 16U : 32U)) break;
+      }
+    }
+  } catch (...) {
+    output = {{"state", "unavailable"}, {"updated", nullptr},
+              {"transmitters", json::array()}, {"receptions", json::array()}};
+  }
+  return output;
+}
+
 DashboardConfig dashboard_config_from_environment() {
   DashboardConfig config;
   config.enabled = env_bool("FREEDV_DASHBOARD_ENABLED", true);
@@ -264,6 +331,11 @@ struct Dashboard::Impl : std::enable_shared_from_this<Dashboard::Impl> {
                             {"capture", std::move(capture_status)},
                             {"audio_queue_ms", audio_rate.load() ?
                                 queued * 1000.0 / audio_rate.load() : 0.0}};
+    // Management-only public Reporter data. Never add this to the spectator
+    // allowlist; file parsing happens here, outside the decoder/audio callback.
+    output["reporter_activity"] = dashboard_reporter_activity(
+        env_or("FREEDV_REPORTER_FREQUENCIES_FILE", "/tmp/freedv-reporter-frequencies.json"),
+        std::time(nullptr));
     return output;
   }
 
@@ -597,6 +669,7 @@ void Dashboard::update_status(const DecodeStatus& status, const std::string& bac
   session["snr_db"] = status.snr_db;
   session["frequency_offset_hz"] = status.frequency_offset_hz;
   session["callsign"] = status.callsign;
+  if (!status.callsign.empty()) session["last_received_callsign"] = status.callsign;
   session["text"] = status.text;
   session["error"] = status.error;
   session["decoded_frames"] = decoded_frames;
