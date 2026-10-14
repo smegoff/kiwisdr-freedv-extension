@@ -79,6 +79,11 @@ RADEV2 is a development option, not a replacement for RADEV1. Its pinned
 upstream waveform/models may change and on-air interoperability is not yet
 accepted. See [RADEv2](docs/radev2.md) before enabling it.
 
+![FreeDV extension with compact controls and RADEV2 reference result](docs/images/freedv-extension-v0.1.46.png)
+
+The [October review notes](docs/review-2026-10.md) describe the transport,
+efficiency and compatibility changes and the limits of the testing.
+
 ## Architecture
 
 ```text

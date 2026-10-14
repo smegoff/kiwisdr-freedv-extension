@@ -41,16 +41,17 @@ rollback applies the same checks. Run
 rollback. The decoder LXC is snapshotted before upgrades and can be rolled back
 independently.
 
-For the reference deployment, the Kiwi runs `freedv-v0-1-38` on firmware
+For the reference deployment, the Kiwi runs `freedv-v0-1-46` on firmware
 1.902. The checksum-verified stock `baseline-1.902` remains available for full
-stock rollback; `freedv-v0-1-37` is retained as the immediate custom-release
-rollback. The decoder guest runs `0.1.37`, and the immediate guest rollback
-snapshot is `pre-decoder-v0-1-37`, taken immediately before the accepted
-mode-aware modem-statistics release. The retained
+stock rollback; `freedv-v0-1-45` is retained as the immediate activation fallback
+and `freedv-v0-1-41` as the prior accepted feature-release rollback.
+The decoder guest runs `0.1.39`, and the immediate guest rollback
+snapshot is `pre-decoder-v0-1-39`, taken before the RADEV2/station-feed update.
+The retained
 architectural checkpoint is `pre-radev1-v0-1-15`, and `clean-debian12` is the
-clean operating-system baseline. Superseded decoder snapshots through v0.1.36
-were removed after v0.1.37 passed its reference tests and transition-aware
-stability soak. The deployment script also retained the immediately previous
+clean operating-system baseline. Superseded decoder snapshots are removed only
+after reference tests, browser acceptance and a complete stability soak.
+The deployment script also retained the immediately previous
 binary, dashboard assets, configuration and service files beneath
 `/root/freedv-rollbacks/`. If only
 RADEV1 fails, first run `tools/set-decoder-radev1.sh 0`, turn **RADEV1 off** in
