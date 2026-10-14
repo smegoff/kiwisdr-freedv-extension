@@ -237,7 +237,7 @@ DecoderJob parse_decoder_job(const std::string& encoded_json) {
     job.reporter_callsign = reporter.value("callsign", std::string{});
     job.reporter_grid = reporter.value("grid", std::string{});
     job.reporter_message = reporter.value("message", std::string{});
-    static const std::array<const char*, 8> modes = {
+    static const std::array<const char*, 9> modes = {
         "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1", "RADEV2"};
     const bool mode_valid = std::any_of(modes.begin(), modes.end(), [&](const char* mode) {
       return job.mode == mode;

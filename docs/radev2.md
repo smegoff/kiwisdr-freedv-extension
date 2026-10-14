@@ -17,8 +17,10 @@ the candidate backend. Set `FREEDV_TEST_RADEV2=1` when running
 `freedv-rade-reference-test reference-v2.wav decoded-v2.wav`. The same test
 checks synchronization, returned PCM, bounded overflow/reset, real-time factor
 and the Kiwi 12 kHz packet cadence. A V1 waveform cannot validate V2.
-The browser disables its bundled reference test for V2 until a V2-specific
-waveform is installed; it never substitutes the 700D or V1 sample.
+The browser uses a separate bundled V2 waveform and never substitutes the
+700D or V1 sample. `FreeDV.rade2.au` was generated from the pinned library's
+`wav/david_vk5dgr.wav`; its SHA-256 is
+`b62acd5ef5cb628429762db355aff234e52aeb76999ee099f6901d5a2ed09ff1`.
 
 The station selector accepts public Reporter TX state, callsign, codec and
 frequency. TX rows appear first and choose the codec when locally available.

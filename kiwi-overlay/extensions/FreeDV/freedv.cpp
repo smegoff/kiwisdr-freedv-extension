@@ -80,6 +80,7 @@ static char reporter_frequencies[768];
 static time_t reporter_frequencies_seen;
 static freedv_test_t test_700d_signal;
 static freedv_test_t test_rade_signal;
+static freedv_test_t test_radev2_signal;
 
 static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     TYPEMONO16 *samples, int freq_hz)
@@ -528,13 +529,14 @@ bool freedv_msgs(char *msg, int rx_chan)
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
             "EXT rade_enabled=%d radev2_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
-            "test_available=%d test_700d_available=%d test_rade_available=%d reporter_freqs=%s",
+            "test_available=%d test_700d_available=%d test_rade_available=%d test_radev2_available=%d reporter_freqs=%s",
             cfg_true("freedv.rade_enabled")? 1:0,
             cfg_true("freedv.radev2_enabled")? 1:0,
             cfg_true("freedv.reporter_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
             test_700d_signal.sample_count? 1:0,
             test_700d_signal.sample_count? 1:0,
             test_rade_signal.sample_count? 1:0,
+            test_radev2_signal.sample_count? 1:0,
             freedv_current_reporter_frequencies());
         return true;
     }
@@ -627,10 +629,6 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     int test;
     if (sscanf(msg, "SET freedv_test=%d mode=%15s", &test, mode) == 2) {
-        if (test && strcmp(mode, "RADEV2") == 0) {
-            ext_send_msg_encoded(rx_chan, false, "EXT", "error", "RADEv2 reference test is not installed");
-            return true;
-        }
         if (!test) {
             freedv_stop(rx_chan);
             ext_send_msg(rx_chan, false, "EXT state=stopped");
@@ -645,6 +643,7 @@ bool freedv_msgs(char *msg, int rx_chan)
             return true;
         }
         freedv_test_t *selected_signal =
+            strcmp(mode, "RADEV2") == 0? &test_radev2_signal :
             strcmp(mode, "RADEV1") == 0? &test_rade_signal : &test_700d_signal;
         if (!selected_signal->sample_count) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error",
@@ -840,5 +839,7 @@ void FreeDV_main()
         DIR_CFG "/samples/FreeDV.test.au", "700D");
     freedv_load_test_signal(&test_rade_signal,
         DIR_CFG "/samples/FreeDV.rade.au", NULL, "RADEV1");
+    freedv_load_test_signal(&test_radev2_signal,
+        DIR_CFG "/samples/FreeDV.rade2.au", NULL, "RADEV2");
     ext_register(&freedv_ext);
 }

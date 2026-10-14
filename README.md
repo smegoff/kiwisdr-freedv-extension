@@ -40,6 +40,10 @@ the optional diagnostics page connects to its management-only web port.
 - Optional per-listener, RX-only [FreeDV Reporter](https://qso.freedv.org/)
   presence with explicit browser-session consent.
 - Optional, independently gated RADEV1 decoder.
+- Separately gated experimental RADEV2 decoder with its own reference test.
+- Public Reporter transmitters listed by callsign, codec and frequency; selecting
+  an available codec tunes and configures the receive session.
+- Collapsible receive settings and Reporter details keep the main panel compact.
 - Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
 - A separate, sanitized public signal monitor with a loopback-only listener,

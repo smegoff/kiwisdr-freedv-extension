@@ -181,8 +181,10 @@ std::string reporter_frequencies() {
 
 void reporter_send(const json& event) {
   try {
-    asio::io_context ioc;
-    udp::socket socket(ioc, udp::v4());
+    // Reuse the loopback socket instead of opening an OS descriptor for each
+    // status tick. Thread-local ownership also keeps future callers isolated.
+    static thread_local asio::io_context ioc;
+    static thread_local udp::socket socket(ioc, udp::v4());
     const auto payload = event.dump();
     socket.send_to(asio::buffer(payload), {asio::ip::make_address("127.0.0.1"), 8075});
   } catch (...) {

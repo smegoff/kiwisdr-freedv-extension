@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-release=${1:-0.1.38}
-archive=${2:-/root/freedv-v0-1-38-decoder.tgz}
+release=${1:-0.1.39}
+archive=${2:-/root/freedv-v0-1-39-decoder.tgz}
 candidate="/opt/kiwi-freedv-v${release//./-}"
-rade_pin=a36161bce0fb37daf3f4602344b095f6817dddb1
+rade_pin=c8a3dc156045cae2cd251e1a4be0c304c9ddf2f9
 opus_pin=940d4e5af64351ca8ba8390df3f555484c567fbb
 
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 2; }
@@ -35,6 +35,14 @@ ctest --test-dir "$candidate/build" --output-on-failure
   "$candidate/build/radev1-official-decoded.wav"
 cmp "$candidate/build/radev1-wrapper-decoded.wav" \
   "$candidate/build/radev1-official-decoded.wav"
+/usr/local/bin/rade_tx_wav --v2 -v 0 \
+  /usr/local/share/freedv-rade/input_sample.wav "$candidate/build/radev2-reference.wav"
+FREEDV_TEST_RADEV2=1 "$candidate/build/freedv-rade-reference-test" \
+  "$candidate/build/radev2-reference.wav" "$candidate/build/radev2-wrapper-decoded.wav" \
+  | tee "$candidate/build/radev2-reference-result.txt"
+/usr/local/bin/rade_rx_wav --v2 -v 0 "$candidate/build/radev2-reference.wav" \
+  "$candidate/build/radev2-official-decoded.wav"
+cmp "$candidate/build/radev2-wrapper-decoded.wav" "$candidate/build/radev2-official-decoded.wav"
 sha256sum "$candidate/build/freedv-decoder" "$candidate/build/freedv-reference-test" \
   "$candidate/build/freedv-rade-reference-test" "$candidate/build/radev1-reference.wav" \
   "$candidate/build/radev1-wrapper-decoded.wav" \
