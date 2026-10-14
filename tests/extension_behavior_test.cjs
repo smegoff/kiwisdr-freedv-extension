@@ -17,4 +17,8 @@ assert.equal(context.freedv.reporter_frequencies.filter(s=>s.transmitting).lengt
 context.freedv_update_reporter_frequencies('-');
 assert.equal(context.freedv.reporter_frequencies.length, 0);
 assert.ok(context.freedv_calling_entries().length >= 18);
+for (const [mode, label] of [['RADEV2','Test RADEv2'],['RADEV1','Test RADE'],['700D','Test 700D']]) {
+  context.freedv.mode = mode;
+  assert.equal(context.freedv_test_button_label(), label);
+}
 console.log('extension station feed behavior passed');

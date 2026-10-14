@@ -569,7 +569,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.45 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.46 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -584,7 +584,7 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.45 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.46 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
@@ -774,9 +774,15 @@ function freedv_update_test_button()
 {
    if (!w3_el('id-freedv-test') || freedv.testing) return;
    var mode = freedv_selected_test_mode();
-   w3_button_text('id-freedv-test', mode == 'RADEV2'? 'Test RADEv2':mode == 'RADEV1'? 'Test RADE':'Test 700D',
+   w3_button_text('id-freedv-test', freedv_test_button_label(),
       'w3-aqua', 'w3-red');
    w3_disable('id-freedv-test', !freedv_test_available_for_mode(mode));
+}
+
+function freedv_test_button_label()
+{
+   var mode = freedv_selected_test_mode();
+   return mode == 'RADEV2'? 'Test RADEv2':mode == 'RADEV1'? 'Test RADE':'Test 700D';
 }
 
 function freedv_start_ui(testing)
@@ -789,8 +795,7 @@ function freedv_start_ui(testing)
    freedv.test_mode = testing? freedv_selected_test_mode():freedv.mode;
    freedv.last_test_result = '';
    w3_button_text('id-freedv-start', 'Stop');
-   w3_button_text('id-freedv-test', testing? 'Stop test':
-      (freedv_selected_test_mode() == 'RADEV1'? 'Test RADE':'Test 700D'),
+   w3_button_text('id-freedv-test', testing? 'Stop test':freedv_test_button_label(),
       testing? 'w3-red':'w3-aqua', testing? 'w3-aqua':'w3-red');
    w3_disable('id-freedv.mode', testing);
    w3_disable('id-freedv.calling_index', testing);
