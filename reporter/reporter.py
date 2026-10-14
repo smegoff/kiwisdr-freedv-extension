@@ -84,12 +84,14 @@ class ActiveFrequencyCache:
         if not isinstance(data, dict):
             return
         sid = str(data.get("sid", ""))
-        if not sid:
+        if not sid or len(sid) > 128:
             return
         if event == "remove_connection":
             self.stations.pop(sid, None)
             return
         if event not in {"new_connection", "freq_change", "tx_report"}:
+            return
+        if sid not in self.stations and len(self.stations) >= 2048:
             return
         station = self.stations.setdefault(sid, {})
         call = str(data.get("callsign", "")).upper()
@@ -105,7 +107,7 @@ class ActiveFrequencyCache:
             return
         try:
             frequency = int(data.get("freq", 0))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return
         if MIN_ADVERTISED_FREQUENCY_HZ <= frequency <= MAX_ADVERTISED_FREQUENCY_HZ:
             station["frequency_hz"] = frequency

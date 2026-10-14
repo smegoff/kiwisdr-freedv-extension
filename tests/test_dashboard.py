@@ -42,7 +42,7 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn('id="modem-stats-note"', html)
         self.assertIn('session.mode === "RADEV1"', js)
         self.assertIn("Decoded speech frames", js)
-        self.assertIn("not supplied by the modem library", js)
+        self.assertIn("Unsupported modem counters are omitted", js)
         self.assertNotIn('["codec_variance","Codec variance"]', js)
 
     def test_openwebrx_palettes_match_built_in_schemes(self):
