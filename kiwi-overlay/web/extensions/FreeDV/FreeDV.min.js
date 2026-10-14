@@ -6,6 +6,7 @@ var freedv = {
    test_available: false,
    test_700d_available: false,
    test_rade_available: false,
+   test_radev2_available: false,
    test_mode: '700D',
    test_synced: false,
    test_audio: false,
@@ -19,6 +20,7 @@ var freedv = {
    reporter_grid: '',
    reporter_message: '',
    rade_enabled: false,
+   radev2_enabled: false,
    mode: 'RADEV1',
    calling_index: 0,
    manual_frequency: '',
@@ -26,7 +28,7 @@ var freedv = {
    reporter_frequency_value: null,
    reporter_frequency_timer: null,
    calling_frequencies: [
-      { label: 'Select a calling frequency', kHz: 0, sideband: '' },
+      { label: 'Select a station or frequency', kHz: 0, sideband: '' },
       { label: '160 m - 1.870 MHz LSB', kHz: 1870, sideband: 'lsb' },
       { label: '80 m - 3.625 MHz LSB', kHz: 3625, sideband: 'lsb' },
       { label: '80 m - 3.643 MHz LSB', kHz: 3643, sideband: 'lsb' },
@@ -92,22 +94,23 @@ function freedv_band_for_frequency(freq_kHz)
 
 function freedv_calling_entries()
 {
-   return freedv.calling_frequencies.concat(freedv.reporter_frequencies);
+   return [freedv.calling_frequencies[0]].concat(freedv.reporter_frequencies,
+      freedv.calling_frequencies.slice(1));
 }
 
 function freedv_calling_select_html()
 {
    var labels = freedv_calling_entries().map(function(entry) { return entry.label; });
-   return w3_select('id-freedv-calling w3-text-red', 'Calling frequency', '',
+   return w3_select('id-freedv-calling w3-text-red', 'Stations / calling frequencies', '',
       'freedv.calling_index', freedv.calling_index, labels,
       'freedv_calling_frequency_cb');
 }
 
 function freedv_reporter_frequency_note()
 {
+   var tx_count = freedv.reporter_frequencies.filter(function(e) { return e.transmitting; }).length;
    var text = freedv.reporter_frequencies.length?
-      freedv.reporter_frequencies.length +' live Reporter frequenc'+
-         (freedv.reporter_frequencies.length == 1? 'y':'ies') +' marked [Reporter live].':
+      tx_count +' transmitting &middot; '+ (freedv.reporter_frequencies.length - tx_count) +' advertised frequencies':
       'No live Reporter frequencies; static list remains available.';
    return text +' &middot; '+ w3_link('id-freedv-reporter-link w3-small',
       'https://qso.freedv.org/', 'Open Reporter');
@@ -136,6 +139,7 @@ function freedv_diagnostics_link_html()
 
 function freedv_update_reporter_frequencies(value)
 {
+   var selected = freedv_calling_entries()[freedv.calling_index];
    value = value || '-';
    if (value == freedv.reporter_frequency_value) {
       if (w3_el('id-freedv-live-note'))
@@ -147,24 +151,38 @@ function freedv_update_reporter_frequencies(value)
    var entries = [];
    if (value && value != '-') {
       value.split(';').forEach(function(raw) {
-         var hz = +raw;
-         if (!isFinite(hz) || hz < 100000 || hz > 100000000000 || seen[hz]) return;
-         seen[hz] = true;
+         var fields = raw.split(':');
+         var hz = +fields[0];
+         var tx = fields.length == 3 && /^[A-Z0-9/]{1,31}$/.test(fields[1]) && /^[A-Z0-9]{1,15}$/.test(fields[2]);
+         var key = tx? raw:String(hz);
+         if (!isFinite(hz) || hz < 100000 || hz > 100000000000 || seen[key]) return;
+         seen[key] = true;
          var kHz = hz / 1000;
          var sideband = freedv_sideband_for_frequency(kHz);
          var band = freedv_band_for_frequency(kHz);
          entries.push({
-            label: '[Reporter live] '+ (band? band +' - ':'') +
+            label: (tx? '[TX] '+ fields[1] +' · '+ fields[2] +' · ':'[Reporter live] ') + (band? band +' - ':'') +
                (kHz / 1000).toFixed(kHz < 10000? 4:3) +' MHz '+ sideband.toUpperCase(),
             kHz: kHz,
             sideband: sideband,
-            reporter: true
+            reporter: true,
+            transmitting: tx,
+            mode: tx? fields[2]:null
          });
       });
    }
-   entries.sort(function(a, b) { return a.kHz - b.kHz; });
+   entries.sort(function(a, b) { return (+b.transmitting - +a.transmitting) || a.kHz - b.kHz; });
    freedv.reporter_frequencies = entries;
    freedv.calling_index = 0;
+   if (selected && selected.kHz) {
+      var updated = freedv_calling_entries();
+      for (var i = 1; i < updated.length; i++) {
+         if (updated[i].kHz == selected.kHz && updated[i].label == selected.label) {
+            freedv.calling_index = i;
+            break;
+         }
+      }
+   }
    if (w3_el('id-freedv-calling-container'))
       w3_innerHTML('id-freedv-calling-container', freedv_calling_select_html());
    if (w3_el('id-freedv-live-note'))
@@ -455,7 +473,6 @@ function freedv_recv(data)
             freedv.rade_enabled = (+value != 0);
             freedv.modes = freedv.legacy_modes.slice();
             if (freedv.rade_enabled) freedv.modes.push('RADEV1');
-            if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
             freedv_update_test_button();
             break;
          case 'reporter_enabled':
@@ -463,10 +480,19 @@ function freedv_recv(data)
             w3_disable('freedv.reporter_opt_in', !freedv.reporter_enabled);
             freedv_update_reporter_state();
             break;
+         case 'radev2_enabled':
+            freedv.radev2_enabled = (+value != 0);
+            if (freedv.radev2_enabled && freedv.modes.indexOf('RADEV2') < 0) freedv.modes.push('RADEV2');
+            break;
+         case 'test_radev2_available':
+            freedv.test_radev2_available = (+value != 0);
+            freedv_update_test_button();
+            break;
          case 'reporter_freqs':
             freedv_update_reporter_frequencies(value);
             break;
          case 'ready':
+            if (freedv.modes.indexOf(freedv.mode) < 0) freedv.mode = '700D';
             freedv_controls_setup();
             break;
          case 'test_available':
@@ -543,7 +569,7 @@ function freedv_controls_setup()
 {
    if (ext_nom_sample_rate() != 12000) {
       var unsupported = w3_div('id-freedv-controls w3-text-white',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.41 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.46 receive decoder</b>'),
          w3_div('w3-margin-T-8 w3-text-red', 'FreeDV requires a Kiwi configured for 12 kHz audio channels.'));
       ext_panel_show(unsupported, null, null);
       ext_set_controls_width_height(420, 120);
@@ -558,11 +584,12 @@ function freedv_controls_setup()
       freedv_filter_guard_hz());
    var controls = w3_div('id-freedv-controls w3-text-white',
       w3_div('id-freedv-intro',
-         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.41 receive decoder</b>'),
+         w3_div('w3-medium w3-text-aqua', '<b>FreeDV v0.1.46 receive decoder</b>'),
          w3_div('w3-small', 'External decoder via Kiwi camper return-audio transport'),
          w3_div('w3-small w3-text-light-grey', 'Built with ',
             w3_link('', 'https://freedv.org/', 'FreeDV'),
             ' open-source digital voice, Codec2 and RADE.')),
+      w3_div('id-freedv-scroll',
       w3_div('id-freedv-primary',
          w3_inline('id-freedv-actions/w3-margin-right',
             w3_select('w3-text-red', 'Mode', '', 'freedv.mode', freedv.modes.indexOf(freedv.mode),
@@ -579,11 +606,13 @@ function freedv_controls_setup()
          w3_div('id-freedv-calling-container', freedv_calling_select_html()),
          w3_div('id-freedv-live-note w3-small w3-text-light-grey',
             'Loading currently advertised Reporter frequencies...'),
+         '<details class="id-freedv-advanced"><summary>Receive settings</summary>'+
          w3_select('id-freedv-filter w3-text-red', 'Receiver filter', '',
             'freedv.filter_index', freedv.filter_index, freedv.filter_modes,
             'freedv_filter_cb'),
          w3_div('id-freedv-filter-note w3-small w3-text-light-grey',
-            'Flat is recommended; overrides narrow the modem passband. See Help.'),
+            'Flat is recommended; overrides narrow the modem passband. See Help.')+ '</details>',
+         '<details class="id-freedv-reporter-details"><summary>Reporter identity and message</summary>'+
          w3_div('id-freedv-reporter-identity',
             w3_inline('id-freedv-reporter-inputs/w3-margin-between-8',
                w3_input('id-freedv-reporter-call/w3-label-not-bold/|size=12',
@@ -600,7 +629,7 @@ function freedv_controls_setup()
                freedv.reporter_message, 'freedv_reporter_message_cb',
                'e.g. Listening via KiwiSDR'),
             w3_div('id-freedv-reporter-privacy w3-small w3-text-light-grey',
-               'Identity and message are saved only in this browser; opt-in resets when the page closes.'))),
+               'Saved in this browser. Select the checkbox to publish this session.'))+ '</details>'),
       w3_div('id-freedv-detail-grid',
          w3_div('id-freedv-radio-info',
             w3_div('w3-small', 'Reference: ',
@@ -623,9 +652,9 @@ function freedv_controls_setup()
          w3_div('w3-small', 'Dropped frames: ',
             w3_div('id-freedv-dropped w3-show-inline', '0'),
             freedv_diagnostics_link_html()),
-         w3_div('id-freedv-error w3-small w3-text-red')));
+         w3_div('id-freedv-error w3-small w3-text-red'))));
    ext_panel_show(controls, null, null);
-   ext_set_controls_width_height(560, 700);
+   ext_set_controls_width_height(540, 620);
    freedv_update_test_button();
    w3_disable('freedv.reporter_opt_in', !freedv.reporter_enabled);
    freedv_force_noise_filter_off();
@@ -702,6 +731,10 @@ function freedv_calling_frequency_cb(path, index, first)
    }
 
    freedv.calling_index = index;
+   if (entry.transmitting && entry.mode && freedv.modes.indexOf(entry.mode) >= 0) {
+      w3_select_value('freedv.mode', freedv.modes.indexOf(entry.mode));
+      freedv_mode_cb('freedv.mode', freedv.modes.indexOf(entry.mode), false);
+   }
 }
 
 function freedv_mode_cb(path, index, first)
@@ -728,11 +761,12 @@ function freedv_start_cb()
 
 function freedv_selected_test_mode()
 {
-   return freedv.mode == 'RADEV1'? 'RADEV1':'700D';
+   return freedv.mode == 'RADEV2'? 'RADEV2':freedv.mode == 'RADEV1'? 'RADEV1':'700D';
 }
 
 function freedv_test_available_for_mode(mode)
 {
+   if (mode == 'RADEV2') return freedv.test_radev2_available;
    return mode == 'RADEV1'? freedv.test_rade_available:freedv.test_700d_available;
 }
 
@@ -740,9 +774,15 @@ function freedv_update_test_button()
 {
    if (!w3_el('id-freedv-test') || freedv.testing) return;
    var mode = freedv_selected_test_mode();
-   w3_button_text('id-freedv-test', mode == 'RADEV1'? 'Test RADE':'Test 700D',
+   w3_button_text('id-freedv-test', freedv_test_button_label(),
       'w3-aqua', 'w3-red');
    w3_disable('id-freedv-test', !freedv_test_available_for_mode(mode));
+}
+
+function freedv_test_button_label()
+{
+   var mode = freedv_selected_test_mode();
+   return mode == 'RADEV2'? 'Test RADEv2':mode == 'RADEV1'? 'Test RADE':'Test 700D';
 }
 
 function freedv_start_ui(testing)
@@ -755,8 +795,7 @@ function freedv_start_ui(testing)
    freedv.test_mode = testing? freedv_selected_test_mode():freedv.mode;
    freedv.last_test_result = '';
    w3_button_text('id-freedv-start', 'Stop');
-   w3_button_text('id-freedv-test', testing? 'Stop test':
-      (freedv_selected_test_mode() == 'RADEV1'? 'Test RADE':'Test 700D'),
+   w3_button_text('id-freedv-test', testing? 'Stop test':freedv_test_button_label(),
       testing? 'w3-red':'w3-aqua', testing? 'w3-aqua':'w3-red');
    w3_disable('id-freedv.mode', testing);
    w3_disable('id-freedv.calling_index', testing);
@@ -1006,6 +1045,14 @@ function FreeDV_help(show)
          'external decoder health and Kiwi connection shown in the diagnostics dashboard.<br><br>' +
 
          '<b>FreeDV Reporter</b><br>' +
+         'The station selector lists currently advertised transmitters first, marked ' +
+         '<b>[TX]</b> with callsign and codec. Selecting one tunes the receiver and selects ' +
+         'its codec when enabled. Reporter TX state is advisory and can lag the RF signal.<br><br>' +
+         '<b>RADEV2 (development)</b><br>' +
+         'The official C implementation supports this development waveform. It requires ' +
+         'a separate Kiwi Admin switch and decoder FREEDV_ENABLE_RADEV2 gate. Its waveform ' +
+         'and API may change; V1 recordings are not V2 recordings. Test RADEv2 uses a ' +
+         'separate waveform generated by the pinned official C library.<br><br>' +
          'Reporter is optional and RX-only. The Kiwi administrator can allow it, but ' +
          '<b>each listener reports under their own callsign and Maidenhead locator</b>. ' +
          'Enter your identity, select <b>Report this receive session</b>, then press Start. ' +
@@ -1050,6 +1097,8 @@ function FreeDV_config_html()
    var body = w3_divs('w3-container/w3-tspace-8',
       w3_input('', 'Decoder LAN address', 'freedv.decoder_ip', decoder_ip, 'w3_string_set_cfg_cb'),
       w3_switch_get_param('', 'RADEV1 off', 'RADEV1 on', 'freedv.rade_enabled', 0, 0,
+         'w3_bool_set_cfg_cb'),
+      w3_switch_get_param('', 'Experimental RADEV2 off', 'Experimental RADEV2 on', 'freedv.radev2_enabled', 0, 0,
          'w3_bool_set_cfg_cb'),
       w3_switch_get_param('', 'Listener Reporter off', 'Allow listener Reporter opt-in',
          'freedv.reporter_enabled', 0, 0,

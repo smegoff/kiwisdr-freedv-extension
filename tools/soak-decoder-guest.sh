@@ -22,6 +22,7 @@ if [[ -n $evidence_log ]]; then
   exec > >(tee "$evidence_log") 2>&1
 fi
 start_epoch=$(date +%s)
+initial_audio_counters=
 
 for ((sample = 1; sample <= samples; sample++)); do
   target_epoch=$((start_epoch + (sample - 1) * interval))
@@ -32,15 +33,19 @@ for ((sample = 1; sample <= samples; sample++)); do
   services=$(pct exec "$vmid" -- systemctl is-active freedv-decoder.service freedv-reporter.service |
     tr '\n' ',' | sed 's/,$//')
   health=$(pct exec "$vmid" -- wget -q -T 5 -O - http://127.0.0.1:8074/healthz)
+  metrics=$(pct exec "$vmid" -- wget -q -T 5 -O - http://127.0.0.1:8074/metrics)
+  audio_counters=$(awk '/^freedv_(return_dropped_samples_total|dropped_frames_total|audio_underruns_total|reconnects_total) / {print $1 "=" $2}' <<< "$metrics" | sort | tr '\n' ',')
+  [[ $(grep -Ec '^freedv_(return_dropped_samples_total|dropped_frames_total|audio_underruns_total|reconnects_total) ' <<< "$metrics") == 4 ]]
+  if [[ -z $initial_audio_counters ]]; then initial_audio_counters=$audio_counters; fi
   private_port=$(pct exec "$vmid" -- ss -lnt | grep -c '127[.]0[.]0[.]1:8074' || true)
   critical=$(pct exec "$vmid" -- journalctl -u freedv-decoder.service --since "@$start_epoch" --no-pager |
     grep -Eci 'conflicting job|authentication rejected|watchdog|segfault|fatal|assert' || true)
 
-  printf 'DECODER sample=%d time=%s state=%s services=%s private_port=%d critical=%d health=%s\n' \
-    "$sample" "$timestamp" "$guest_state" "$services" "$private_port" "$critical" "$health"
+  printf 'DECODER sample=%d time=%s state=%s services=%s private_port=%d critical=%d counters=%s health=%s\n' \
+    "$sample" "$timestamp" "$guest_state" "$services" "$private_port" "$critical" "$audio_counters" "$health"
 
   [[ $guest_state == running && $services == active,active && $private_port == 1 &&
-     $critical == 0 && $health == *'"status":"ok"'* &&
+     $critical == 0 && $audio_counters == "$initial_audio_counters" && $health == *'"status":"ok"'* &&
      $health == *"\"sessions\":$expected_sessions"* &&
      $health == *'"kiwi_connected":true'* &&
      $health == *"\"camper_connected\":$expected_camper"* &&

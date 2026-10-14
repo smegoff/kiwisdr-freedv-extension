@@ -1,6 +1,6 @@
 # Deployment status
 
-Last verified: 2026-08-16 08:11 UTC (2026-08-16 20:11 NZST)
+Last verified: 2026-10-14 (NZDT); exact deployment and soak evidence is retained privately.
 
 This page records the project's reference installation. Hypervisor guest IDs,
 hostnames and LAN addresses are site-local operational details, not product
@@ -14,24 +14,65 @@ and no AI-64 local-decoder service is enabled.
 ## Live state
 
 - KiwiSDR 2 firmware: 1.902
-- active Kiwi release: `freedv-v0-1-38`
+- active Kiwi release: `freedv-v0-1-46`
 - active Kiwi SHA-256:
-  `6428e69f759a924cbc9f48a0f9025be0eaf4cdffc6f800e2525a0fca40c7798e`
-- Kiwi BuildID: `446cd0f180915cb171524377a8fa2a36c063aff2`
+  `49d27e542f540a9ec90bb3021be00aeaa0618c77715bbefb156fab5c125516c0`
+- Kiwi BuildID: `fbd7edd4821b88eb6e7fbe94f231bef5c2353615`
 - retained stock baseline SHA-256:
   `749c12e2a2f3aae284ebfea8b52f36a931e4949df9d464182836180aef824c90`
-- decoder-guest release: `0.1.37`
+- decoder-guest release: `0.1.39`
 - decoder binary SHA-256:
-  `f5c5bf63addbec65021f3dbcfc6bec9a01fb477dc9fd28f7a9aee791a2aec45b`
+  `06136f3473206157dba69de7d06546ee7f6adacc56a3007bbd1c7ba0d31d5e80`
 - Reporter sidecar SHA-256:
-  `6aec6f93ef444589acf6205a6240141dd8e65c1668077e37f77c652625f48c8d`
-- Reporter client: `KiwiSDR-FreeDV/0.1.34`
-- decoder dashboard assets: management and public `0.1.37`
-- decoder-guest snapshot: `pre-decoder-v0-1-37`
+  `3d243e17a886316bf790114b28a059b613306613c65b2e9b20ccf6ca587fdd01`
+- Reporter client: `KiwiSDR-FreeDV/0.1.36`
+- decoder dashboard assets: management and public `0.1.39`
+- decoder-guest snapshot: `pre-decoder-v0-1-39`
 - RADEV1: compiled and enabled by matching decoder/Kiwi gates
+- RADEV2: experimental recorded-reference option enabled on this installation;
+  independently off by default for new installations; RADEV1 remains default
 - normal idle state: Kiwi connected, not camped, zero sessions; decoder health
   reports the Reporter sidecar disabled while the opted-in extension panel shows
   `enabled (idle)` and no station presence is published
+
+## October 2026 RADEV2 and station-selector acceptance
+
+Kiwi v0.1.46 and decoder v0.1.39 passed separate 41-sample, ten-minute active
+soaks on 2026-10-14. The Kiwi run covered 10:36:01–10:46:01 UTC; the decoder
+run covered 10:36:06–10:46:06 UTC. Every sample retained a healthy root page,
+status endpoint, service and authenticated camper. Decoder dropped frames,
+return-sample drops, underruns and reconnects stayed at zero; critical journal
+matches and orphan deployment wrappers stayed at zero. The decoder process
+did not restart during the soak. Intentional Kiwi initialization before the
+soak did trigger the existing stalled-bootstrap watchdog; it recovered the
+decoder automatically and those events are retained in private journals.
+
+The final browser test completed the distinct RADEV2 reference with sync,
+`rade-v2`, about 20–23 dB SNR and zero dropped frames. 700D and RADEV1 reference
+tests also passed using the same decoder/core transport during candidate
+acceptance. RADE V1/V2 adapter WAV output was byte-identical to the pinned
+official tools, with reference real-time factors 0.0200/0.0161 and zero cadence
+underruns. All 64 tracked Python tests, JavaScript behavior tests and five C++
+test groups passed. This does not establish live-RF V2 performance or acceptance
+in Firefox/Edge.
+
+Live public TX rows were observed by callsign/mode/frequency. Selecting a
+RADEV1 transmitter tuned 7.167 MHz LSB and selected RADEV1 without starting
+the stopped session. Expanded optional sections were scrollable while Help and
+Close stayed clear. Stop/Close returned the guest to zero sessions, no camper
+and no Reporter presence. Reporter publication was deliberately not enabled
+for validation; the read-only public station feed remained available.
+
+Initial rollout exposed old/new station-feed framing incompatibilities and
+was rolled back. Capability negotiation and a directly tested shared Kiwi
+scanner fixed them before acceptance. Failed candidate evidence was preserved.
+After acceptance, superseded Kiwi test releases were removed, retaining stock
+baselines, prior accepted v0.1.41, immediate v0.1.45 and active v0.1.46. Kiwi
+free space rose from 288 MB to 436 MB. The superseded decoder snapshot was
+removed; clean OS, RADEV1 checkpoint and immediate pre-v0.1.39 rollback remain.
+Configuration archives and deployment journals remain private, not in Git.
+
+See [review notes](review-2026-10.md) and [experimental RADEv2](radev2.md).
 
 ## Decoder v0.1.37 mode-aware modem statistics
 

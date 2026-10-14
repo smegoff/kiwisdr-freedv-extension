@@ -40,6 +40,10 @@ the optional diagnostics page connects to its management-only web port.
 - Optional per-listener, RX-only [FreeDV Reporter](https://qso.freedv.org/)
   presence with explicit browser-session consent.
 - Optional, independently gated RADEV1 decoder.
+- Separately gated experimental RADEV2 decoder with its own reference test.
+- Public Reporter transmitters listed by callsign, codec and frequency; selecting
+  an available codec tunes and configures the receive session.
+- Collapsible receive settings and Reporter details keep the main panel compact.
 - Management-LAN-only, read-only decoder diagnostics dashboard with an audio-band
   waterfall, spectrum, ten-minute history and modem statistics.
 - A separate, sanitized public signal monitor with a loopback-only listener,
@@ -57,18 +61,28 @@ the optional diagnostics page connects to its management-only web port.
 
 | Component | Tested version | Status |
 | --- | --- | --- |
-| Kiwi extension | 0.1.41 | Per-listener Reporter identity, optional public message and explicit session opt-in |
-| Decoder service | 0.1.38 | Listener-identity reconnect plus mode-aware management and spectator dashboards |
+| Kiwi extension | 0.1.46 | Compact, scroll-safe panel and live transmitting-station selector |
+| Decoder service | 0.1.39 | Official C RADE V1/V2 adapters, capability-negotiated station feed and non-blocking Reporter IPC |
 | Legacy transport | Protocol v2 | One receive session; outbound camper connection |
-| FreeDV Reporter | RX-only client 0.1.35 | Per-listener opt-in reporting plus an independent read-only live-frequency feed |
+| FreeDV Reporter | RX-only client 0.1.36 | Per-listener opt-in reporting plus an independent read-only station/frequency feed |
 | RADEV1 | Experimental | Implemented and feature-gated; reference audio decoded |
+| RADEV2 | Experimental, off by default | Separate feature gates and dedicated reference waveform; upstream development codec |
 | AI-64 local decoder | Separate experiment | Source-compatible tooling only; not used by or enabled on the reference deployment |
 
-The clean 700D and RADEV1 tests have passed end to end with synchronized
+The clean 700D, RADEV1 and RADEV2 tests have passed end to end with synchronized
 returned audio and zero dropped frames. Live-RF speech acceptance is still
 pending mode by mode. See
 [Mode support](docs/modes.md) and [Deployment status](docs/deployment-status.md)
 for the exact evidence and remaining gaps.
+
+RADEV2 is a development option, not a replacement for RADEV1. Its pinned
+upstream waveform/models may change and on-air interoperability is not yet
+accepted. See [RADEv2](docs/radev2.md) before enabling it.
+
+![FreeDV extension with compact controls and RADEV2 reference result](docs/images/freedv-extension-v0.1.46.png)
+
+The [October review notes](docs/review-2026-10.md) describe the transport,
+efficiency and compatibility changes and the limits of the testing.
 
 ## Architecture
 

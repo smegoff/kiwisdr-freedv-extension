@@ -1,5 +1,6 @@
 /* External FreeDV camper decoder UI */
 .id-freedv-controls { padding:10px 16px; line-height:1.35; box-sizing:border-box; }
+.id-freedv-scroll { max-height:520px; overflow-y:auto; }
 .id-freedv-intro { margin-bottom:10px; }
 .id-freedv-intro > div { margin-bottom:3px; }
 .id-freedv-primary { display:grid; gap:8px; }
@@ -33,6 +34,12 @@
 .id-freedv-diagnostics-link { white-space:nowrap; }
 .id-freedv-footer { margin-top:8px; padding-top:6px; border-top:1px solid #777; line-height:1.35; }
 .id-freedv-error { margin-top:5px; }
+.id-freedv-advanced, .id-freedv-reporter-details { border-top:1px solid #777; padding-top:6px; }
+.id-freedv-advanced summary, .id-freedv-reporter-details summary { cursor:pointer; padding:3px 0; }
+.id-freedv-advanced[open] summary, .id-freedv-reporter-details[open] summary { margin-bottom:6px; }
+.id-freedv-advanced summary::before, .id-freedv-reporter-details summary::before { content:'\25B8 '; color:#ccc; }
+.id-freedv-advanced[open] summary::before, .id-freedv-reporter-details[open] summary::before { content:'\25BE '; }
+.id-freedv-calling select { max-width:100%; }
 .id-freedv-state,
 .id-freedv-sync,
 .id-freedv-clean,

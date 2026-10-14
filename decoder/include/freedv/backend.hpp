@@ -42,6 +42,6 @@ class DecoderBackend {
 };
 
 std::unique_ptr<DecoderBackend> make_codec2_backend(const std::string& mode);
-std::unique_ptr<DecoderBackend> make_rade_backend(bool enabled);
+std::unique_ptr<DecoderBackend> make_rade_backend(bool enabled, int version = 1);
 
 } // namespace kfd

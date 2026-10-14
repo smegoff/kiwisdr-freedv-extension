@@ -26,6 +26,9 @@ def main():
         action="store_true",
         help="explicitly keep the experimental RADEV1 selector disabled",
     )
+    radev2 = parser.add_mutually_exclusive_group()
+    radev2.add_argument("--enable-radev2", action="store_true")
+    radev2.add_argument("--disable-radev2", action="store_true")
     args = parser.parse_args()
     config_path = args.config
     decoder_ip = str(ipaddress.IPv4Address(args.decoder_ip))
@@ -35,10 +38,12 @@ def main():
     freedv = config.setdefault("freedv", {})
     freedv.pop("decoder_host", None)
     freedv.pop("shared_secret", None)
-    freedv.update({
-        "decoder_ip": decoder_ip,
-        "reporter_enabled": False,
-    })
+    freedv["decoder_ip"] = decoder_ip
+    freedv.setdefault("reporter_enabled", False)
+    if args.enable_radev2:
+        freedv["radev2_enabled"] = True
+    elif args.disable_radev2:
+        freedv["radev2_enabled"] = False
     if args.enable_rade:
         freedv["rade_enabled"] = True
     elif args.disable_rade:
@@ -62,7 +67,7 @@ def main():
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
-    print(f"configured decoder IP; root-only secret unchanged; Reporter remains disabled; backup={backup}")
+    print(f"configured decoder IP; root-only secret and Reporter permission preserved; backup={backup}")
 
 
 if __name__ == "__main__":

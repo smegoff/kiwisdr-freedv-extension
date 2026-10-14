@@ -23,6 +23,7 @@ typedef struct {
 typedef struct kfd_rade_decoder kfd_rade_decoder;
 
 kfd_rade_decoder* kfd_rade_create(char* error, size_t error_size);
+kfd_rade_decoder* kfd_rade_create_version(int version, char* error, size_t error_size);
 void kfd_rade_destroy(kfd_rade_decoder* decoder);
 int kfd_rade_reset(kfd_rade_decoder* decoder, char* error, size_t error_size);
 size_t kfd_rade_input_needed(kfd_rade_decoder* decoder);

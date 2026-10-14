@@ -42,7 +42,7 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn('id="modem-stats-note"', html)
         self.assertIn('session.mode === "RADEV1"', js)
         self.assertIn("Decoded speech frames", js)
-        self.assertIn("not supplied by the modem library", js)
+        self.assertIn("Unsupported modem counters are omitted", js)
         self.assertNotIn('["codec_variance","Codec variance"]', js)
 
     def test_openwebrx_palettes_match_built_in_schemes(self):
@@ -131,7 +131,7 @@ class DashboardAssetTest(unittest.TestCase):
         self.assertIn(", 0.0f});", backend)
         self.assertNotIn("Hilbert", backend)
         self.assertIn("https://github.com/freedv/rade_c.git", build)
-        self.assertIn("a36161bce0fb37daf3f4602344b095f6817dddb1", build)
+        self.assertIn("c8a3dc156045cae2cd251e1a4be0c304c9ddf2f9", build)
         self.assertIn("rade_rx_wav", build)
         self.assertIn("rade_tx_wav", build)
         self.assertIn("FDV_offair.wav", build)

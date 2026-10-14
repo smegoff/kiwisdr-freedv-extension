@@ -31,9 +31,9 @@ bool valid_eoo_callsign(const char* value) {
 
 class RadeBackend final : public DecoderBackend {
  public:
-  RadeBackend() {
+  explicit RadeBackend(int version) : version_(version) {
     char error[160] = {0};
-    decoder_ = kfd_rade_create(error, sizeof(error));
+    decoder_ = kfd_rade_create_version(version, error, sizeof(error));
     if (!decoder_) throw std::runtime_error(error[0] ? error : "unable to open RADEv1");
     pcm_scratch_.resize(kfd_rade_pcm_max(decoder_));
     iq_.reserve(kMaxQueuedSamples);
@@ -45,7 +45,7 @@ class RadeBackend final : public DecoderBackend {
   }
 
   ~RadeBackend() override { kfd_rade_destroy(decoder_); }
-  const char* name() const override { return "rade-v1"; }
+  const char* name() const override { return version_ == 2 ? "rade-v2" : "rade-v1"; }
   uint32_t modem_sample_rate() const override { return 8000; }
 
   DecodeResult push(const int16_t* samples, std::size_t count) override {
@@ -64,6 +64,7 @@ class RadeBackend final : public DecoderBackend {
     }
 
     std::size_t consumed = 0;
+    std::string end_of_over_callsign;
     while (true) {
       const std::size_t needed = kfd_rade_input_needed(decoder_);
       if (!needed || iq_.size() - consumed < needed) break;
@@ -84,13 +85,14 @@ class RadeBackend final : public DecoderBackend {
       was_synced_ = last_status_.synced;
       last_status_.snr_db = output.snr_db;
       last_status_.frequency_offset_hz = output.frequency_offset_hz;
-      if (valid_eoo_callsign(output.eoo_callsign)) callsign_ = output.eoo_callsign;
+      if (valid_eoo_callsign(output.eoo_callsign))
+        end_of_over_callsign = output.eoo_callsign;
       result.pcm.insert(result.pcm.end(), pcm_scratch_.begin(),
                         pcm_scratch_.begin() + output.pcm_samples);
     }
     if (consumed) iq_.erase(iq_.begin(), iq_.begin() + consumed);
     if (!last_status_.synced) callsign_.clear();
-    last_status_.callsign = callsign_;
+    last_status_.callsign = end_of_over_callsign.empty() ? callsign_ : end_of_over_callsign;
     last_status_.resyncs = resyncs_;
     result.status = last_status_;
     // A valid final speech frame can coincide with the modem dropping sync at
@@ -112,6 +114,7 @@ class RadeBackend final : public DecoderBackend {
   }
 
  private:
+  int version_;
   kfd_rade_decoder* decoder_ = nullptr;
   std::vector<kfd_rade_complex> iq_;
   std::vector<int16_t> pcm_scratch_;
@@ -125,10 +128,10 @@ class RadeBackend final : public DecoderBackend {
 }  // namespace
 #endif
 
-std::unique_ptr<DecoderBackend> make_rade_backend(bool enabled) {
+std::unique_ptr<DecoderBackend> make_rade_backend(bool enabled, int version) {
   if (!enabled) throw std::runtime_error("RADE backend is disabled");
 #ifdef HAVE_RADE
-  return std::make_unique<RadeBackend>();
+  return std::make_unique<RadeBackend>(version);
 #else
   throw std::runtime_error("RADEv1 adapter is not compiled into this decoder");
 #endif

@@ -2,6 +2,10 @@
 set -euo pipefail
 kiwi=${1:-/root/KiwiSDR}
 cd "$kiwi"
+# Keep the lock descriptor in the background build process as well. Starting
+# two asset/embed builds against one source tree corrupts generated outputs.
+exec 9>/run/lock/freedv-kiwi-build.lock
+flock -n 9 || { echo "another FreeDV Kiwi build is running" >&2; exit 3; }
 rm -f /root/freedv-build.log /root/freedv-build.exit
 target=${KIWI_BUILD_TARGET:-../build/kiwid.bin}
 if [[ $target == ../build/kiwid.bin ]]; then

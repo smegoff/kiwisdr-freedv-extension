@@ -20,7 +20,7 @@ for path in extensions/FreeDV web/extensions/FreeDV rx/rx_monitor.cpp rx/rx_soun
   fi
 done
 sample_dir=/root/kiwi.config/samples
-for sample_name in FreeDV.clean.au FreeDV.rade.au; do
+for sample_name in FreeDV.clean.au FreeDV.rade.au FreeDV.rade2.au; do
   sample_path=$sample_dir/$sample_name
   if [[ -f $sample_path ]]; then
     install -d -m 0700 "$backup/kiwi.config/samples"
@@ -40,6 +40,13 @@ install -m 0644 "$src/kiwi-overlay/samples/FreeDV.clean.au" \
   "$sample_dir/FreeDV.clean.au"
 install -m 0644 "$src/kiwi-overlay/samples/FreeDV.rade.au" \
   "$sample_dir/FreeDV.rade.au"
+install -m 0644 "$src/kiwi-overlay/samples/FreeDV.rade2.au" \
+  "$sample_dir/FreeDV.rade2.au"
+install -m 0644 "$src/kiwi-overlay/samples/RADE-LICENSE.txt" "$sample_dir/RADE-LICENSE.txt"
+[[ $(sha256sum "$sample_dir/FreeDV.rade2.au" | awk '{print $1}') == \
+  b62acd5ef5cb628429762db355aff234e52aeb76999ee099f6901d5a2ed09ff1 ]] || {
+  echo "RADEv2 reference checksum mismatch" >&2; exit 3;
+}
 [[ $(sha256sum "$sample_dir/FreeDV.clean.au" | awk '{print $1}') == \
   426dcc677932903d863fa266fc3acfc0bbcafc63906e231a9b16fc4429e6d37a ]] || {
   echo "clean 700D reference checksum mismatch" >&2; exit 3;

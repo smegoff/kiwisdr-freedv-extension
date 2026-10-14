@@ -15,6 +15,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -42,7 +43,7 @@ using json = nlohmann::json;
 
 namespace {
 
-constexpr char kRelease[] = "0.1.38";
+constexpr char kRelease[] = FREEDV_RELEASE_STRING;
 constexpr uint64_t kStalledMainLoopSeconds = 15;
 constexpr uint64_t kStalledControlSeconds = 10;
 constexpr int kSocketPollMilliseconds = 100;
@@ -128,13 +129,15 @@ std::string reporter_state() {
   return "disabled";
 }
 
-std::string reporter_frequencies() {
+std::string reporter_frequencies(bool station_feed) {
   try {
     std::ifstream input(env_or("FREEDV_REPORTER_FREQUENCIES_FILE",
                                "/tmp/freedv-reporter-frequencies.json"));
     if (!input) return "-";
     json value;
     input >> value;
+    const auto age = std::time(nullptr) - value.value("updated", int64_t{0});
+    if (age < 0 || age > 120) return "-";
     if (value.value("version", 0) != 1 || !value.contains("frequencies_hz") ||
         !value["frequencies_hz"].is_array()) return "-";
     std::vector<uint64_t> frequencies;
@@ -148,8 +151,26 @@ std::string reporter_frequencies() {
     std::sort(frequencies.begin(), frequencies.end());
     frequencies.erase(std::unique(frequencies.begin(), frequencies.end()), frequencies.end());
     std::ostringstream output;
+    if (station_feed && value.contains("transmitters") && value["transmitters"].is_array()) {
+      for (const auto& station : value["transmitters"]) {
+        if (!station.is_object()) continue;
+        const auto call = station.value("callsign", std::string{});
+        const auto mode = station.value("mode", std::string{});
+        const auto hz = station.value("frequency_hz", int64_t{0});
+        const auto safe = [](const std::string& s) {
+          return !s.empty() && s.size() <= 31 && std::all_of(s.begin(), s.end(),
+              [](unsigned char c) { return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '/'; });
+        };
+        if (!safe(call) || !safe(mode) || hz < 100000 || hz > 100000000000LL) continue;
+        const auto token = std::to_string(hz) + ":" + call + ":" + mode;
+        if (output.str().size() + token.size() + 1 > 700) break;
+        if (output.tellp() > 0) output << ';';
+        output << token;
+      }
+    }
     for (std::size_t i = 0; i < frequencies.size(); ++i) {
-      if (i) output << ';';
+      if (output.str().size() + 14 > 750) break;
+      if (output.tellp() > 0) output << ';';
       output << frequencies[i];
     }
     return output.str().empty() ? "-" : output.str();
@@ -160,8 +181,14 @@ std::string reporter_frequencies() {
 
 void reporter_send(const json& event) {
   try {
-    asio::io_context ioc;
-    udp::socket socket(ioc, udp::v4());
+    // Reuse the loopback socket instead of opening an OS descriptor for each
+    // status tick. Thread-local ownership also keeps future callers isolated.
+    static thread_local asio::io_context ioc;
+    static thread_local udp::socket socket = [] {
+      udp::socket value(ioc, udp::v4());
+      value.non_blocking(true);
+      return value;
+    }();
     const auto payload = event.dump();
     socket.send_to(asio::buffer(payload), {asio::ip::make_address("127.0.0.1"), 8075});
   } catch (...) {
@@ -399,7 +426,7 @@ class KiwiCamper {
     const auto unix_seconds = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     send_text(kfd::make_poll_command(secret_, unix_seconds, random_nonce(),
-                                     reporter_frequencies()));
+                                     reporter_frequencies(station_feed_)));
     next_poll_ = now + (job_.test && !job_.test_ready ?
         std::chrono::milliseconds(100) : std::chrono::milliseconds(1000));
   }
@@ -435,7 +462,9 @@ class KiwiCamper {
     if (kfd::parse_message_pair(message, "freedv_job", value)) {
       mark_control_response();
       try {
-        apply_job(kfd::parse_decoder_job(value));
+        const auto incoming = kfd::parse_decoder_job(value);
+        station_feed_ = incoming.station_feed;
+        apply_job(incoming);
         metrics.auth_successes++;
       } catch (...) {
         metrics.malformed_jobs++;
@@ -517,8 +546,11 @@ class KiwiCamper {
     job_ = incoming;
     metrics.generation = job_.generation;
     input_rate_ = job_.input_rate;
-    backend_ = job_.mode == "RADEV1" ? kfd::make_rade_backend(rade_enabled_)
-                                      : kfd::make_codec2_backend(job_.mode);
+    if (job_.mode == "RADEV2")
+      backend_ = kfd::make_rade_backend(env_or("FREEDV_ENABLE_RADEV2", "0") == "1", 2);
+    else if (job_.mode == "RADEV1")
+      backend_ = kfd::make_rade_backend(rade_enabled_);
+    else backend_ = kfd::make_codec2_backend(job_.mode);
     metrics.sessions = 1;
     expected_sequence_valid_ = false;
     input_resampler_.reset();
@@ -665,7 +697,10 @@ class KiwiCamper {
     }
 
     const auto now = std::chrono::steady_clock::now();
-    if (now >= next_status_) {
+    const bool new_callsign = !decoded.status.callsign.empty() &&
+        decoded.status.callsign != last_status_callsign_;
+    last_status_callsign_ = decoded.status.callsign;
+    if (now >= next_status_ || new_callsign) {
       send_status(decoded.status);
       if (!job_.test) {
         reporter_send({{"type", "status"}, {"session_id", job_.generation},
@@ -709,6 +744,7 @@ class KiwiCamper {
   std::string password_;
   std::string secret_;
   bool rade_enabled_ = false;
+  bool station_feed_ = false;
   kfd::Dashboard& dashboard_;
   asio::io_context ioc_;
   tcp::resolver resolver_;
@@ -727,6 +763,7 @@ class KiwiCamper {
   bool return_adpcm_valid_ = false;
   bool first_audio_packet_ = true;
   uint64_t job_decoded_frames_ = 0;
+  std::string last_status_callsign_;
   kfd::StreamingResampler input_resampler_;
   kfd::StreamingResampler output_resampler_;
   kfd::AudioPacer output_pacer_;

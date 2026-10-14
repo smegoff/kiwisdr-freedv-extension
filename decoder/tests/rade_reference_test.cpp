@@ -6,6 +6,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -99,10 +100,10 @@ void write_pcm16_mono_16k(const std::string& path, const std::vector<int16_t>& s
   if (!output) throw std::runtime_error("unable to write RADE decoded WAV");
 }
 
-CadenceResult run_kiwi_cadence(const std::vector<int16_t>& modem_8k) {
+CadenceResult run_kiwi_cadence(const std::vector<int16_t>& modem_8k, int version) {
   kfd::StreamingResampler source_resampler;
   const auto modem_12k = source_resampler.process(modem_8k, 8000, 12000);
-  auto backend = kfd::make_rade_backend(true);
+  auto backend = kfd::make_rade_backend(true, version);
   kfd::StreamingResampler input_resampler;
   kfd::StreamingResampler output_resampler;
   kfd::AudioPacer pacer;
@@ -136,8 +137,9 @@ int main(int argc, char** argv) {
     return 2;
   }
   const auto samples = read_pcm16_mono_8k(argv[1]);
-  auto backend = kfd::make_rade_backend(true);
-  assert(std::string(backend->name()) == "rade-v1");
+  const int version = std::getenv("FREEDV_TEST_RADEV2") ? 2 : 1;
+  auto backend = kfd::make_rade_backend(true, version);
+  assert(std::string(backend->name()) == (version == 2 ? "rade-v2" : "rade-v1"));
   assert(backend->modem_sample_rate() == 8000);
 
   bool sync_seen = false;
@@ -177,11 +179,11 @@ int main(int argc, char** argv) {
   assert(!overloaded.status.error.empty());
   backend->reset();
   backend.reset();
-  const auto cadence = run_kiwi_cadence(samples);
+  const auto cadence = run_kiwi_cadence(samples, version);
   assert(cadence.returned_packets > 0);
   assert(cadence.underruns == 0);
   assert(cadence.reprimes == 0);
-  std::cout << "RADEV1 reference: sync=yes pcm_samples=" << pcm_samples
+  std::cout << "RADEV" << version << " reference: sync=yes pcm_samples=" << pcm_samples
             << " elapsed_seconds=" << elapsed
             << " realtime_factor=" << realtime_factor
             << " cadence_packets=" << cadence.returned_packets

@@ -3,6 +3,7 @@
 
 #include "ext.h"
 #include "freedv.h"
+#include "freedv_poll_wire.h"
 
 #include "kiwi.h"
 #include "misc.h"
@@ -25,7 +26,7 @@
 #include <unistd.h>
 
 #define FREEDV_PROTOCOL 2
-#define FREEDV_RELEASE "0.1.41"
+#define FREEDV_RELEASE "0.1.46"
 #define FREEDV_STATUS_TIMEOUT 5
 #define FREEDV_NONCES 64
 
@@ -80,6 +81,7 @@ static char reporter_frequencies[768];
 static time_t reporter_frequencies_seen;
 static freedv_test_t test_700d_signal;
 static freedv_test_t test_rade_signal;
+static freedv_test_t test_radev2_signal;
 
 static void freedv_test_audio(int rx_chan, int instance, int nsamps,
     TYPEMONO16 *samples, int freq_hz)
@@ -171,7 +173,7 @@ static void freedv_load_test_signal(freedv_test_t *signal, const char *path,
 
 static bool freedv_mode_valid(const char *mode)
 {
-    static const char *modes[] = { "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1" };
+    static const char *modes[] = { "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1", "RADEV2" };
     for (unsigned i = 0; i < ARRAY_LEN(modes); i++) {
         if (strcmp(mode, modes[i]) == 0) return true;
     }
@@ -180,6 +182,7 @@ static bool freedv_mode_valid(const char *mode)
 
 static bool freedv_mode_enabled(const char *mode)
 {
+    if (strcmp(mode, "RADEV2") == 0) return cfg_true("freedv.radev2_enabled");
     return strcmp(mode, "RADEV1") != 0 || cfg_true("freedv.rade_enabled");
 }
 
@@ -266,11 +269,18 @@ static bool freedv_store_reporter_frequencies(const char *value)
         if (!*token) return false;
         char *end = NULL;
         unsigned long long frequency = strtoull(token, &end, 10);
-        if (!end || *end || frequency < 100000ULL || frequency > 100000000000ULL)
+        if (!end || (*end && *end != ':') || frequency < 100000ULL || frequency > 100000000000ULL)
             return false;
-        char number[32];
-        int length = snprintf(number, sizeof(number), "%s%llu",
-            count? ";":"", frequency);
+        if (*end) {
+            const char *separator = strchr(end + 1, ':');
+            if (!separator || strchr(separator + 1, ':')) return false;
+            char call[32], mode[16], extra;
+            if (sscanf(end, ":%31[^:]:%15s%c", call, mode, &extra) != 2) return false;
+            for (const char *p = end + 1; *p; p++)
+                if (!((*p >= 'A' && *p <= 'Z') || isdigit((unsigned char)*p) || *p == '/' || *p == ':')) return false;
+        }
+        char number[80];
+        int length = snprintf(number, sizeof(number), "%s%s", count? ";":"", token);
         if (length <= 0 || used + (size_t) length >= sizeof(normalized)) return false;
         memcpy(normalized + used, number, length);
         used += length;
@@ -521,13 +531,15 @@ bool freedv_msgs(char *msg, int rx_chan)
 
     if (strcmp(msg, "SET ext_server_init") == 0) {
         ext_send_msg(rx_chan, false,
-            "EXT rade_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
-            "test_available=%d test_700d_available=%d test_rade_available=%d reporter_freqs=%s",
+            "EXT rade_enabled=%d radev2_enabled=%d reporter_enabled=%d ready protocol=%d backend=external release=%s "
+            "test_available=%d test_700d_available=%d test_rade_available=%d test_radev2_available=%d reporter_freqs=%s",
             cfg_true("freedv.rade_enabled")? 1:0,
+            cfg_true("freedv.radev2_enabled")? 1:0,
             cfg_true("freedv.reporter_enabled")? 1:0, FREEDV_PROTOCOL, FREEDV_RELEASE,
             test_700d_signal.sample_count? 1:0,
             test_700d_signal.sample_count? 1:0,
             test_rade_signal.sample_count? 1:0,
+            test_radev2_signal.sample_count? 1:0,
             freedv_current_reporter_frequencies());
         return true;
     }
@@ -634,6 +646,7 @@ bool freedv_msgs(char *msg, int rx_chan)
             return true;
         }
         freedv_test_t *selected_signal =
+            strcmp(mode, "RADEV2") == 0? &test_radev2_signal :
             strcmp(mode, "RADEV1") == 0? &test_rade_signal : &test_700d_signal;
         if (!selected_signal->sample_count) {
             ext_send_msg_encoded(rx_chan, false, "EXT", "error",
@@ -696,8 +709,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
     char supplied_hmac[65] = {0};
     char supplied_frequencies[768] = {0};
     char extra = 0;
-    int fields = sscanf(arguments,
-        "%d,%lld,%16[0-9a-fA-F],%64[0-9a-fA-F],%767[0-9;-]%c",
+    int fields = freedv_parse_poll_arguments(arguments,
         &protocol, &timestamp, nonce, supplied_hmac, supplied_frequencies, &extra);
     if ((fields != 4 && fields != 5) || protocol != FREEDV_PROTOCOL) {
         send_msg(conn_mon, false, "MSG freedv_auth=format");
@@ -764,7 +776,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
         freedv_json_escape(grid_j, sizeof(grid_j), e->reporter_grid);
         freedv_json_escape(message_j, sizeof(message_j), e->reporter_message);
         kiwi_snprintf_buf(job,
-            "{\"protocol\":%d,\"generation\":%u,\"running\":true,\"rx_chan\":%d,"
+            "{\"protocol\":%d,\"generation\":%u,\"station_feed\":true,\"running\":true,\"rx_chan\":%d,"
             "\"mode\":\"%s\",\"input_rate\":%u,\"frequency_hz\":%llu,\"test\":%s,\"test_ready\":%s,"
             "\"reporter\":{\"enabled\":%s,\"callsign\":\"%s\",\"grid\":\"%s\",\"message\":\"%s\"}}",
             FREEDV_PROTOCOL, e->generation, active_rx, e->mode,
@@ -775,7 +787,7 @@ bool freedv_monitor_poll(struct conn_st *conn_st, const char *arguments)
                 "true":"false",
             call_j, grid_j, message_j);
     } else {
-        kiwi_snprintf_buf(job, "{\"protocol\":%d,\"generation\":%u,\"running\":false}",
+        kiwi_snprintf_buf(job, "{\"protocol\":%d,\"generation\":%u,\"station_feed\":true,\"running\":false}",
             FREEDV_PROTOCOL, next_generation? next_generation - 1 : 0);
     }
     char *encoded = kiwi_str_encode(job);
@@ -802,6 +814,7 @@ bool FreeDV_vars()
     cfg_default_object("freedv", "{}", &update);
     cfg_default_string("freedv.decoder_ip", "192.168.10.145", &update);
     cfg_default_bool("freedv.rade_enabled", false, &update);
+    cfg_default_bool("freedv.radev2_enabled", false, &update);
     cfg_default_bool("freedv.reporter_enabled", false, &update);
     cfg_default_string("freedv.reporter_callsign", "", &update);
     cfg_default_string("freedv.reporter_grid", "", &update);
@@ -828,5 +841,7 @@ void FreeDV_main()
         DIR_CFG "/samples/FreeDV.test.au", "700D");
     freedv_load_test_signal(&test_rade_signal,
         DIR_CFG "/samples/FreeDV.rade.au", NULL, "RADEV1");
+    freedv_load_test_signal(&test_radev2_signal,
+        DIR_CFG "/samples/FreeDV.rade2.au", NULL, "RADEV2");
     ext_register(&freedv_ext);
 }

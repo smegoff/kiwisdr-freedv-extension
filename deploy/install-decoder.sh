@@ -3,6 +3,8 @@ set -euo pipefail
 
 if [[ ${EUID} -ne 0 ]]; then echo "run as root" >&2; exit 2; fi
 src=${1:-/opt/kiwi-freedv}
+decoder_release=$(sed -n 's/^project(kiwi_freedv_decoder VERSION \([^ ]*\) .*$/\1/p' "$src/decoder/CMakeLists.txt")
+[[ $decoder_release =~ ^[0-9]+([.][0-9]+)+$ ]] || { echo "invalid decoder release" >&2; exit 2; }
 
 apt-get -o Acquire::ForceIPv4=true update
 DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::ForceIPv4=true install -y --no-install-recommends \
@@ -26,14 +28,14 @@ cmake --build "$src/build" --parallel
 cmake --install "$src/build" --prefix /usr/local
 
 install -d -m 0750 -o root -g freedv /etc/freedv-decoder
-install -d -m 0755 /usr/local/share/freedv-dashboard/0.1.38
+install -d -m 0755 "/usr/local/share/freedv-dashboard/$decoder_release"
 install -m 0644 "$src/dashboard/index.html" "$src/dashboard/app.js" \
-  "$src/dashboard/styles.css" /usr/local/share/freedv-dashboard/0.1.38/
-ln -sfn 0.1.38 /usr/local/share/freedv-dashboard/current
-install -d -m 0755 /usr/local/share/freedv-public-dashboard/0.1.38
+  "$src/dashboard/styles.css" "/usr/local/share/freedv-dashboard/$decoder_release/"
+ln -sfn "$decoder_release" /usr/local/share/freedv-dashboard/current
+install -d -m 0755 "/usr/local/share/freedv-public-dashboard/$decoder_release"
 install -m 0644 "$src/public-dashboard/index.html" "$src/public-dashboard/app.js" \
-  "$src/public-dashboard/styles.css" /usr/local/share/freedv-public-dashboard/0.1.38/
-ln -sfn 0.1.38 /usr/local/share/freedv-public-dashboard/current
+  "$src/public-dashboard/styles.css" "/usr/local/share/freedv-public-dashboard/$decoder_release/"
+ln -sfn "$decoder_release" /usr/local/share/freedv-public-dashboard/current
 install -d -m 0755 /opt/freedv-reporter
 install -m 0755 "$src/reporter/reporter.py" /opt/freedv-reporter/reporter.py
 python3 -m venv /opt/freedv-reporter/venv

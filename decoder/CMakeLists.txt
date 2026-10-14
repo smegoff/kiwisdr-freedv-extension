@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(kiwi_freedv_decoder VERSION 0.1.38 LANGUAGES C CXX)
+project(kiwi_freedv_decoder VERSION 0.1.39 LANGUAGES C CXX)
+add_compile_definitions(FREEDV_RELEASE_STRING="${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -64,6 +65,10 @@ enable_radev1(freedv-decoder)
 
 include(CTest)
 if(BUILD_TESTING)
+  add_executable(freedv-kiwi-poll-wire-test ../tests/kiwi_poll_wire_test.cpp)
+  target_include_directories(freedv-kiwi-poll-wire-test PRIVATE ../kiwi-overlay/extensions/FreeDV)
+  target_compile_options(freedv-kiwi-poll-wire-test PRIVATE -UNDEBUG)
+  add_test(NAME freedv-kiwi-poll-wire-test COMMAND freedv-kiwi-poll-wire-test)
   add_executable(freedv-protocol-test
     tests/protocol_test.cpp
     src/kiwi_protocol.cpp

@@ -25,8 +25,14 @@ Decoder 0.1.33 may append a semicolon-separated list of integer frequencies
 currently advertised through FreeDV Reporter. When present, the signed value is
 `2|<unix-seconds>|<nonce>|<frequencies>` and the entire list is covered by the
 HMAC. The Kiwi validates every value, retains at most 48 entries for 120 seconds,
-and exposes only those frequency numbers to the extension. Callsigns, locators,
-messages, Socket.IO session identifiers and listener identities are not relayed.
+and exposes the validated entries to the extension. From decoder 0.1.39, a Kiwi
+job with `station_feed=true` permits entries of the form `hz:callsign:mode` for
+public Reporter stations whose TX flag is set. The decoder initially sends
+plain frequencies and negotiates this capability again after every reconnect,
+so older Kiwi releases remain compatible. At most 16 TX entries are included,
+within the existing 767-byte payload cap. Locators, messages and Socket.IO
+session identifiers are not relayed. Cache changes are written immediately;
+idle freshness is refreshed every 30 seconds and expires after 120 seconds.
 The older four-field protocol-v2 poll remains valid so the Kiwi candidate can be
 deployed before the decoder candidate.
 

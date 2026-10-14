@@ -224,6 +224,7 @@ DecoderJob parse_decoder_job(const std::string& encoded_json) {
   job.protocol = value.at("protocol").get<uint32_t>();
   job.generation = value.at("generation").get<uint64_t>();
   job.running = value.at("running").get<bool>();
+  job.station_feed = value.value("station_feed", false);
   if (job.protocol != 2) throw std::runtime_error("unsupported job protocol");
   if (job.running) {
     job.rx_channel = value.at("rx_chan").get<int>();
@@ -237,8 +238,8 @@ DecoderJob parse_decoder_job(const std::string& encoded_json) {
     job.reporter_callsign = reporter.value("callsign", std::string{});
     job.reporter_grid = reporter.value("grid", std::string{});
     job.reporter_message = reporter.value("message", std::string{});
-    static const std::array<const char*, 8> modes = {
-        "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1"};
+    static const std::array<const char*, 9> modes = {
+        "1600", "700C", "700D", "700E", "2400A", "2400B", "800XA", "RADEV1", "RADEV2"};
     const bool mode_valid = std::any_of(modes.begin(), modes.end(), [&](const char* mode) {
       return job.mode == mode;
     });
