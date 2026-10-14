@@ -1,6 +1,6 @@
 # Experimental RADEv2
 
-The candidate uses the official [FreeDV C implementation](https://github.com/freedv/rade_c)
+The decoder uses the official [FreeDV C implementation](https://github.com/freedv/rade_c)
 at `c8a3dc156045cae2cd251e1a4be0c304c9ddf2f9`, with the same pinned
 FARGAN/Opus revision as the existing V1 service. The upstream project describes
 V2 as a development waveform whose models and API can change. V2 is therefore
